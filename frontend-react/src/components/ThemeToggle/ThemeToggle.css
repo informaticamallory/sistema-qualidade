@@ -1,0 +1,63 @@
+.theme-toggle-sidebar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: calc(100% - 20px);
+    margin: 0 10px 10px;
+    padding: 10px 14px;
+    background: transparent;
+    border: 1px solid var(--sidebar-border);
+    border-radius: var(--r-md);
+    color: var(--sidebar-text);
+    font-size: 0.86rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+}
+
+.theme-toggle-sidebar:hover {
+    background: var(--sidebar-hover);
+    color: var(--sidebar-text-strong);
+    border-color: color-mix(in srgb, var(--primary) 28%, var(--sidebar-border));
+}
+
+.theme-toggle-sidebar i {
+    width: 22px;
+    text-align: center;
+    font-size: 1rem;
+}
+
+.sidebar.collapsed .theme-toggle-sidebar span {
+    display: none;
+}
+
+.sidebar.collapsed .theme-toggle-sidebar {
+    justify-content: center;
+    padding: 12px;
+}
+
+.theme-toggle-floating {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: 1rem;
+    cursor: pointer;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(10px);
+    transition: transform var(--transition-base), background var(--transition-base), border-color var(--transition-base);
+}
+
+.theme-toggle-floating:hover {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.28);
+    transform: translateY(-1px);
+}

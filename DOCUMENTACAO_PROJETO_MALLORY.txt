@@ -1,0 +1,362 @@
+DOCUMENTAÇÃO DO PROJETO - SISTEMA MALLORY
+Criado em: 02/07/2026
+
+Objetivo deste documento
+Este documento resume os principais pontos do projeto, descreve o que cada página faz e organiza os pontos de melhoria solicitados para futura inclusão no Notion. Nenhuma alteração de código foi feita neste levantamento.
+
+
+1. Visão geral do sistema
+
+O projeto é um sistema interno de qualidade industrial da Mallory. Ele centraliza registros de inspeção, cartões de qualidade, fichas de não conformidade, calibrações, relatórios e indicadores.
+
+Estrutura técnica principal:
+- Frontend: React com Vite, React Router, Axios, Chart.js e Font Awesome.
+- Backend: Flask com SQLAlchemy, Flask-JWT-Extended, Flask-CORS, Flask-Limiter e PyMySQL.
+- Banco de dados: MySQL, usando tabelas para usuários, permissões, produtos, registros de inspeção, injeção, recebimento, Q49, cartões, calibração e equipamentos.
+- Autenticação: login por usuário e PIN de 4 dígitos, com token JWT salvo em sessão.
+- Controle de acesso: permissões por módulo e ação, com perfis como administrador, supervisor, inspetor, inspetor de injeção e consultor.
+- API base no frontend: /api.
+
+Principais módulos do backend:
+- /api/auth: login, usuário atual, verificação de administrador e cadastro de usuários.
+- /api/usuarios: gerenciamento completo de usuários e permissões.
+- /api/registros: inspeção de montagem.
+- /api/inspecao-injecao: inspeção de peças plásticas/injeção.
+- /api/q49: inspeção de produto importado.
+- /api/inspecao-recebimento: ficha de inspeção de recebimento.
+- /api/relatorio-recebimento: relatório de entrada de matéria-prima nacional.
+- /api/cartoes: cartões de qualidade.
+- /api/nao-conformidades: lista de registros reprovados para Fichas NC.
+- /api/produtos: consulta de produtos por código SAP, código de barras e busca.
+- /api/defeitos: lista/cadastro de defeitos.
+- /api/dashboard: indicadores consolidados e dados para dashboards.
+- /api/equipamentos, /api/tipos-equipamento e /api/calibracoes: cadastro de equipamentos, tipos, calibrações e alertas.
+
+
+2. Páginas e funções do frontend
+
+2.1. Login
+Rota: /login
+
+Função:
+- Permite entrada no sistema por usuário e PIN de 4 dígitos.
+- Possui alternância entre login e criação de conta.
+- Possui entrada de PIN em 4 campos separados, opção de mostrar/ocultar PIN e suporte a colar o PIN.
+- Após login, redireciona o usuário para a primeira rota permitida pelo seu perfil.
+- A criação de conta no frontend exige verificação de PIN de administrador.
+
+Pontos de atenção:
+- O backend também restringe /auth/register para administrador autenticado. Vale validar se o fluxo de criação pela tela de login está alinhado com a regra de autenticação do backend.
+
+
+2.2. Dashboard
+Rota: /dashboard
+
+Função:
+- Exibe a visão geral da qualidade em tempo quase real.
+- Busca dados consolidados de montagem, injeção, recebimento, entrada de matéria-prima, Q49, cartões e calibrações.
+- Mostra métricas como total de inspeções, taxa de aprovação, taxa de reprovação/alerta, Q49, cartões, calibrações, equipamentos ativos, calibrações vencidas e vencendo.
+- Permite filtrar por período: últimos 7 dias, últimos 30 dias, mês atual, ano atual, todo período ou datas customizadas.
+- Permite comparar com outro período.
+- Permite criar e personalizar dashboards com métricas e gráficos.
+- Permite alterar tipo de gráfico e tamanho de cards.
+- Exibe tabela de últimas inspeções com link para detalhes no módulo de origem.
+
+Pontos de atenção:
+- É uma tela central para gestão e deveria receber novos indicadores sempre que novos campos forem adicionados aos módulos de inspeção.
+
+
+2.3. Inspeção de Montagem
+Rota: /registros/montagem
+
+Função:
+- Registra e acompanha inspeções de montagem.
+- Lista registros com data, código SAP, descrição, linha, quantidade total, quantidade inspecionada, quantidade NC, status e ações.
+- Permite buscar por código/modelo e filtrar por status.
+- Permite criar, editar, visualizar, excluir e imprimir cartão de qualidade.
+- Ao informar código SAP, busca dados de produto e preenche família, linha e descrição SAP.
+- Permite leitura de código de barras para confirmar o produto.
+- Possui checklist de inspeção com corrente, potência, HI-POT, etiquetas, plugue/rede, grafismos, embalagens, peças injetadas, montagem e visual geral.
+- Campos atuais principais: data da inspeção, semana, código SAP, modelo, família, linha, descrição SAP, código de barras, quantidades, rastreabilidade, P.O., turno, linha de montagem, inspetor, status, observação, documento, prioridade, defeito e origem do problema.
+
+Pontos de melhoria solicitados:
+- Série agora deve conter a linha de montagem.
+- Adicionar novos campos: posto, operador, causa, correção e responsável pela correção.
+
+Observação técnica:
+- Na tela atual de montagem existe o campo linha_montagem, mas não foi encontrado um campo chamado série/serie diretamente nessa tela.
+- Existe campo num_serie em Fichas NC. Se a regra for reaproveitar a informação em Fichas NC ou cartão de qualidade, será necessário mapear a linha de montagem para o campo de série desejado.
+- Os novos campos solicitados exigem inclusão no frontend, backend, model/schema, rotas e banco de dados.
+
+
+2.4. Inspeção de Injeção
+Rota: /registros/injecao
+
+Função:
+- Registra inspeção de peças plásticas/injeção.
+- Lista e gerencia registros de inspeção com busca e filtro.
+- Campos atuais principais: data, semana, turno de injeção, máquina, código, peça, molde, amostra inspecionada, amostra NC, quantidade do lote, peso, status, defeito, cotas críticas 1 a 4, observação e inspetor.
+- Avaliações por seleção: visual, cor padrão, encaixe, contra peça, rebarbas e funcional.
+- Ao digitar código, consulta produtos e preenche código/peça.
+
+Pontos de atenção:
+- O módulo já segue padrão semelhante à montagem, mas focado em máquina, peça, molde, amostragem e cotas.
+
+
+2.5. Produto Importado - Q49
+Rota: /registro/produto-importado
+
+Função:
+- Controla inspeção de produto importado, separada em três abas: China, Decisão Brasil e Brasil.
+- Na aba China registra data, ano, mês, P.O., semana, tipo de item, número de inspeção, nacionalização, código SAP, descrição SAP, linha, modelo, fornecedor, quantidades, rastreabilidade, inspetor China, resultado, rejeições e resumo de problemas.
+- Na aba Decisão Brasil registra decisão Mallory, ação, prazo, status, tipo de reprovação, data de aceite Q49, responsável pela reprovação e observações.
+- Na aba Brasil registra data de entrada, ano, mês, data de inspeção, quantidades inspecionadas, NC, liberadas, bloqueadas, inspetor, decisão Brasil, reporte Docushare, disposição/decisão, defeitos e número RNA.
+- Permite buscar registros em tela, criar, editar, excluir e exportar CSV.
+- Possui autocomplete de produto a partir da base de produtos.
+
+Pontos de melhoria solicitados:
+- Tipo de Reprovação deve virar uma lista pronta.
+- Data de entrada Brasil deve iniciar em branco.
+- Remover o nome Docushare.
+- Disposição / Decisão deve virar campo de seleção.
+- Adicionar busca por P.O. e Data.
+
+Observação técnica:
+- Atualmente Tipo de Reprovação é texto livre.
+- Atualmente Data Entrada Brasil inicia preenchida com a data atual.
+- Atualmente existe o rótulo Reporte Docushare.
+- Atualmente Disposição / Decisão é textarea.
+- A busca atual considera código SAP, descrição, fornecedor, N° Insp., resultado/status e inspetor; P.O. e data não aparecem no filtro atual.
+
+
+2.6. Inspeção de Recebimento
+Rota: /registros/recebimento
+
+Função:
+- Registra ficha de inspeção de recebimento de materiais.
+- Lista fichas por código, componente, fornecedor, setor, data, status e ações.
+- Permite buscar por código, componente e fornecedor.
+- Possui abas de identificação, lotes, dimensões, resultados e observação.
+- Campos de identificação atuais: código, aplicação, componente, setor, fornecedor, revisão do desenho, data de inspeção e status.
+- Tabela de lotes: lote, data entrada, data saída, nota fiscal, quantidade total, parecer C/SC/NC, amostragem, lote fornecedor, inspetor e concessão.
+- Dimensões funcionais: posição, cota, instrumento e observações.
+- Resultados: matriz com 12 amostras fixas, cada uma com valor e D.
+- Permite adicionar/remover linhas de lote, dimensões e resultados.
+
+Pontos de melhoria solicitados:
+- Quando colocar o código, deve puxar componente e aplicação pela família ou linha.
+- Setor deve ser fixo como Recebimento.
+- Fornecedor deve ser puxado da base de relatório de recebimento.
+- Adicionar links dos desenhos.
+- Corrigir cabeçalho.
+- Permitir adicionar colunas além das linhas.
+
+Observação técnica:
+- Atualmente essa tela não consulta produtosAPI ao digitar o código; os campos são preenchidos manualmente.
+- Atualmente setor e fornecedor são campos livres.
+- A revisão do desenho é texto, não link.
+- A matriz de resultados tem 12 colunas fixas; o usuário consegue adicionar linhas, mas não colunas.
+
+
+2.7. Relatório de Recebimento
+Rota: /registros/relatorio-recebimento
+
+Função:
+- Registra entrada de matéria-prima nacional.
+- Lista entradas em tabela com colunas configuráveis pelo usuário.
+- Permite buscar por SAP, fornecedor e descrição.
+- Permite filtrar por status.
+- Possui seletor de colunas, com opção de mostrar todas ou voltar ao padrão.
+- Campos atuais principais: data de entrada, data da inspeção, código SAP, descrição SAP, fornecedor, quantidades, status material, rastreabilidade, documento, defeito, inspetor, nota fiscal, MPN, REL, SEI, DEV, LP, liberado no SAP e observação.
+- Ao digitar código SAP, consulta produto e preenche descrição SAP.
+
+Pontos de melhoria solicitados:
+- Selecionar fornecedor e permitir adicionar novo fornecedor.
+- Adicionar concessão.
+- Documento de concessão deve aparecer somente quando concessão for selecionada.
+- MPN deve ser campo de seleção.
+
+Observação técnica:
+- Hoje fornecedor é texto livre.
+- Hoje MPN é texto livre.
+- Hoje não existe fluxo específico de concessão/documento de concessão nesse relatório.
+
+
+2.8. Cartões de Qualidade
+Rota: /cartoes
+
+Função:
+- Registra cartões de qualidade.
+- Lista cartões com código SAP, produto, origem, setor, turno, quantidades, status e ações.
+- Busca produto pelo código SAP e preenche a descrição.
+- Campos atuais: código do produto, nome/descrição do produto, origem, setor, turno, quantidade conforme, quantidade não conforme, status, documento de reprovação, descrição, observações e responsável.
+- Documento de reprovação é obrigatório quando o status for reprovado.
+- Possui visualização e impressão de cartão.
+
+Pontos de atenção:
+- Pode receber integração com Fichas NC quando houver reprovação, para automatizar abertura de não conformidade.
+
+
+2.9. Fichas NC
+Rota: /fichas
+
+Função:
+- Lista fichas de não conformidade a partir dos registros de montagem com status reprovado.
+- Permite pesquisar por FNC/produto.
+- Permite abrir ficha, editar informações complementares e imprimir.
+- Campos principais: número da FNC, data, departamentos, código SAP, produto, NF/P.O., número de série, foto da NC, quantidades, índice, descrição da não conformidade, disposição, análise dos 5 porquês, ação imediata, correção, ação corretiva, responsável, prazo, custos estimados, decisão final, inspeção após retrabalho e aprovações.
+- Disposição possui opções prontas: Refugado, Retrabalhado, Devolução, Seleção e Reclamação.
+- Permite anexar foto da não conformidade no formulário.
+- Possui controle especial para consultor: acesso total, parcial ou somente leitura. No modo parcial, o consultor edita apenas análise, ações e custos.
+
+Pontos de melhoria solicitados:
+- Criar resumo de bloqueio, sendo um por dia.
+- Enviar resumo/ficha por e-mail.
+
+Observação técnica:
+- A listagem vem do backend em /api/nao-conformidades filtrando registros reprovados.
+- Os dados complementares da FNC são salvos hoje no localStorage do navegador, não em uma tabela própria de FNC no backend.
+- Para envio por e-mail e resumo diário, o ideal é persistir as FNCs completas no backend e criar um fluxo de geração/envio controlado por data.
+
+
+2.10. Calibração
+Rota: /calibracao
+
+Função:
+- Controla cadastro de equipamentos, tipos de equipamento, registro de calibração e alertas.
+- Lista equipamentos com código, nome, tipo, setor, última calibração, validade, status e ações.
+- Possui indicadores de total de equipamentos, calibrados, vencendo, vencidos e nunca calibrados.
+- Permite cadastrar/editar equipamento.
+- Campos do cadastro de equipamento: código instrumento, equipamento, tipo, localização, responsável, código SAP, série/modelo, marca, modelo complementar, tipo de aferição, status, frequência de calibração, último certificado, certificado rastreável/RF, data de calibração, data da próxima calibração, status da ficha, erro aceitável e comentários.
+- Permite registrar calibração com data de calibração, data de validade, laboratório, número do certificado, resultado, certificado PDF e observações.
+- Permite cadastrar tipos de equipamento.
+- Possui alertas de calibração vencida ou vencendo.
+
+Ponto de melhoria solicitado:
+- Adicionar frequência de calibração no registro/cadastro.
+
+Observação técnica:
+- O campo frequência de calibração já existe no cadastro de equipamento e no backend como frequencia_calibracao.
+- Recomenda-se validar se o campo já atende à regra esperada ou se precisa virar seleção padronizada, por exemplo: mensal, trimestral, semestral, anual ou outro período.
+
+
+2.11. Indicadores
+Rota: /indicadores
+
+Função:
+- Exibe indicadores de qualidade com gráficos.
+- Usa dados de montagem, injeção, fichas de recebimento e relatório de recebimento.
+- Possui filtros por período, local e turno.
+- Calcula totais, média diária, status, evolução, linhas, defeitos, turnos, máquinas de injeção e outras inspeções.
+
+Pontos de atenção:
+- Novos campos de reprovação, concessão e fornecedor devem ser considerados futuramente nos gráficos.
+
+
+2.12. Relatórios
+Rota: /relatorios
+
+Função:
+- Consolida registros de montagem, injeção, ficha de recebimento, entrada de matéria-prima, cartões e fichas NC.
+- Possui abas para registros, cartões e fichas.
+- Permite filtros por data inicial, data final, status, tipo, local, turno, prioridade e inspetor.
+- Calcula estatísticas de total, aprovados, reprovados e pendentes.
+- Permite exportação CSV e exportação/visualização por impressão/PDF.
+
+Pontos de atenção:
+- Quando os novos campos forem criados, o relatório deve receber as novas colunas e filtros correspondentes.
+
+
+2.13. Usuários
+Rota: /usuarios
+
+Função:
+- Gerencia usuários, perfis e permissões.
+- Lista nome, usuário, perfil, status e ações.
+- Permite pesquisar por nome e filtrar por perfil.
+- Permite criar, editar, ativar/inativar e excluir usuário, conforme permissão.
+- Perfis atuais: administrador, supervisor, inspetor, inspetor de injeção e consultor.
+- Permite configurar permissões por módulo e ação.
+- Para consultores, permite configurar acesso às Fichas NC: editar tudo, editar apenas análise/ações/custos ou somente visualizar.
+
+Pontos de atenção:
+- Novos módulos ou novas ações devem ser incluídos no catálogo de permissões para manter o controle de acesso consistente.
+
+
+3. Melhorias solicitadas por módulo
+
+3.1. Inspeção de Montagem
+- Ajustar campo Série para conter a linha de montagem.
+- Adicionar campos: posto, operador, causa, correção e responsável pela correção.
+- Refletir os novos campos na criação, edição, visualização, impressão e relatórios.
+- Criar ou ajustar colunas no banco, schema e API.
+
+3.2. Fichas NC
+- Criar resumo de bloqueio diário, um resumo por dia.
+- Enviar resumo/ficha por e-mail.
+- Persistir dados completos da FNC em backend para viabilizar histórico, envio e auditoria.
+- Definir destinatários, modelo de e-mail e gatilho de envio: manual, automático ao final do dia ou automático ao bloquear item.
+
+3.3. Inspeção de Importados/Q49
+- Transformar Tipo de Reprovação em lista pronta.
+- Deixar Data de Entrada Brasil em branco ao criar novo registro.
+- Remover o termo Docushare do campo atual.
+- Transformar Disposição / Decisão em seleção.
+- Adicionar busca/filtro por P.O. e data.
+
+3.4. Calibrações
+- Confirmar frequência de calibração no cadastro/registro.
+- Padronizar a frequência como seleção, se necessário.
+- Usar a frequência para cálculo automático da próxima calibração, se essa regra for desejada.
+
+3.5. Relatório de Recebimento
+- Transformar fornecedor em seleção.
+- Permitir cadastrar novo fornecedor a partir da própria tela.
+- Adicionar campo concessão.
+- Mostrar documento de concessão apenas quando concessão estiver selecionada.
+- Transformar MPN em seleção.
+
+3.6. Inspeção de Recebimento
+- Ao inserir código, puxar componente e aplicação pela família ou linha.
+- Fixar setor como Recebimento.
+- Puxar fornecedor da base do Relatório de Recebimento.
+- Adicionar links dos desenhos.
+- Corrigir cabeçalho.
+- Permitir adicionar colunas na matriz de resultados, além de adicionar linhas.
+
+
+4. Sugestão de ordem de implementação
+
+1. Modelagem de dados e banco:
+- Criar campos novos em Montagem, Q49, Relatório de Recebimento e Inspeção de Recebimento.
+- Criar entidade própria para Fichas NC completas, se o envio por e-mail e resumo diário forem implementados.
+- Criar base/catálogo de fornecedores, MPN e tipos de reprovação, se forem listas reutilizáveis.
+
+2. Backend/API:
+- Ajustar rotas de criação, edição, listagem e busca.
+- Adicionar filtros por P.O. e data em Q49.
+- Adicionar endpoint para resumo de bloqueio diário.
+- Adicionar endpoint ou serviço para envio de e-mail.
+
+3. Frontend:
+- Adicionar os novos campos nos formulários.
+- Transformar campos de texto em seleção onde solicitado.
+- Ajustar cabeçalhos e tabelas.
+- Adicionar lógica de exibir documento de concessão somente quando concessão for selecionada.
+- Adicionar busca automática por código na Inspeção de Recebimento.
+
+4. Relatórios e indicadores:
+- Adicionar os novos campos nas telas de relatório.
+- Permitir exportar os novos dados.
+- Incluir indicadores de bloqueio, concessão, fornecedor e tipo de reprovação.
+
+5. Permissões e auditoria:
+- Garantir que novos endpoints respeitem permissões de visualizar, criar, editar, excluir e exportar.
+- Registrar ações importantes: envio de e-mail, criação de resumo diário, alteração de decisão, alteração de concessão e correções.
+
+
+5. Observações finais
+
+O projeto já possui uma base funcional forte: autenticação, permissões, CRUDs principais, dashboards, indicadores, relatórios e integração com base de produtos. As melhorias solicitadas se concentram em padronização de campos, automação de comunicação, rastreabilidade de bloqueios, integração entre recebimento/fornecedor/produto e melhoria da experiência em tabelas.
+
+O ponto mais importante para evolução é mover dados complementares críticos, especialmente Fichas NC, para persistência no backend. Isso evita perda local, permite auditoria, melhora relatórios e viabiliza envio por e-mail e resumo diário confiável.

@@ -1,0 +1,353 @@
+/* ===================================================================
+   SISTEMA MALLORY
+   Design System & Global Styles — Responsividade
+   -------------------------------------------------------------------
+   Tokens de breakpoint, spacing responsivo e touch-target vivem em
+   styles/tokens.css. Aqui ficam apenas utilitários e regras que
+   dependem de media queries.
+
+   Ordem dos breakpoints usados:
+     Mobile  < 768px      Tablet  768–1023px      Desktop ≥ 1024px
+   =================================================================== */
+
+/* ===================================
+   Utilitários de Visibilidade
+   =================================== */
+
+/* Esconder em mobile (< 768px) */
+@media (max-width: 767px) {
+    .hide-mobile {
+        display: none !important;
+    }
+}
+
+/* Mostrar apenas em mobile */
+@media (min-width: 768px) {
+    .show-mobile-only {
+        display: none !important;
+    }
+}
+
+/* Esconder em tablet (768px - 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .hide-tablet {
+        display: none !important;
+    }
+}
+
+/* Esconder em desktop (>= 1024px) */
+@media (min-width: 1024px) {
+    .hide-desktop {
+        display: none !important;
+    }
+}
+
+/* ===================================
+   Container Responsivo
+   =================================== */
+.container-fluid {
+    width: 100%;
+    padding-left: var(--spacing-sm);
+    padding-right: var(--spacing-sm);
+}
+
+@media (min-width: 768px) {
+    .container-fluid {
+        padding-left: var(--spacing-md);
+        padding-right: var(--spacing-md);
+    }
+}
+
+/* ===================================
+   Grid Responsivo
+   =================================== */
+.responsive-grid {
+    display: grid;
+    gap: var(--spacing-sm);
+    grid-template-columns: 1fr;
+}
+
+@media (min-width: 480px) {
+    .responsive-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 768px) {
+    .responsive-grid {
+        gap: var(--spacing-md);
+    }
+}
+
+@media (min-width: 1024px) {
+    .responsive-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 1280px) {
+    .responsive-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* ===================================
+   Tabela Responsiva
+   =================================== */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Em telas pequenas, tabelas mantêm largura mínima e rolam horizontalmente
+   dentro do card — evita colunas esmagadas/ilegíveis */
+@media (max-width: 767px) {
+    .table-container .table {
+        min-width: 640px;
+    }
+
+    .table-container {
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* Evita scroll horizontal indevido do layout principal no mobile */
+@media (max-width: 1023px) {
+
+    html,
+    body {
+        overflow-x: hidden;
+    }
+}
+
+/* Scroll indicator para tabelas em mobile */
+@media (max-width: 767px) {
+    .table-responsive {
+        position: relative;
+    }
+
+    .table-responsive::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 30px;
+        background: linear-gradient(to left, var(--bg), transparent);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+
+    .table-responsive.has-scroll::after {
+        opacity: 1;
+    }
+}
+
+/* ===================================
+   Elementos Touch-Friendly
+   =================================== */
+@media (max-width: 1023px) {
+
+    /* Garantir área de toque mínima */
+    button,
+    .btn,
+    .btn-icon,
+    input[type="submit"],
+    a.menu-item {
+        min-height: var(--touch-target-min);
+    }
+
+    /* Inputs maiores em touch devices */
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    input[type="date"],
+    select,
+    textarea {
+        font-size: 16px !important;
+        /* Previne zoom em iOS */
+        min-height: 44px;
+    }
+}
+
+/* ===================================
+   Tipografia Responsiva
+   =================================== */
+@media (max-width: 480px) {
+    html {
+        font-size: 14px;
+    }
+
+    h1 {
+        font-size: 1.5rem !important;
+    }
+
+    h2 {
+        font-size: 1.25rem !important;
+    }
+
+    h3 {
+        font-size: 1.1rem !important;
+    }
+}
+
+@media (min-width: 481px) and (max-width: 767px) {
+    html {
+        font-size: 15px;
+    }
+}
+
+/* ===================================
+   Espaçamento Responsivo
+   =================================== */
+@media (max-width: 480px) {
+    .page-header {
+        margin-bottom: 15px !important;
+    }
+
+    .stats-grid,
+    .charts-grid,
+    .kpi-grid {
+        gap: 12px !important;
+    }
+}
+
+/* ===================================
+   Modal Responsivo Global
+   =================================== */
+@media (max-width: 480px) {
+    .modal-overlay {
+        padding: 10px !important;
+        align-items: flex-start !important;
+        padding-top: 20px !important;
+    }
+
+    .modal-content {
+        max-height: calc(100vh - 40px) !important;
+        border-radius: 15px !important;
+    }
+
+    .modal-header {
+        padding: 15px 20px !important;
+    }
+
+    .modal-header h2 {
+        font-size: 1.1rem !important;
+    }
+
+    .modal-body {
+        padding: 15px 20px !important;
+    }
+
+    .modal-footer {
+        padding: 15px 20px !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+
+    .modal-footer .btn {
+        width: 100% !important;
+    }
+}
+
+/* ===================================
+   Botões Responsivos
+   =================================== */
+@media (max-width: 480px) {
+    .btn {
+        padding: 10px 16px !important;
+        font-size: 0.9rem !important;
+    }
+
+    .btn-icon {
+        width: 40px !important;
+        height: 40px !important;
+    }
+
+    /* Stack buttons on very small screens */
+    .action-buttons {
+        flex-wrap: wrap !important;
+    }
+}
+
+/* ===================================
+   Forms Responsivos
+   =================================== */
+@media (max-width: 480px) {
+    .form-row {
+        grid-template-columns: 1fr !important;
+    }
+
+    .form-group {
+        margin-bottom: 12px !important;
+    }
+
+    .form-control {
+        padding: 12px 14px !important;
+    }
+}
+
+/* ===================================
+   Landscape Mode Fix (iPhone)
+   =================================== */
+@media (max-height: 500px) and (orientation: landscape) {
+    .modal-content {
+        max-height: 90vh !important;
+    }
+
+    .login-container {
+        padding: 10px !important;
+    }
+
+    .login-header {
+        margin-bottom: 15px !important;
+    }
+
+    .login-header .logo-icon {
+        width: 50px !important;
+        height: 50px !important;
+        font-size: 1.5rem !important;
+    }
+
+    .login-header h1 {
+        font-size: 1.5rem !important;
+    }
+}
+
+/* ===================================
+   Notch / Safe Area (iPhone X+)
+   =================================== */
+@supports (padding: max(0px)) {
+    .sidebar {
+        padding-left: max(10px, env(safe-area-inset-left));
+    }
+
+    .main-content {
+        padding-right: max(20px, env(safe-area-inset-right));
+        padding-bottom: max(20px, env(safe-area-inset-bottom));
+    }
+}
+
+/* ===================================
+   Print
+   =================================== */
+@media print {
+    .hide-print {
+        display: none !important;
+    }
+
+    .show-print-only {
+        display: block !important;
+    }
+
+    body {
+        font-size: 12pt;
+    }
+
+    .responsive-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}

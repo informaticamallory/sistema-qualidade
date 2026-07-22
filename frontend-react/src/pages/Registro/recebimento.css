@@ -1,0 +1,152 @@
+/* Estilos compartilhados das telas de Recebimento
+   (Inspeção de Recebimento e Relatório de Recebimento).
+   Base de modal/formulário/tabela vem de InspecaoMontagem.css (que importa Dashboard.css). */
+
+/* Cabeçalho das tabelas segue o padrão do sistema (.table th, discreto).
+   Mantemos só nowrap para as tabelas largas não quebrarem os títulos. */
+.tabela-recebimento thead th {
+    white-space: nowrap;
+}
+
+.tabela-recebimento thead th.col-num {
+    text-align: center;
+    min-width: 42px;
+}
+
+/* Status APROVADO em verde mesmo quando exibido como texto */
+.status-aprovado {
+    color: var(--success, #16a34a);
+    font-weight: 700;
+}
+
+/* ---- Layout de ficha (Inspeção de Recebimento) ---- */
+.ficha-band {
+    background: var(--surface-2);
+    color: var(--text);
+    border-left: 4px solid var(--primary);
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin: 4px 0 16px;
+}
+
+.ficha-subsection {
+    margin-top: 18px;
+}
+
+.ficha-subsection-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.ficha-subsection-title h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--text-strong, var(--text));
+    border-left: 4px solid var(--primary);
+    padding-left: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+/* Tabela editável dentro da ficha */
+.ficha-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+
+.ficha-table th {
+    background: var(--surface-2);
+    color: var(--text-muted);
+    padding: 7px 5px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+    border: 1px solid var(--border);
+}
+
+.ficha-table td {
+    border: 1px solid var(--border);
+    padding: 2px;
+}
+
+.ficha-table input,
+.ficha-table select {
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 6px 5px;
+    font-size: 0.8rem;
+    color: var(--text);
+    min-width: 58px;
+}
+
+.ficha-table input:focus,
+.ficha-table select:focus {
+    outline: 2px solid var(--primary-soft-strong, var(--primary));
+    border-radius: 4px;
+}
+
+.ficha-table .col-num {
+    min-width: 38px;
+    width: 38px;
+}
+
+.ficha-table .col-d {
+    min-width: 30px;
+    width: 30px;
+    background: var(--surface-2);
+}
+
+.btn-row-add {
+    background: var(--primary-soft);
+    color: var(--primary);
+    border: 1px dashed var(--primary);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-row-add:hover {
+    background: var(--primary-soft-strong);
+}
+
+.btn-row-del {
+    background: var(--danger-soft);
+    color: var(--danger);
+    border: none;
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+}
+
+.btn-row-del:hover {
+    background: var(--danger-soft-strong);
+}
+
+/* Scroll horizontal para a matriz de resultados / tabelas largas */
+.ficha-scroll {
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+}
+
+.ficha-scroll::-webkit-scrollbar {
+    height: 8px;
+}

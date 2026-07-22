@@ -1,0 +1,216 @@
+/* ===================================================================
+   SISTEMA MALLORY
+   Design System & Global Styles — Reset, Base, Animações e Utilitários
+   -------------------------------------------------------------------
+   Tokens vêm de styles/tokens.css. Componentes vêm de ui/theme/ui-kit.css.
+   Este arquivo cuida apenas do reset, dos estilos base de documento,
+   das animações globais e das classes utilitárias.
+   =================================================================== */
+
+/* ===================================
+   Reset
+   =================================== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ===================================
+   Base — Documento e Tipografia
+   =================================== */
+html {
+  background: var(--bg);
+}
+
+body {
+  font-family: var(--font-family);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+/* Links */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Controles de formulário — herdam a fonte do sistema */
+button {
+  font-family: var(--font-family);
+}
+
+input,
+select,
+textarea {
+  font-family: var(--font-family);
+  font-size: 1rem;
+}
+
+/* Tabelas: dados preenchidos pelo usuário devem aparecer em maiúsculas */
+.table td {
+  text-transform: uppercase;
+}
+
+/* Keep original casing for these */
+.table td .badge-status,
+.table td .badge,
+.table td a,
+.table td .text-muted,
+.table td .action-buttons,
+.table td .action-buttons button,
+.table td .acoes,
+.table td .acoes button {
+  text-transform: none;
+}
+
+input[type="text"].field-upper,
+input[type="search"].field-upper,
+textarea.field-upper {
+  text-transform: uppercase;
+}
+/* Esconder o "olho" nativo do Edge nos campos de senha/PIN
+   (o sistema já tem o botão "Mostrar PIN" fora dos campos) */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
+/* Foco visível para navegação por teclado */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ===================================
+   Base — Scrollbar e Seleção
+   =================================== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface-2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-subtle);
+}
+
+::selection {
+  background: var(--primary-soft-strong);
+  color: var(--text);
+}
+
+/* ===================================
+   Loading
+   =================================== */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.loading-container .loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid var(--surface-3);
+  border-top: 4px solid var(--primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loading-container p {
+  margin-top: 20px;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+}
+
+/* ===================================
+   Animações
+   =================================== */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Transições suaves de página e modais (respeitando preferências de movimento) */
+@media (prefers-reduced-motion: no-preference) {
+  .main-content,
+  .form-container {
+    animation: pageFadeIn 0.4s ease both;
+  }
+
+  .modal-overlay {
+    animation: overlayFadeIn 0.2s ease both;
+  }
+
+  .modal-content {
+    animation: modalSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+/* ===================================
+   Utilitários
+   =================================== */
+.hidden {
+  display: none !important;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-muted {
+  color: var(--text-muted);
+}

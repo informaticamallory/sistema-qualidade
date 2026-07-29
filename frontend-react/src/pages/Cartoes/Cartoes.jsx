@@ -243,6 +243,17 @@ export default function Cartoes() {
             console.error('Erro ao carregar cartão:', error);
         }
     };
+    const handlePrint = async (id) => {
+        try {
+            const response = await cartoesAPI.getById(id);
+            if (response.data.success) {
+                executePrint(response.data.data);
+            }
+        } catch (error) {
+            console.error('Erro ao preparar impressão do cartão:', error);
+            alert('Não foi possível preparar a impressão do cartão.');
+        }
+    };
 
     const handleDelete = async (id) => {
         if (window.confirm('Tem certeza que deseja excluir este cartão?')) {
@@ -266,8 +277,8 @@ export default function Cartoes() {
         }
     };
 
-    const executePrint = () => {
-        if (!printData) return;
+    const executePrint = (cartaoParaImprimir = printData) => {
+        if (!cartaoParaImprimir) return;
 
         const printWindow = window.open('', '_blank', 'width=800,height=700');
         if (!printWindow) {
@@ -275,17 +286,17 @@ export default function Cartoes() {
             return;
         }
 
-        const dataFormatada = formatarData(printData.created_at);
+        const dataFormatada = formatarData(cartaoParaImprimir.created_at);
         const dataEmissao = new Date().toLocaleString('pt-BR');
-        const statusClass = printData.status?.toLowerCase() || 'pendente';
-        const produto = printData.descricao || printData.nome_produto || '-';
-        const isReprovado = printData.status?.toLowerCase() === 'reprovado';
+        const statusClass = cartaoParaImprimir.status?.toLowerCase() || 'pendente';
+        const produto = cartaoParaImprimir.descricao || cartaoParaImprimir.nome_produto || '-';
+        const isReprovado = cartaoParaImprimir.status?.toLowerCase() === 'reprovado';
 
         printWindow.document.write(`
             <!DOCTYPE html>
             <html>
             <head>
-                <title>Cartão de Qualidade - ${printData.codigo_produto || ''}</title>
+                <title>Cartão de Qualidade - ${cartaoParaImprimir.codigo_produto || ''}</title>
                 <style>
                     * { margin: 0; padding: 0; box-sizing: border-box; }
                     body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
@@ -318,7 +329,7 @@ export default function Cartoes() {
                 <div class="card">
                     <div class="header">
                         <h1>CARTÃO DE QUALIDADE</h1>
-                        <h2>${printData.codigo_produto || '-'}</h2>
+                        <h2>${cartaoParaImprimir.codigo_produto || '-'}</h2>
                     </div>
                     <div class="body-card">
                         <div class="info-grid">
@@ -328,24 +339,24 @@ export default function Cartoes() {
                             </div>
                             <div class="info-item">
                                 <span class="info-label">🕐 Turno</span>
-                                <span class="info-value">${printData.turno || '-'}</span>
+                                <span class="info-value">${cartaoParaImprimir.turno || '-'}</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">🏭 Setor</span>
-                                <span class="info-value">${printData.setor || '-'}</span>
+                                <span class="info-value">${cartaoParaImprimir.setor || '-'}</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">👤 Responsável</span>
-                                <span class="info-value">${printData.responsavel || '-'}</span>
+                                <span class="info-value">${cartaoParaImprimir.responsavel || '-'}</span>
                             </div>
                         </div>
 
                         <div class="status-badge ${statusClass}">
-                            ${(printData.status || 'PENDENTE').toUpperCase()}
+                            ${(cartaoParaImprimir.status || 'PENDENTE').toUpperCase()}
                         </div>
 
                         <div class="qtd-info">
-                            <span>✅ <strong>${printData.qtd_conforme || 0}</strong> Conforme • ❌ <strong>${printData.qtd_nao_conforme || 0}</strong> Não Conforme</span>
+                            <span>✅ <strong>${cartaoParaImprimir.qtd_conforme || 0}</strong> Conforme • ❌ <strong>${cartaoParaImprimir.qtd_nao_conforme || 0}</strong> Não Conforme</span>
                         </div>
 
                         <div class="section">
@@ -355,20 +366,20 @@ export default function Cartoes() {
 
                         <div class="section">
                             <div class="section-title">🌎 Origem</div>
-                            <div class="section-content">${printData.origem || '-'}</div>
+                            <div class="section-content">${cartaoParaImprimir.origem || '-'}</div>
                         </div>
 
-                        ${isReprovado && printData.documento_reprovacao ? `
+                        ${isReprovado && cartaoParaImprimir.documento_reprovacao ? `
                         <div class="section">
                             <div class="section-title">📄 Documento de Reprovação</div>
-                            <div class="section-content">${printData.documento_reprovacao}</div>
+                            <div class="section-content">${cartaoParaImprimir.documento_reprovacao}</div>
                         </div>
                         ` : ''}
 
-                        ${printData.observacoes ? `
+                        ${cartaoParaImprimir.observacoes ? `
                         <div class="section">
                             <div class="section-title">💬 Observações</div>
-                            <div class="section-content">${printData.observacoes}</div>
+                            <div class="section-content">${cartaoParaImprimir.observacoes}</div>
                         </div>
                         ` : ''}
                     
@@ -507,8 +518,10 @@ export default function Cartoes() {
                                             <td>{formatarData(cartao.created_at)}</td>
                                             <td className="actions-column">
                                                 <div className="action-buttons">
-                                                    <button className="btn-icon btn-view" onClick={(e) => { e.stopPropagation(); handleView(cartao.id); }} title="Visualizar/Imprimir">
+                                                    <button className="btn-icon btn-view" onClick={(e) => { e.stopPropagation(); handleView(cartao.id); }} title="Visualizar">
                                                         <i className="fas fa-eye"></i>
+                                                    </button>                                                    <button className="btn-icon btn-print" onClick={(e) => { e.stopPropagation(); handlePrint(cartao.id); }} title="Imprimir cartão" aria-label="Imprimir cartão">
+                                                        <i className="fas fa-print"></i>
                                                     </button>
                                                     <button className="btn-icon btn-edit" onClick={(e) => { e.stopPropagation(); handleEdit(cartao.id); }} title="Editar">
                                                         <i className="fas fa-edit"></i>
@@ -828,7 +841,10 @@ export default function Cartoes() {
                                         <i className="fas fa-eye"></i>
                                         <span>Ver</span>
                                     </button>
-                                    <button type="button" className="btn btn-edit" onClick={() => { setSheetData(null); handleEdit(sheetCartao.id); }}>
+                                    <button type="button" className="btn btn-print" onClick={() => { setSheetData(null); handlePrint(sheetCartao.id); }}>
+                                        <i className="fas fa-print"></i>
+                                        <span>Imprimir</span>
+                                    </button>                                    <button type="button" className="btn btn-edit" onClick={() => { setSheetData(null); handleEdit(sheetCartao.id); }}>
                                         <i className="fas fa-edit"></i>
                                         <span>Editar</span>
                                     </button>

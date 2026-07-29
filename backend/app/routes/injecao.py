@@ -22,13 +22,67 @@ def _negar_se_sem_permissao(mapa):
 
 # Campos atualizáveis (todos exceto data, tratada à parte)
 CAMPOS = [
-    'semana', 'turno_injecao', 'maquina', 'cod', 'peca', 'molde',
+    'semana', 'turno_injecao', 'maquina', 'modelo_maquina', 'cod', 'peca', 'molde',
     'amostra_insp', 'amostra_nc', 'qtde_lote', 'peso',
     'status', 'defeito', 'cota1', 'cota2', 'cota3', 'cota4',
     'visual', 'cor_padrao', 'encaixe', 'contra_peca', 'rebarbas',
     'funcional', 'observacao', 'inspetor'
 ]
 
+
+@injecao_bp.route('/maquinas', methods=['GET'])
+@limiter.limit('100 per minute')
+@auth_required()
+def buscar_maquinas_injecao():
+    """Busca máquinas e seus modelos cadastrados para o autocomplete."""
+    if not check_permission('injecao', 'visualizar'):
+        return create_response(success=False, message='Acesso negado: permissão insuficiente', status_code=403)
+
+    termo = (request.args.get('search') or '').strip()
+    try:
+        linhas = db.session.execute(
+            db.text('''
+                SELECT DISTINCT `maquina`, `modelo`
+                FROM `tb_maquinas_inj`
+                WHERE `maquina` IS NOT NULL
+                  AND TRIM(`maquina`) <> ''
+                  AND (`maquina` LIKE :termo OR `modelo` LIKE :termo)
+                ORDER BY `maquina`
+                LIMIT 15
+            '''),
+            {'termo': f'%{termo}%'}
+        ).mappings().all()
+        return create_response(success=True, data=[dict(linha) for linha in linhas])
+    except Exception as e:
+        current_app.logger.error(f'Erro ao buscar máquinas de injeção: {str(e)}')
+        return create_response(success=False, message='Erro ao buscar máquinas', status_code=500)
+
+@injecao_bp.route('/defeitos', methods=['GET'])
+@limiter.limit('100 per minute')
+@auth_required()
+def buscar_defeitos_injecao():
+    """Busca defeitos cadastrados para o autocomplete da injeção."""
+    if not check_permission('injecao', 'visualizar'):
+        return create_response(success=False, message='Acesso negado: permissão insuficiente', status_code=403)
+
+    termo = (request.args.get('search') or '').strip()
+    try:
+        linhas = db.session.execute(
+            db.text('''
+                SELECT DISTINCT `defeito`
+                FROM `tb_defeito_inj`
+                WHERE `defeito` IS NOT NULL
+                  AND TRIM(`defeito`) <> ''
+                  AND `defeito` LIKE :termo
+                ORDER BY `defeito`
+                LIMIT 15
+            '''),
+            {'termo': f'%{termo}%'}
+        ).mappings().all()
+        return create_response(success=True, data=[dict(linha) for linha in linhas])
+    except Exception as e:
+        current_app.logger.error(f'Erro ao buscar defeitos de injeção: {str(e)}')
+        return create_response(success=False, message='Erro ao buscar defeitos', status_code=500)
 
 @injecao_bp.route('', methods=['GET', 'POST', 'OPTIONS'])
 @limiter.limit("100 per minute")
@@ -91,6 +145,7 @@ def handle_injecoes():
                 semana=dados.get('semana'),
                 turno_injecao=dados.get('turno_injecao'),
                 maquina=dados.get('maquina'),
+                modelo_maquina=dados.get('modelo_maquina'),
                 cod=dados.get('cod'),
                 peca=dados.get('peca'),
                 molde=dados.get('molde'),

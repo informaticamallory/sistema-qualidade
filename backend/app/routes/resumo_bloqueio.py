@@ -5,6 +5,7 @@ from flask import Blueprint, current_app, request
 
 from app.extensions import db, limiter
 from app.models.resumo_bloqueio import ResumoBloqueio, ResumoBloqueioLinha
+from app.services.r2_storage import salvar_data_url
 from app.utils.auth_decorators import auth_required, check_permission
 from app.utils.responses import create_response
 
@@ -22,14 +23,22 @@ def _can_save():
     )
 
 
-def _linha_from_payload(row, ordem):
+def _linha_from_payload(row, ordem, data=None):
     qtd = row.get('qtd')
     try:
         qtd_valor = int(qtd) if qtd not in (None, '') else None
     except (TypeError, ValueError):
         qtd_valor = None
     evidencia = row.get('evidencia') or {}
+    evidencia_nome = evidencia.get('name') or ''
     evidencia_preview = row.get('evidenciaPreview') or evidencia.get('url') or ''
+    if evidencia_preview:
+        evidencia_preview = salvar_data_url(
+            evidencia_preview,
+            evidencia_nome,
+            prefixo='resumo-bloqueio',
+            identificador=data.isoformat() if data else ordem
+        )
 
     return ResumoBloqueioLinha(
         ordem=ordem,
@@ -38,7 +47,7 @@ def _linha_from_payload(row, ordem):
         produto=row.get('produto') or '',
         peca=row.get('peca') or '',
         defeito=row.get('defeito') or '',
-        evidencia_nome=evidencia.get('name') or '',
+        evidencia_nome=evidencia_nome,
         evidencia_dados=evidencia_preview
     )
 
@@ -83,7 +92,7 @@ def handle_resumo_por_data(data_iso):
                 db.session.add(resumo)
                 db.session.flush()
 
-            resumo.linhas = [_linha_from_payload(row, index) for index, row in enumerate(rows)]
+            resumo.linhas = [_linha_from_payload(row, index, data) for index, row in enumerate(rows)]
             resumo.updated_at = datetime.utcnow()
             db.session.commit()
 

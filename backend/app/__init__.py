@@ -137,7 +137,7 @@ def garantir_schema_usuarios(app):
 
 
 def garantir_schema_injecao(app):
-    """Garante o campo semana em bancos existentes de inspecao de injecao."""
+    """Garante campos novos em bancos existentes de inspecao de injecao."""
     from sqlalchemy import inspect
 
     with app.app_context():
@@ -145,16 +145,25 @@ def garantir_schema_injecao(app):
             inspector = inspect(db.engine)
             if not inspector.has_table('registros_injecao'):
                 return
+
             colunas = {col['name'] for col in inspector.get_columns('registros_injecao')}
-            if 'semana' not in colunas:
-                db.session.execute(db.text(
-                    "ALTER TABLE registros_injecao ADD COLUMN semana VARCHAR(10)"
-                ))
+            campos = {
+                'semana': 'VARCHAR(10)',
+                'modelo_maquina': 'VARCHAR(100)'
+            }
+            alterou = False
+            for campo, tipo in campos.items():
+                if campo not in colunas:
+                    db.session.execute(db.text(
+                        f"ALTER TABLE registros_injecao ADD COLUMN {campo} {tipo}"
+                    ))
+                    alterou = True
+
+            if alterou:
                 db.session.commit()
         except Exception as e:
             db.session.rollback()
             app.logger.error(f"Erro ao atualizar schema de registros_injecao: {str(e)}")
-
 
 def garantir_schema_equipamentos(app):
     """Garante campos da lista de calibração em bancos existentes."""

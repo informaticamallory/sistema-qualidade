@@ -684,3 +684,12 @@
         grid-template-columns: 1fr;
     }
 }
+
+.btn-print {
+    background: #e6f4ff;
+    color: #1778b5;
+}
+
+.btn-print:hover {
+    background: #cfe9fb;
+}

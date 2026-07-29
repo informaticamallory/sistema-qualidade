@@ -21,6 +21,7 @@ class RegistroInjecaoSchema(Schema):
     semana = fields.Str(validate=validate.Length(max=10), allow_none=True)
     turno_injecao = fields.Str(validate=validate.Length(max=10), allow_none=True)
     maquina = fields.Str(validate=validate.Length(max=50), allow_none=True)
+    modelo_maquina = fields.Str(validate=validate.Length(max=100), allow_none=True)
     peca = fields.Str(validate=validate.Length(max=255), allow_none=True)
     molde = fields.Str(validate=validate.Length(max=50), allow_none=True)
 

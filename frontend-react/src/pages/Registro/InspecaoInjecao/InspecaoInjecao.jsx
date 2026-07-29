@@ -21,6 +21,11 @@ const todayISO = () => {
     return localDate.toISOString().split('T')[0];
 };
 
+const ajustarAlturaDefeito = (element) => {
+    if (!element) return;
+    element.style.height = 'auto';
+    element.style.height = `${element.scrollHeight}px`;
+};
 const getWeekFromDate = (value = todayISO()) => {
     const [year, month, day] = String(value || '').split('-').map(Number);
     if (!year || !month || !day) return '';
@@ -38,6 +43,7 @@ const estadoInicial = {
     semana: getWeekFromDate(),
     turno_injecao: '',
     maquina: '',
+    modelo_maquina: '',
     cod: '',
     peca: '',
     molde: '',
@@ -78,6 +84,15 @@ export default function InspecaoInjecao() {
     const [showSugestoes, setShowSugestoes] = useState(false);
     const [sugestaoAtivaIndex, setSugestaoAtivaIndex] = useState(-1);
     const searchTimeout = useRef(null);
+    const maquinaSearchTimeout = useRef(null);
+    const [maquinaSugestoes, setMaquinaSugestoes] = useState([]);
+    const [showMaquinaSugestoes, setShowMaquinaSugestoes] = useState(false);
+    const [maquinaAtivaIndex, setMaquinaAtivaIndex] = useState(-1);
+    const defeitoSearchTimeout = useRef(null);
+    const [defeitoSugestoes, setDefeitoSugestoes] = useState([]);
+    const [showDefeitoSugestoes, setShowDefeitoSugestoes] = useState(false);
+    const [defeitoAtivoIndex, setDefeitoAtivoIndex] = useState(-1);
+    const defeitoTextareaRef = useRef(null);
 
     // Visualização (somente leitura)
     const [showViewModal, setShowViewModal] = useState(false);
@@ -172,6 +187,7 @@ export default function InspecaoInjecao() {
             semana: registro.semana || getWeekFromDate(data),
             turno_injecao: normalizarTurno(registro.turno_injecao),
             maquina: registro.maquina || '',
+            modelo_maquina: registro.modelo_maquina || '',
             cod: registro.cod || '',
             peca: registro.peca || '',
             molde: registro.molde || '',
@@ -335,6 +351,131 @@ export default function InspecaoInjecao() {
         }
     };
 
+    const buscarMaquinas = (termo) => {
+        if (maquinaSearchTimeout.current) clearTimeout(maquinaSearchTimeout.current);
+
+        if (!termo || termo.trim().length < 1) {
+            setMaquinaSugestoes([]);
+            setShowMaquinaSugestoes(false);
+            setMaquinaAtivaIndex(-1);
+            return;
+        }
+
+        maquinaSearchTimeout.current = setTimeout(async () => {
+            try {
+                const response = await injecaoAPI.searchMachines(termo.trim());
+                const sugestoes = response.data?.data || [];
+                setMaquinaSugestoes(sugestoes);
+                setShowMaquinaSugestoes(sugestoes.length > 0);
+                setMaquinaAtivaIndex(sugestoes.length > 0 ? 0 : -1);
+            } catch {
+                setMaquinaSugestoes([]);
+                setShowMaquinaSugestoes(false);
+                setMaquinaAtivaIndex(-1);
+            }
+        }, 250);
+    };
+
+    const selecionarMaquina = (maquinaSelecionada) => {
+        setFormData((prev) => ({
+            ...prev,
+            maquina: maquinaSelecionada.maquina || '',
+            modelo_maquina: maquinaSelecionada.modelo || ''
+        }));
+        setMaquinaSugestoes([]);
+        setShowMaquinaSugestoes(false);
+        setMaquinaAtivaIndex(-1);
+    };
+
+    const handleMaquinaKeyDown = (event) => {
+        if (event.key === 'Escape') {
+            setShowMaquinaSugestoes(false);
+            setMaquinaAtivaIndex(-1);
+            return;
+        }
+
+        if (!maquinaSugestoes.length) return;
+
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setShowMaquinaSugestoes(true);
+            setMaquinaAtivaIndex((prev) => (prev < 0 ? 0 : (prev + 1) % maquinaSugestoes.length));
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setShowMaquinaSugestoes(true);
+            setMaquinaAtivaIndex((prev) => (prev <= 0 ? maquinaSugestoes.length - 1 : prev - 1));
+            return;
+        }
+
+        if (event.key === 'Enter' && showMaquinaSugestoes && maquinaAtivaIndex >= 0) {
+            event.preventDefault();
+            selecionarMaquina(maquinaSugestoes[maquinaAtivaIndex]);
+        }
+    };
+    const buscarDefeitosInjecao = (termo) => {
+        if (defeitoSearchTimeout.current) clearTimeout(defeitoSearchTimeout.current);
+
+        if (!termo || termo.trim().length < 1) {
+            setDefeitoSugestoes([]);
+            setShowDefeitoSugestoes(false);
+            setDefeitoAtivoIndex(-1);
+            return;
+        }
+
+        defeitoSearchTimeout.current = setTimeout(async () => {
+            try {
+                const response = await injecaoAPI.searchDefects(termo.trim());
+                const sugestoes = response.data?.data || [];
+                setDefeitoSugestoes(sugestoes);
+                setShowDefeitoSugestoes(sugestoes.length > 0);
+                setDefeitoAtivoIndex(sugestoes.length > 0 ? 0 : -1);
+            } catch {
+                setDefeitoSugestoes([]);
+                setShowDefeitoSugestoes(false);
+                setDefeitoAtivoIndex(-1);
+            }
+        }, 250);
+    };
+
+    const selecionarDefeitoInjecao = (item) => {
+        setCampo('defeito', item.defeito || '');
+        setTimeout(() => ajustarAlturaDefeito(defeitoTextareaRef.current), 0);
+        setDefeitoSugestoes([]);
+        setShowDefeitoSugestoes(false);
+        setDefeitoAtivoIndex(-1);
+    };
+
+    const handleDefeitoKeyDown = (event) => {
+        if (event.key === 'Escape') {
+            setShowDefeitoSugestoes(false);
+            setDefeitoAtivoIndex(-1);
+            return;
+        }
+
+        if (!defeitoSugestoes.length) return;
+
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setShowDefeitoSugestoes(true);
+            setDefeitoAtivoIndex((prev) => (prev < 0 ? 0 : (prev + 1) % defeitoSugestoes.length));
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setShowDefeitoSugestoes(true);
+            setDefeitoAtivoIndex((prev) => (prev <= 0 ? defeitoSugestoes.length - 1 : prev - 1));
+            return;
+        }
+
+        if (event.key === 'Enter' && showDefeitoSugestoes && defeitoAtivoIndex >= 0) {
+            event.preventDefault();
+            selecionarDefeitoInjecao(defeitoSugestoes[defeitoAtivoIndex]);
+        }
+    };
     // Campos de avaliação Conforme/Não Conforme renderizados como select
     const camposAvaliacao = [
         { id: 'visual', label: 'Visual' },
@@ -345,6 +486,21 @@ export default function InspecaoInjecao() {
         { id: 'funcional', label: 'Funcional' }
     ];
 
+    const atualizarAvaliacao = (campo, valor) => {
+        setFormData((anterior) => {
+            const proximo = { ...anterior, [campo]: valor };
+            const defeitos = camposAvaliacao
+                .filter(({ id }) => proximo[id] === 'NC')
+                .map(({ label }) => label);
+
+            return {
+                ...proximo,
+                status: defeitos.length ? 'reprovado' : 'aprovado',
+                defeito: defeitos.length ? anterior.defeito : ''
+            };
+        });
+    };
+
     const tabs = [
         { id: 'dados-injecao', icon: 'fa-industry', label: 'Dados' },
         { id: 'cotas', icon: 'fa-ruler-combined', label: 'Cotas' },
@@ -352,6 +508,17 @@ export default function InspecaoInjecao() {
     ];
 
     const sheetRegistro = sheetData ? registros.find((registro) => registro.id === sheetData.id) : null;
+
+    const calcularIndice = (amostraInsp, qtde_lote) => {
+    const inspecionada = Number(amostraInsp);
+    const totalLote = Number(qtde_lote);
+
+        if (!inspecionada) return '0,00%';
+
+        return `${((inspecionada / totalLote) * 100)
+            .toFixed(2)
+            .replace('.', ',')}%`;
+    };
 
     return (
         <div className="app-container">
@@ -527,16 +694,62 @@ export default function InspecaoInjecao() {
                                                             <option value="C">Turno C</option>
                                                         </select>
                                                     </div>
-                                                    <div className="form-group form-group-machine">
+                                                    <div className="form-group form-group-machine" style={{ position: 'relative' }}>
                                                         <label>Máquina</label>
-                                                        <input type="text" className="form-control field-upper" value={formData.maquina}
-                                                            onChange={(e) => setCampo('maquina', e.target.value)} placeholder="Ex: GD 05" />
+                                                        <input
+                                                            type="text"
+                                                            className="form-control field-upper"
+                                                            value={formData.maquina}
+                                                            onChange={(e) => {
+                                                                const valor = e.target.value.toUpperCase();
+                                                                setFormData((prev) => ({ ...prev, maquina: valor, modelo_maquina: '' }));
+                                                                buscarMaquinas(valor);
+                                                            }}
+                                                            onFocus={() => {
+                                                                if (maquinaSugestoes.length > 0) {
+                                                                    setShowMaquinaSugestoes(true);
+                                                                    setMaquinaAtivaIndex((prev) => (prev >= 0 ? prev : 0));
+                                                                }
+                                                            }}
+                                                            onBlur={() => setTimeout(() => setShowMaquinaSugestoes(false), 150)}
+                                                            onKeyDown={handleMaquinaKeyDown}
+                                                            placeholder="Digite para buscar..."
+                                                            autoComplete="off"
+                                                        />
+                                                        {showMaquinaSugestoes && maquinaSugestoes.length > 0 && (
+                                                            <ul className="autocomplete-list" role="listbox">
+                                                                {maquinaSugestoes.map((item, index) => (
+                                                                    <li
+                                                                        key={`${item.maquina}-${item.modelo}-${index}`}
+                                                                        className={`autocomplete-item ${index === maquinaAtivaIndex ? 'active' : ''}`}
+                                                                        role="option"
+                                                                        aria-selected={index === maquinaAtivaIndex}
+                                                                        onMouseEnter={() => setMaquinaAtivaIndex(index)}
+                                                                        onMouseDown={() => selecionarMaquina(item)}
+                                                                    >
+                                                                        <span className="autocomplete-cod">{item.maquina}</span>
+                                                                        <span className="autocomplete-desc">{item.modelo || 'Sem modelo informado'}</span>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        )}
+                                                    </div>
+                                                    <div className="form-group form-group-machine-model">
+                                                        <label>Modelo de Máquina</label>
+                                                        <input
+                                                            type="text"
+                                                            className="form-control field-upper"
+                                                            value={formData.modelo_maquina}
+                                                            readOnly
+                                                            placeholder="Preenchido automaticamente"
+                                                            style={{ backgroundColor: 'var(--surface-3)' }}
+                                                        />
                                                     </div>
                                                 </div>
 
                                                 <div className="form-row-injecao-row2">
                                                     <div className="form-group form-group-code" style={{ position: 'relative' }}>
-                                                        <label>Cód. *</label>
+                                                        <label>Cód. SAP *</label>
                                                         <input
                                                             type="text"
                                                             className="form-control field-upper"
@@ -586,23 +799,28 @@ export default function InspecaoInjecao() {
                                                 <div className="form-row form-row-compact form-row-numeric">
                                                     <div className="form-group form-group-number">
                                                         <label>Amostra Insp.</label>
-                                                        <input type="number" className="form-control" value={formData.amostra_insp}
+                                                        <input type="text" className="form-control" value={formData.amostra_insp}
                                                             onChange={(e) => setCampo('amostra_insp', parseInt(e.target.value) || 0)} />
                                                     </div>
                                                     <div className="form-group form-group-number">
                                                         <label>Amostra NC</label>
-                                                        <input type="number" className="form-control" value={formData.amostra_nc}
+                                                        <input type="text" className="form-control" value={formData.amostra_nc}
                                                             onChange={(e) => setCampo('amostra_nc', parseInt(e.target.value) || 0)} />
                                                     </div>
                                                     <div className="form-group form-group-number">
                                                         <label>Qtde Lote</label>
-                                                        <input type="number" className="form-control" value={formData.qtde_lote}
+                                                        <input type="text" className="form-control" value={formData.qtde_lote}
                                                             onChange={(e) => setCampo('qtde_lote', parseInt(e.target.value) || 0)} />
                                                     </div>
                                                     <div className="form-group form-group-number">
                                                         <label>Peso (Kg)</label>
                                                         <input type="text" className="form-control" value={formData.peso}
                                                             onChange={(e) => setCampo('peso', e.target.value)} placeholder="Ex: 0,250" />
+                                                    </div>
+                                                    <div className="form-group form-group-number">
+                                                        <label>Índice(%)</label>
+                                                        <input type="text" className="form-control" value={calcularIndice(formData.amostra_insp, formData.qtde_lote)}
+                                                            onChange={(e) => setCampo('indice', e.target.value)} placeholder="Ex: 100%" />
                                                     </div>
                                                 </div>
                                             </div>
@@ -617,9 +835,9 @@ export default function InspecaoInjecao() {
                                                 <div className="form-row form-row-compact form-row-cotas">
                                                     {['cota1', 'cota2', 'cota3', 'cota4'].map((cota, i) => (
                                                         <div className="form-group form-group-cota" key={cota}>
-                                                            <label>{`Cota ${i + 1}`}</label>
+                                                            <label title="Informe o valor de referência da cota">{`Cota ${i + 1}`}</label>
                                                             <input type="text" className="form-control field-upper" value={formData[cota]}
-                                                                onChange={(e) => setCampo(cota, e.target.value)} />
+                                                                onChange={(e) => setCampo(cota, e.target.value)}  title='Exemplo: 25,00 ± 0,20 mm'/>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -637,7 +855,7 @@ export default function InspecaoInjecao() {
                                                 <div className="form-group" key={campo.id}>
                                                     <label>{campo.label}</label>
                                                     <select className="form-control" value={formData[campo.id]}
-                                                        onChange={(e) => setCampo(campo.id, e.target.value)}>
+                                                        onChange={(e) => atualizarAvaliacao(campo.id, e.target.value)}>
                                                         {conformeOpcoes.map((op) => (
                                                             <option key={op.value} value={op.value}>{op.label}</option>
                                                         ))}
@@ -646,29 +864,66 @@ export default function InspecaoInjecao() {
                                             ))}
                                         </div>
 
-                                        <div className="form-row">
-                                            <div className="form-group">
-                                                <label>Status</label>
-                                                <select className="form-control" value={formData.status}
-                                                    onChange={(e) => setCampo('status', e.target.value)}>
-                                                    <option value="pendente">Pendente</option>
-                                                    <option value="aprovado">Aprovado</option>
-                                                    <option value="reprovado">Reprovado</option>
-                                                </select>
-                                            </div>
-                                            {String(formData.status || '').toLowerCase() === 'reprovado' && (
-                                                <div className="form-group" style={{ flex: 2 }}>
-                                                    <label>Defeito</label>
-                                                    <input type="text" className="form-control field-upper" value={formData.defeito}
-                                                        onChange={(e) => setCampo('defeito', e.target.value)} placeholder="Descreva o defeito, se houver" />
+                                        <div className="avaliacao-resultado-layout">
+                                            <div className="avaliacao-resultado-fields">
+                                                <div className="form-group">
+                                                    <label>Status</label>
+                                                    <select className="form-control" value={formData.status}
+                                                        onChange={(e) => setCampo('status', e.target.value)}>
+                                                        <option value="pendente">Pendente</option>
+                                                        <option value="aprovado">Aprovado</option>
+                                                        <option value="reprovado">Reprovado</option>
+                                                        <option value="concessão">Concessão</option>
+                                                    </select>
                                                 </div>
-                                            )}
-                                        </div>
-
-                                        <div className="form-group">
-                                            <label>Observação</label>
-                                            <textarea className="form-control" rows="2" value={formData.observacao}
-                                                onChange={(e) => setCampo('observacao', e.target.value)}></textarea>
+                                                {String(formData.status || '').toLowerCase() === 'reprovado' && (
+                                                    <div className="form-group" style={{ position: 'relative' }}>
+                                                        <label>Defeito</label>
+                                                        <textarea
+                                                            ref={defeitoTextareaRef}
+                                                            className="form-control field-upper avaliacao-defeito-textarea"
+                                                            rows="1"
+                                                            value={formData.defeito}
+                                                            onChange={(e) => {
+                                                                const valor = e.target.value.toUpperCase();
+                                                                setCampo('defeito', valor);
+                                                                buscarDefeitosInjecao(valor);
+                                                                ajustarAlturaDefeito(e.target);
+                                                            }}
+                                                            onFocus={() => {
+                                                                if (defeitoSugestoes.length > 0) {
+                                                                    setShowDefeitoSugestoes(true);
+                                                                    setDefeitoAtivoIndex((prev) => (prev >= 0 ? prev : 0));
+                                                                }
+                                                            }}
+                                                            onBlur={() => setTimeout(() => setShowDefeitoSugestoes(false), 150)}
+                                                            onKeyDown={handleDefeitoKeyDown}
+                                                            placeholder="Digite para buscar..."
+                                                        />
+                                                        {showDefeitoSugestoes && defeitoSugestoes.length > 0 && (
+                                                            <ul className="autocomplete-list" role="listbox">
+                                                                {defeitoSugestoes.map((item, index) => (
+                                                                    <li
+                                                                        key={`${item.defeito}-${index}`}
+                                                                        className={`autocomplete-item ${index === defeitoAtivoIndex ? 'active' : ''}`}
+                                                                        role="option"
+                                                                        aria-selected={index === defeitoAtivoIndex}
+                                                                        onMouseEnter={() => setDefeitoAtivoIndex(index)}
+                                                                        onMouseDown={() => selecionarDefeitoInjecao(item)}
+                                                                    >
+                                                                        <span className="autocomplete-cod">{item.defeito}</span>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="form-group avaliacao-observacao">
+                                                <label>Observação</label>
+                                                <textarea className="form-control" rows="4" value={formData.observacao}
+                                                    onChange={(e) => setCampo('observacao', e.target.value)}></textarea>
+                                            </div>
                                         </div>
                                             </div>
                                         </div>

@@ -19,6 +19,7 @@ class RegistroInjecao(db.Model):
     semana = db.Column(db.String(10))
     turno_injecao = db.Column(db.String(10))
     maquina = db.Column(db.String(50))
+    modelo_maquina = db.Column(db.String(100))
     cod = db.Column(db.String(50), nullable=False, index=True)
     peca = db.Column(db.String(255))
     molde = db.Column(db.String(50))
@@ -63,6 +64,7 @@ class RegistroInjecao(db.Model):
             'semana': self.semana,
             'turno_injecao': self.turno_injecao,
             'maquina': self.maquina,
+            'modelo_maquina': self.modelo_maquina,
             'cod': self.cod,
             'peca': self.peca,
             'molde': self.molde,

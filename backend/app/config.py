@@ -1,7 +1,10 @@
 # config.py - Configurações da aplicação
 import os
+from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parents[1] / '.env')
 
 load_dotenv()
 
@@ -48,6 +51,23 @@ class Config:
     
     # Logging
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+
+    # Cloudflare R2
+    R2_ACCOUNT_ID = os.getenv('R2_ACCOUNT_ID') or os.getenv('CLOUDFLARE_ACCOUNT_ID', '')
+    R2_ENDPOINT_URL = os.getenv('R2_ENDPOINT_URL') or (
+        f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com" if R2_ACCOUNT_ID else ''
+    )
+    R2_ACCESS_KEY_ID = os.getenv('R2_ACCESS_KEY_ID', '')
+    R2_SECRET_ACCESS_KEY = os.getenv('R2_SECRET_ACCESS_KEY', '')
+    R2_BUCKET_NAME = os.getenv('R2_BUCKET_NAME', '')
+    R2_PUBLIC_URL = os.getenv('R2_PUBLIC_URL', '').rstrip('/')
+    R2_ENABLED = all([
+        R2_ENDPOINT_URL,
+        R2_ACCESS_KEY_ID,
+        R2_SECRET_ACCESS_KEY,
+        R2_BUCKET_NAME,
+        R2_PUBLIC_URL
+    ])
     
     # Paginação
     POSTS_PER_PAGE = 50

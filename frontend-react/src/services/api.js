@@ -137,6 +137,8 @@ export const resumoBloqueioAPI = {
 export const injecaoAPI = {
     getAll: (params = {}) => dedupedGet('/inspecao-injecao', { params }),
     getById: (id) => dedupedGet(`/inspecao-injecao/${id}`),
+    searchMachines: (search = '') => dedupedGet('/inspecao-injecao/maquinas', { params: { search } }),
+    searchDefects: (search = '') => dedupedGet('/inspecao-injecao/defeitos', { params: { search } }),
     create: (data) => api.post('/inspecao-injecao', data),
     update: (id, data) => api.put(`/inspecao-injecao/${id}`, data),
     delete: (id) => api.delete(`/inspecao-injecao/${id}`),

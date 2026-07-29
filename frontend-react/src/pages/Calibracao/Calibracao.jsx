@@ -399,6 +399,15 @@ export default function Calibracao() {
             return;
         }
 
+        const arquivoCertificado = String(calibracao.arquivo_certificado || '');
+        if (/^https?:\/\//i.test(arquivoCertificado)) {
+            const opened = window.open(arquivoCertificado, '_blank', 'noopener,noreferrer');
+            if (!opened) {
+                alert('O navegador bloqueou a nova aba. Permita pop-ups para abrir o certificado.');
+            }
+            return;
+        }
+
         const pdfWindow = window.open('', '_blank');
         if (!pdfWindow) {
             alert('O navegador bloqueou a nova aba. Permita pop-ups para abrir o certificado.');

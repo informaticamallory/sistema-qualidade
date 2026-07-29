@@ -274,7 +274,7 @@ export default function Dashboard() {
         if (status.includes('pend')) return token('--warning', '#d89000');
         if (status.includes('reprov')) return token('--danger', '#d94831');
         if (status.includes('vencendo')) return token('--vencendo', '#eab308');
-        if (status.includes('vencid')) return token('--danger', '#d94831');
+        if (status.includes('vencid')) return token('--vencido', '#500000');
         return null;
     };
 

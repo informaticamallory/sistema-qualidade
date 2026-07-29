@@ -260,7 +260,7 @@
 }
 .form-row-injecao-row1 {
     display: grid;
-    grid-template-columns: 160px 100px 1fr 1fr;
+    grid-template-columns: 160px 100px minmax(170px, 1fr) minmax(165px, 1fr) minmax(100px, 0.5fr);
     gap: 1rem;
     align-items: end;
 }
@@ -354,4 +354,43 @@
 
 .autocomplete-item.active .autocomplete-cod {
     color: var(--primary);
+}
+
+.avaliacao-resultado-layout {
+    display: grid;
+    grid-template-columns: 180px minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+    margin-top: 1rem;
+}
+
+.avaliacao-resultado-fields {
+    display: grid;
+    gap: 0.1rem;
+}
+
+.avaliacao-resultado-fields .form-control {
+    width: 100%;
+}
+
+.avaliacao-observacao textarea {
+    min-height: 94px;
+    resize: vertical;
+}
+
+@media (max-width: 600px) {
+    .avaliacao-resultado-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .avaliacao-resultado-fields {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+.avaliacao-resultado-fields textarea.form-control.avaliacao-defeito-textarea {
+    min-height: 40px;
+    height: 40px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+    resize: vertical;
 }

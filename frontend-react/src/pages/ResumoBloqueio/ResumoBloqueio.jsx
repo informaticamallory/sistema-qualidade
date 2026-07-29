@@ -64,13 +64,17 @@ const normalizeRows = (rows = []) => (
         : [emptyRow()]
 );
 
-const hasMeaningfulRows = (rows = []) => rows.some((row) => (
-    row.turno || row.qtd || row.produto || row.peca || row.defeito || row.evidenciaPreview
-));
+const requiredRowFields = ['turno', 'qtd', 'produto', 'peca', 'defeito', 'evidenciaPreview'];
 
-const hasRowContent = (row) => (
-    row.qtd || row.produto || row.peca || row.defeito || row.evidenciaPreview
-);
+const hasFieldValue = (value) => String(value ?? '').trim() !== '';
+
+const hasRowContent = (row) => requiredRowFields.some((field) => hasFieldValue(row[field]));
+
+const hasMeaningfulRows = (rows = []) => rows.some(hasRowContent);
+
+const isRowComplete = (row) => requiredRowFields.every((field) => hasFieldValue(row[field]));
+
+const hasIncompleteRows = (rows = []) => rows.some((row) => hasRowContent(row) && !isRowComplete(row));
 
 const formatDateBR = (isoDate) => {
     if (!isoDate) return '';
@@ -384,6 +388,11 @@ export default function ResumoBloqueio() {
             return;
         }
 
+        if (hasIncompleteRows(targetRows) && !options.force) {
+            setSaveState('idle');
+            return;
+        }
+
         try {
             if (!options.silent) setSaveState('saving');
             const response = await resumoBloqueioAPI.saveByDate(targetDate, targetRows);
@@ -413,6 +422,11 @@ export default function ResumoBloqueio() {
         }
 
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        if (hasIncompleteRows(rows)) {
+            setSaveState('idle');
+            return;
+        }
+
         saveTimerRef.current = setTimeout(() => {
             persistRows(date, rows);
         }, 700);

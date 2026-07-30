@@ -1,0 +1,5 @@
+# Environment files and credentials
+.env
+.env.*
+!.env.example
+!.env.production.example

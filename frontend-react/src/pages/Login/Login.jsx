@@ -48,15 +48,19 @@ function Login() {
         confirmSenha: vazio()
     });
     const [adminSenha, setAdminSenha] = useState(vazio());
+    const [resetToken, setResetToken] = useState(null);
+    const [resetData, setResetData] = useState({ senha: vazio(), confirmSenha: vazio() });
 
     const loginSenhaRefs = useRef([]);
     const adminSenhaRefs = useRef([]);
     const registerSenhaRefs = useRef([]);
     const confirmSenhaRefs = useRef([]);
+    const resetSenhaRefs = useRef([]);
+    const resetConfirmSenhaRefs = useRef([]);
 
     const navigate = useNavigate();
     const location = useLocation();
-    const { login, register, verifyAdmin, user } = useAuth();
+    const { login, register, verifyAdmin, completeLegacyPasswordReset, user } = useAuth();
 
     // Redirecionar se já estiver logado
     useEffect(() => {
@@ -84,6 +88,10 @@ function Login() {
             setRegisterData(prev => ({ ...prev, confirmSenha: newChars }));
         } else if (chars === adminSenha) {
             setAdminSenha(newChars);
+        } else if (chars === resetData.senha) {
+            setResetData(prev => ({ ...prev, senha: newChars }));
+        } else if (chars === resetData.confirmSenha) {
+            setResetData(prev => ({ ...prev, confirmSenha: newChars }));
         } else {
             setChars(newChars);
         }
@@ -125,8 +133,8 @@ function Login() {
         }
 
         const senha = loginData.senha.join('');
-        if (!senhaValida(senha)) {
-            showAlert('error', 'A senha não atende aos requisitos. Verifique a lista abaixo do campo.');
+        if (!senha) {
+            showAlert('error', 'Digite sua senha');
             return;
         }
 
@@ -141,12 +149,44 @@ function Login() {
                 const fallback = defaultPathForUser(result.user);
                 navigate(destination && canAccess(result.user, destination) ? destination : fallback);
             }, 1000);
+        } else if (result.requiresPasswordReset && result.passwordResetToken) {
+            setResetToken(result.passwordResetToken);
+            setResetData({ senha: vazio(), confirmSenha: vazio() });
+            showAlert('info', 'Defina uma nova senha para continuar.');
         } else {
             showAlert('error', result.message || 'Usuário ou senha inválido');
             clearChars(
                 (newChars) => setLoginData(prev => ({ ...prev, senha: newChars })),
                 loginSenhaRefs
             );
+        }
+    };
+
+    const handleLegacyPasswordReset = async (e) => {
+        e.preventDefault();
+        const senha = resetData.senha.join('');
+        const confirmSenha = resetData.confirmSenha.join('');
+
+        if (!senhaValida(senha)) {
+            showAlert('error', 'A senha deve ter ao menos 8 caracteres, incluindo maiúscula, minúscula, número e caractere especial.');
+            return;
+        }
+
+        if (senha !== confirmSenha) {
+            showAlert('error', 'As senhas não coincidem.');
+            return;
+        }
+
+        setLoading(true);
+        const result = await completeLegacyPasswordReset(resetToken, senha);
+        setLoading(false);
+
+        if (result.success) {
+            showAlert('success', 'Senha atualizada com sucesso!');
+            setResetToken(null);
+            setTimeout(() => navigate(defaultPathForUser(result.user)), 700);
+        } else {
+            showAlert('error', result.message || 'Não foi possível atualizar a senha. Faça login novamente.');
         }
     };
 
@@ -220,7 +260,7 @@ function Login() {
 
     const loginSenhaTexto = loginData.senha.join('');
     const registerSenhaTexto = registerData.senha.join('');
-    const podeEntrar = loginData.usuario.trim() && senhaValida(loginSenhaTexto);
+    const podeEntrar = loginData.usuario.trim() && loginSenhaTexto.length > 0;
     const podeCriarConta = registerData.nome.trim() && registerData.usuario.trim() && senhaValida(registerSenhaTexto);
 
     return (
@@ -242,7 +282,45 @@ function Login() {
                     </div>
                 )}
 
-                {isLogin ? (
+                {resetToken ? (
+                    <div className="form-container">
+                        <h2><i className="fas fa-key"></i> Definir nova senha</h2>
+                        <form onSubmit={handleLegacyPasswordReset}>
+                            <div className="form-group">
+                                <label className="form-label">Nova senha</label>
+                                <SenhaInput
+                                    chars={resetData.senha}
+                                    setChars={(newChars) => setResetData(prev => ({ ...prev, senha: newChars }))}
+                                    refs={resetSenhaRefs}
+                                    onPaste={handleCharPaste}
+                                    onChange={handleCharChange}
+                                    onKeyDown={handleCharKeyDown}
+                                    showSenha={showSenha}
+                                />
+                                <PasswordRequirements senha={resetData.senha.join('')} />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Confirmar nova senha</label>
+                                <SenhaInput
+                                    chars={resetData.confirmSenha}
+                                    setChars={(newChars) => setResetData(prev => ({ ...prev, confirmSenha: newChars }))}
+                                    refs={resetConfirmSenhaRefs}
+                                    onPaste={handleCharPaste}
+                                    onChange={handleCharChange}
+                                    onKeyDown={handleCharKeyDown}
+                                    showSenha={showSenha}
+                                />
+                            </div>
+                            <button type="button" className="pin-toggle-btn" onClick={() => setShowSenha(!showSenha)}>
+                                <i className={`fas fa-eye${showSenha ? '-slash' : ''}`}></i>
+                                <span>{showSenha ? 'Ocultar' : 'Mostrar'} senha</span>
+                            </button>
+                            <button type="submit" className="btn btn-primary" disabled={loading}>
+                                {loading ? <><i className="fas fa-spinner fa-spin"></i> Salvando...</> : <><i className="fas fa-check"></i> Atualizar senha</>}
+                            </button>
+                        </form>
+                    </div>
+                ) : isLogin ? (
                     // Login Form
                     <div className="form-container">
                         <h2><i className="fas fa-sign-in-alt"></i> Entrar</h2>

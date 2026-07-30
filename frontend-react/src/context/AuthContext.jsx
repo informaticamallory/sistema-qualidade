@@ -67,9 +67,30 @@ export function AuthProvider({ children }) {
             return { success: false, message: response.data.message };
         } catch (error) {
             console.error('Erro no login:', error);
+            const responseData = error.response?.data;
             return {
                 success: false,
-                message: error.response?.data?.message || 'Erro ao conectar com o servidor'
+                message: responseData?.message || 'Erro ao conectar com o servidor',
+                requiresPasswordReset: responseData?.data?.password_reset_required === true,
+                passwordResetToken: responseData?.data?.password_reset_token
+            };
+        }
+    };
+
+    const completeLegacyPasswordReset = async (token, senha) => {
+        try {
+            const response = await authAPI.completeLegacyPasswordReset(token, senha);
+            if (!response.data.success) return { success: false, message: response.data.message };
+
+            const userData = response.data.data.usuario;
+            setUser(userData);
+            sessionStorage.setItem('currentUser', JSON.stringify(userData));
+            sessionStorage.setItem('token', response.data.data.token);
+            return { success: true, user: userData };
+        } catch (error) {
+            return {
+                success: false,
+                message: error.response?.data?.message || 'Não foi possível atualizar a senha'
             };
         }
     };
@@ -134,6 +155,7 @@ export function AuthProvider({ children }) {
         user,
         loading,
         login,
+        completeLegacyPasswordReset,
         register,
         verifyAdmin,
         logout,

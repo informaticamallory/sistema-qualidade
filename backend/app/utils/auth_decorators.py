@@ -39,6 +39,8 @@ def permission_required(modulo, acao):
                 return fn(*args, **kwargs)
 
             verify_jwt_in_request()
+            if get_jwt().get('password_reset_only'):
+                return create_response(success=False, message='Conclua a redefinição de senha para continuar', status_code=403)
             user = _current_user()
             if not user or not user.ativo:
                 return create_response(success=False, message='Usuário inválido ou inativo', status_code=401)
@@ -73,8 +75,11 @@ def auth_required(*roles):
 
             verify_jwt_in_request()
 
+            claims = get_jwt()
+            if claims.get('password_reset_only'):
+                return create_response(success=False, message='Conclua a redefinição de senha para continuar', status_code=403)
+
             if roles:
-                claims = get_jwt()
                 if claims.get('role') not in roles:
                     return create_response(
                         success=False,

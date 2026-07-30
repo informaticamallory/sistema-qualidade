@@ -1,10 +1,9 @@
 # routes/auth.py - Rotas de autenticação
 from flask import Blueprint, request
-from datetime import datetime
-from flask_jwt_extended import create_access_token
+from datetime import datetime, timedelta
+from flask_jwt_extended import create_access_token, get_jwt, get_jwt_identity, jwt_required
 
 from app.extensions import db, limiter
-from flask_jwt_extended import get_jwt_identity
 from app.models.usuario import Usuario, ROLES_VALIDOS, FICHAS_PERMISSIONS_VALIDAS
 from app.utils.responses import create_response
 from app.utils.audit import log_audit
@@ -55,9 +54,22 @@ def login():
             )
 
         if user.must_reset_password:
+            reset_token = create_access_token(
+                identity=str(user.id),
+                expires_delta=timedelta(minutes=10),
+                additional_claims={
+                    'password_reset_only': True,
+                    'role': user.role,
+                    'usuario': user.usuario
+                }
+            )
             return create_response(
                 success=False,
-                message='Sua senha precisa ser redefinida por um administrador antes de você continuar. Contate o suporte.',
+                message='Defina uma nova senha para continuar.',
+                data={
+                    'password_reset_required': True,
+                    'password_reset_token': reset_token
+                },
                 status_code=403
             )
 
@@ -93,6 +105,53 @@ def login():
         )
 
 
+
+@auth_bp.route('/redefinir-senha-legado', methods=['POST', 'OPTIONS'])
+@limiter.limit("10 per minute", methods=['POST'])
+@jwt_required()
+def redefinir_senha_legado():
+    """Conclui a migração de um PIN legado após uma autenticação válida."""
+    if request.method == 'OPTIONS':
+        return '', 200
+
+    claims = get_jwt()
+    if not claims.get('password_reset_only'):
+        return create_response(success=False, message='Token inválido para redefinição de senha', status_code=403)
+
+    try:
+        dados = request.get_json() or {}
+        senha = dados.get('senha')
+        criterios_faltantes = validar_senha(senha)
+        if criterios_faltantes:
+            return create_response(
+                success=False,
+                message='Senha não atende aos requisitos de segurança',
+                errors=criterios_faltantes,
+                status_code=400
+            )
+
+        user = Usuario.query.get(int(get_jwt_identity()))
+        if not user or not user.ativo or not user.must_reset_password:
+            return create_response(success=False, message='Redefinição de senha indisponível', status_code=403)
+
+        user.set_senha(senha)
+        user.must_reset_password = False
+        db.session.commit()
+
+        token = create_access_token(
+            identity=str(user.id),
+            additional_claims={'role': user.role, 'usuario': user.usuario}
+        )
+        usuario_data = user.to_dict()
+        usuario_data['permissoes'] = effective_permissions(user)
+        return create_response(
+            success=True,
+            message='Senha atualizada com sucesso',
+            data={'token': token, 'usuario': usuario_data}
+        )
+    except Exception:
+        db.session.rollback()
+        return create_response(success=False, message='Erro ao atualizar senha', status_code=500)
 @auth_bp.route('/me', methods=['GET', 'OPTIONS'])
 @auth_required()
 def me():

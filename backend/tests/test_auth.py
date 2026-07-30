@@ -16,14 +16,29 @@ def test_login_com_senha_incorreta(client, admin_ok):
     assert body['success'] is False
 
 
-def test_login_bloqueado_para_pin_legado(client, usuario_pin_legado):
-    """Mesmo com o PIN antigo correto, o login deve ser bloqueado e pedir
-    para contatar um administrador, por causa de must_reset_password."""
+def test_login_legado_exige_redefinicao_de_senha(client, usuario_pin_legado):
     resp = client.post('/api/auth/login', json={'usuario': 'legado', 'senha': '1234'})
     body = resp.get_json()
     assert resp.status_code == 403
     assert body['success'] is False
-    assert 'administrador' in body['message'].lower()
+    assert body['data']['password_reset_required'] is True
+    assert body['data']['password_reset_token']
+
+
+def test_usuario_legado_redefine_senha_e_consegue_entrar(client, usuario_pin_legado):
+    login = client.post('/api/auth/login', json={'usuario': 'legado', 'senha': '1234'}).get_json()
+    reset_token = login['data']['password_reset_token']
+
+    reset = client.post(
+        '/api/auth/redefinir-senha-legado',
+        json={'senha': SENHA_VALIDA},
+        headers={'Authorization': f'Bearer {reset_token}'}
+    )
+    assert reset.status_code == 200
+    assert reset.get_json()['success'] is True
+
+    assert client.post('/api/auth/login', json={'usuario': 'legado', 'senha': '1234'}).status_code == 401
+    assert client.post('/api/auth/login', json={'usuario': 'legado', 'senha': SENHA_VALIDA}).status_code == 200
 
 
 def test_register_rejeita_senha_sem_maiuscula(client, admin_ok):

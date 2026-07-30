@@ -92,6 +92,9 @@ api.interceptors.response.use(
 // ==================== AUTH ====================
 export const authAPI = {
     login: (usuario, senha) => api.post('/auth/login', { usuario, senha }),
+    completeLegacyPasswordReset: (token, senha) => api.post('/auth/redefinir-senha-legado', { senha }, {
+        headers: { Authorization: `Bearer ${token}` }
+    }),
     register: (data) => api.post('/auth/register', data),
     verifyAdmin: (senha) => api.post('/auth/verify-admin', { senha }),
     me: () => dedupedGet('/auth/me'),

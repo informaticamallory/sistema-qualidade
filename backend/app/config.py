@@ -2,6 +2,7 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from urllib.parse import quote_plus
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parents[1] / '.env')
@@ -29,7 +30,7 @@ class Config:
     MYSQL_PORT = int(os.getenv('DB_PORT', 3306))
     
     SQLALCHEMY_DATABASE_URI = (
-        f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@"
+        f"mysql+pymysql://{quote_plus(MYSQL_USER)}:{quote_plus(MYSQL_PASSWORD)}@"
         f"{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}?charset=utf8mb4"
     )
     

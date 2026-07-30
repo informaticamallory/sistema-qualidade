@@ -11,6 +11,7 @@ from app.utils.permissions import (
     PERMISSOES_CATALOGO, MODULO_LABELS, ACAO_LABELS, DEFAULT_MATRIX,
     effective_permissions, role_defaults, set_user_permissions
 )
+from app.utils.password_validation import validar_senha
 
 usuarios_bp = Blueprint('usuarios', __name__)
 
@@ -28,10 +29,6 @@ def _is_last_admin(user):
         Usuario.role == 'admin', Usuario.ativo.is_(True), Usuario.id != user.id
     ).count()
     return outros == 0
-
-
-def _validar_pin(pin):
-    return bool(pin) and len(pin) == 4 and pin.isdigit()
 
 
 def _normalizar_fichas_permission(role, valor=None, default=None):
@@ -90,13 +87,15 @@ def handle_usuarios():
         dados = request.get_json() or {}
         nome = (dados.get('nome') or '').strip()
         usuario = (dados.get('usuario') or '').strip()
-        pin = dados.get('pin')
+        senha = dados.get('senha')
         role = dados.get('role', 'inspetor')
 
         if not nome or not usuario:
             return create_response(success=False, message='Nome e usuário são obrigatórios', status_code=400)
-        if not _validar_pin(pin):
-            return create_response(success=False, message='PIN deve ter 4 dígitos', status_code=400)
+        criterios_faltantes = validar_senha(senha)
+        if criterios_faltantes:
+            return create_response(success=False, message='Senha não atende aos requisitos de segurança',
+                                   errors=criterios_faltantes, status_code=400)
         if role not in ROLES_VALIDOS:
             return create_response(success=False, message='Papel (role) inválido', status_code=400)
 
@@ -114,9 +113,10 @@ def handle_usuarios():
             usuario=usuario,
             role=role,
             fichas_permission=fichas_permission,
-            ativo=dados.get('ativo', True)
+            ativo=dados.get('ativo', True),
+            must_reset_password=False
         )
-        novo.set_pin(pin)
+        novo.set_senha(senha)
         db.session.add(novo)
         db.session.flush()  # garante novo.id antes de gravar permissões
 
@@ -196,10 +196,13 @@ def handle_usuario(id):
                     return create_response(success=False, message='Não é possível inativar o último administrador', status_code=400)
                 usuario.ativo = bool(dados['ativo'])
 
-            if dados.get('pin'):
-                if not _validar_pin(dados['pin']):
-                    return create_response(success=False, message='PIN deve ter 4 dígitos', status_code=400)
-                usuario.set_pin(dados['pin'])
+            if dados.get('senha'):
+                criterios_faltantes = validar_senha(dados['senha'])
+                if criterios_faltantes:
+                    return create_response(success=False, message='Senha não atende aos requisitos de segurança',
+                                           errors=criterios_faltantes, status_code=400)
+                usuario.set_senha(dados['senha'])
+                usuario.must_reset_password = False
 
             if 'permissoes' in dados and dados['permissoes'] is not None:
                 set_user_permissions(usuario, dados['permissoes'])

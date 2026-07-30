@@ -51,9 +51,9 @@ export function AuthProvider({ children }) {
         return () => { active = false; };
     }, []);
 
-    const login = async (usuario, pin) => {
+    const login = async (usuario, senha) => {
         try {
-            const response = await authAPI.login(usuario, pin);
+            const response = await authAPI.login(usuario, senha);
 
             if (response.data.success) {
                 const userData = response.data.data.usuario;
@@ -87,13 +87,13 @@ export function AuthProvider({ children }) {
         }
     };
 
-    const verifyAdmin = async (pin) => {
+    const verifyAdmin = async (senha) => {
         try {
-            const response = await authAPI.verifyAdmin(pin);
+            const response = await authAPI.verifyAdmin(senha);
             return response.data;
         } catch (error) {
             console.error('Erro na verificação:', error);
-            return { success: false, message: 'PIN de administrador inválido' };
+            return { success: false, message: 'Senha de administrador inválida' };
         }
     };
 

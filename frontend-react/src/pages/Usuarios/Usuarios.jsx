@@ -4,6 +4,8 @@ import Sidebar from '../../components/Sidebar/Sidebar';
 import { usuariosAPI } from '../../services/api';
 import { toUpper } from '../../utils/text';
 import { useAuth } from '../../context/auth-context';
+import { senhaValida } from '../../utils/passwordValidation';
+import PasswordRequirements from '../../components/PasswordRequirements/PasswordRequirements';
 import './Usuarios.css';
 
 const ROLES = [
@@ -26,7 +28,7 @@ const MODULO_ICONS = {
     configuracoes: 'fa-gear'
 };
 
-const estadoInicial = () => ({ nome: '', usuario: '', role: 'inspetor', fichasPermission: 'readonly', pin: '', confirmPin: '', ativo: true });
+const estadoInicial = () => ({ nome: '', usuario: '', role: 'inspetor', fichasPermission: 'readonly', senha: '', confirmSenha: '', ativo: true });
 
 const roleLabel = (r) => ROLES.find((x) => x.value === r)?.label || r;
 
@@ -152,8 +154,8 @@ export default function Usuarios() {
             usuario: u.usuario || '',
             role: u.role || 'inspetor',
             fichasPermission: u.fichasPermission || 'readonly',
-            pin: '',
-            confirmPin: '',
+            senha: '',
+            confirmSenha: '',
             ativo: u.ativo
         });
         setPermSet(objParaSet(u.permissoes));
@@ -180,14 +182,14 @@ export default function Usuarios() {
             setErro('Nome e usuário são obrigatórios.');
             return;
         }
-        const precisaPin = !editingId || formData.pin.length > 0;
-        if (precisaPin) {
-            if (!/^\d{4}$/.test(formData.pin)) {
-                setErro('O PIN deve ter exatamente 4 dígitos.');
+        const precisaSenha = !editingId || formData.senha.length > 0;
+        if (precisaSenha) {
+            if (!senhaValida(formData.senha)) {
+                setErro('A senha não atende aos requisitos de segurança. Verifique a lista abaixo do campo.');
                 return;
             }
-            if (formData.pin !== formData.confirmPin) {
-                setErro('Os PINs não conferem.');
+            if (formData.senha !== formData.confirmSenha) {
+                setErro('As senhas não conferem.');
                 return;
             }
         }
@@ -205,7 +207,7 @@ export default function Usuarios() {
             ativo: formData.ativo,
             permissoes
         };
-        if (formData.pin) payload.pin = formData.pin;
+        if (formData.senha) payload.senha = formData.senha;
 
         try {
             if (editingId) {
@@ -379,18 +381,19 @@ export default function Usuarios() {
                                         </div>
                                         <div className="form-row">
                                             <div className="form-group">
-                                                <label>PIN de 4 dígitos {editingId && <span className="hint">(deixe em branco para manter)</span>}</label>
-                                                <input type="password" inputMode="numeric" maxLength={4} className="form-control"
-                                                    value={formData.pin}
-                                                    onChange={(e) => setFormData({ ...formData, pin: e.target.value.replace(/\D/g, '') })}
-                                                    placeholder="••••" />
+                                                <label>Senha {editingId && <span className="hint">(deixe em branco para manter)</span>}</label>
+                                                <input type="password" maxLength={128} className="form-control"
+                                                    value={formData.senha}
+                                                    onChange={(e) => setFormData({ ...formData, senha: e.target.value })}
+                                                    placeholder="Mínimo 8 caracteres" />
+                                                <PasswordRequirements senha={formData.senha} />
                                             </div>
                                             <div className="form-group">
-                                                <label>Confirmar PIN</label>
-                                                <input type="password" inputMode="numeric" maxLength={4} className="form-control"
-                                                    value={formData.confirmPin}
-                                                    onChange={(e) => setFormData({ ...formData, confirmPin: e.target.value.replace(/\D/g, '') })}
-                                                    placeholder="••••" />
+                                                <label>Confirmar Senha</label>
+                                                <input type="password" maxLength={128} className="form-control"
+                                                    value={formData.confirmSenha}
+                                                    onChange={(e) => setFormData({ ...formData, confirmSenha: e.target.value })}
+                                                    placeholder="Repita a senha" />
                                             </div>
                                             {formData.role === 'consultor' && (
                                                 <div className="form-group">

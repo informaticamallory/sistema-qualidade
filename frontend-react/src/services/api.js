@@ -91,9 +91,9 @@ api.interceptors.response.use(
 
 // ==================== AUTH ====================
 export const authAPI = {
-    login: (usuario, pin) => api.post('/auth/login', { usuario, pin }),
+    login: (usuario, senha) => api.post('/auth/login', { usuario, senha }),
     register: (data) => api.post('/auth/register', data),
-    verifyAdmin: (pin) => api.post('/auth/verify-admin', { pin }),
+    verifyAdmin: (senha) => api.post('/auth/verify-admin', { senha }),
     me: () => dedupedGet('/auth/me'),
     getUsuarios: () => dedupedGet('/auth/usuarios'),
     deleteUsuario: (id) => api.delete(`/auth/usuarios/${id}`),

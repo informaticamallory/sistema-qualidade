@@ -10,6 +10,7 @@ from app.utils.responses import create_response
 from app.utils.audit import log_audit
 from app.utils.auth_decorators import auth_required
 from app.utils.permissions import effective_permissions
+from app.utils.password_validation import validar_senha, TAMANHO_MAXIMO
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -24,29 +25,40 @@ def login():
     try:
         dados = request.get_json() or {}
         usuario = dados.get('usuario')
-        pin = dados.get('pin')
+        senha = dados.get('senha')
 
-        if not usuario or not pin:
+        if not usuario or not senha:
             return create_response(
                 success=False,
-                message='Usuário e PIN são obrigatórios',
+                message='Usuário e senha são obrigatórios',
                 status_code=400
             )
 
-        if len(pin) != 4 or not pin.isdigit():
+        # Aqui só verificamos presença/tamanho básico, não a política de
+        # complexidade: a senha já foi validada quando foi definida. Repetir
+        # a checagem no login rejeitaria também PINs legados antes de darmos
+        # a chance de identificar e bloquear via must_reset_password.
+        if len(senha) > TAMANHO_MAXIMO:
             return create_response(
                 success=False,
-                message='PIN deve ter 4 dígitos',
-                status_code=400
+                message='Usuário ou senha inválido',
+                status_code=401
             )
 
         user = Usuario.query.filter_by(usuario=usuario, ativo=True).first()
 
-        if not user or not user.verify_pin(pin):
+        if not user or not user.verificar_senha(senha):
             return create_response(
                 success=False,
-                message='Usuário ou PIN inválido',
+                message='Usuário ou senha inválido',
                 status_code=401
+            )
+
+        if user.must_reset_password:
+            return create_response(
+                success=False,
+                message='Sua senha precisa ser redefinida por um administrador antes de você continuar. Contate o suporte.',
+                status_code=403
             )
 
         # Token JWT assinado, com o papel embutido nas claims
@@ -108,18 +120,20 @@ def register():
     try:
         dados = request.get_json() or {}
 
-        if not dados.get('nome') or not dados.get('usuario') or not dados.get('pin'):
+        if not dados.get('nome') or not dados.get('usuario') or not dados.get('senha'):
             return create_response(
                 success=False,
-                message='Nome, usuário e PIN são obrigatórios',
+                message='Nome, usuário e senha são obrigatórios',
                 status_code=400
             )
 
-        pin = dados.get('pin')
-        if len(pin) != 4 or not pin.isdigit():
+        senha = dados.get('senha')
+        criterios_faltantes = validar_senha(senha)
+        if criterios_faltantes:
             return create_response(
                 success=False,
-                message='PIN deve ter 4 dígitos',
+                message='Senha não atende aos requisitos de segurança',
+                errors=criterios_faltantes,
                 status_code=400
             )
 
@@ -156,9 +170,10 @@ def register():
             nome=dados.get('nome'),
             usuario=dados.get('usuario'),
             role=role,
-            fichas_permission=fichas_permission
+            fichas_permission=fichas_permission,
+            must_reset_password=False
         )
-        novo_usuario.set_pin(pin)
+        novo_usuario.set_senha(senha)
 
         db.session.add(novo_usuario)
         db.session.commit()
@@ -182,25 +197,25 @@ def register():
 @auth_bp.route('/verify-admin', methods=['POST', 'OPTIONS'])
 @limiter.limit("10 per minute", methods=['POST'])
 def verify_admin():
-    """Verificar PIN de administrador"""
+    """Verificar senha de administrador"""
     if request.method == 'OPTIONS':
         return '', 200
 
     try:
         dados = request.get_json() or {}
-        pin = dados.get('pin')
+        senha = dados.get('senha')
 
-        if not pin or len(pin) != 4:
+        if not senha or len(senha) > TAMANHO_MAXIMO:
             return create_response(
                 success=False,
-                message='PIN inválido',
+                message='Senha inválida',
                 status_code=400
             )
 
         admins = Usuario.query.filter_by(role='admin', ativo=True).all()
 
         for admin in admins:
-            if admin.verify_pin(pin):
+            if admin.verificar_senha(senha) and not admin.must_reset_password:
                 return create_response(
                     success=True,
                     message='Verificação bem-sucedida',
@@ -209,7 +224,7 @@ def verify_admin():
 
         return create_response(
             success=False,
-            message='PIN de administrador inválido',
+            message='Senha de administrador inválida',
             status_code=401
         )
 

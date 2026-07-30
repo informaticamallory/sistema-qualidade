@@ -15,7 +15,12 @@ class Usuario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
     usuario = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    # Nome da coluna mantido como pin_hash por compatibilidade com bancos
+    # existentes (evita um RENAME COLUMN); hoje armazena o hash da senha.
     pin_hash = db.Column(db.String(256), nullable=False)
+    # True enquanto o usuário ainda não trocou um PIN legado de 4 dígitos
+    # pela nova senha forte de 8+ caracteres. Ver garantir_schema_usuarios().
+    must_reset_password = db.Column(db.Boolean, default=False, nullable=False)
     role = db.Column(db.String(20), default='inspetor')
     fichas_permission = db.Column(db.String(20), default='readonly')
     ativo = db.Column(db.Boolean, default=True)
@@ -25,18 +30,18 @@ class Usuario(db.Model):
     def __repr__(self):
         return f'<Usuario {self.usuario}>'
 
-    def set_pin(self, pin):
-        """Gera hash seguro do PIN (PBKDF2 com salt)"""
-        self.pin_hash = generate_password_hash(pin)
+    def set_senha(self, senha):
+        """Gera hash seguro da senha (PBKDF2 com salt)"""
+        self.pin_hash = generate_password_hash(senha)
 
-    def verify_pin(self, pin):
-        """Verifica o PIN. Mantém compatibilidade com hashes SHA-256
-        legados e faz upgrade transparente para o hash seguro."""
+    def verificar_senha(self, senha):
+        """Verifica a senha. Mantém compatibilidade com hashes SHA-256
+        legados (PIN antigo) e faz upgrade transparente para o hash seguro."""
         # Hash legado: SHA-256 simples (64 caracteres hexadecimais, sem prefixo)
         if self._is_legacy_hash(self.pin_hash):
-            if self.pin_hash == hashlib.sha256(pin.encode()).hexdigest():
+            if self.pin_hash == hashlib.sha256(senha.encode()).hexdigest():
                 # Re-hash com algoritmo seguro na primeira verificação correta
-                self.set_pin(pin)
+                self.set_senha(senha)
                 try:
                     db.session.commit()
                 except Exception:
@@ -44,7 +49,7 @@ class Usuario(db.Model):
                 return True
             return False
 
-        return check_password_hash(self.pin_hash, pin)
+        return check_password_hash(self.pin_hash, senha)
 
     @staticmethod
     def _is_legacy_hash(stored):

@@ -226,7 +226,10 @@
     }
 
     .modal-content {
+        /* dvh acompanha a altura visível real no mobile (barra de endereço/
+           navegação); vh fica como fallback para navegadores sem suporte. */
         max-height: calc(100vh - 40px) !important;
+        max-height: calc(100dvh - 40px) !important;
         border-radius: 15px !important;
     }
 
@@ -296,6 +299,7 @@
 @media (max-height: 500px) and (orientation: landscape) {
     .modal-content {
         max-height: 90vh !important;
+        max-height: 90dvh !important;
     }
 
     .login-container {

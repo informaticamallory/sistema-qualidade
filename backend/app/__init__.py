@@ -131,6 +131,14 @@ def garantir_schema_usuarios(app):
                     "ALTER TABLE usuarios ADD COLUMN fichas_permission VARCHAR(20) DEFAULT 'readonly'"
                 ))
                 db.session.commit()
+            if 'must_reset_password' not in colunas:
+                # DEFAULT TRUE para que usuários já existentes (com PIN de 4
+                # dígitos) sejam obrigados a passar pela redefinição feita
+                # por um administrador antes de logar com a nova política.
+                db.session.execute(db.text(
+                    "ALTER TABLE usuarios ADD COLUMN must_reset_password BOOLEAN DEFAULT TRUE"
+                ))
+                db.session.commit()
         except Exception as e:
             db.session.rollback()
             app.logger.error(f"Erro ao atualizar schema de usuarios: {str(e)}")
@@ -305,6 +313,7 @@ def criar_admin_padrao(app):
     """Criar administrador padrão se não existir e popular o catálogo de permissões"""
     from app.models.usuario import Usuario
     from app.utils.permissions import seed_permissoes
+    from app.utils.password_validation import gerar_senha_temporaria
 
     garantir_schema_usuarios(app)
     garantir_schema_injecao(app)
@@ -323,21 +332,28 @@ def criar_admin_padrao(app):
         admin = Usuario.query.filter_by(usuario='admin').first()
 
         if not admin:
+            # Gera uma senha já compatível com a política atual: como não há
+            # outro admin para fazer um reset manual, must_reset_password
+            # fica False (senão o admin recém-criado ficaria trancado fora).
+            senha_temporaria = gerar_senha_temporaria()
+
             admin = Usuario(
                 nome='Administrador',
                 usuario='admin',
-                role='admin'
+                role='admin',
+                must_reset_password=False
             )
-            admin.set_pin('1234')
-            
+            admin.set_senha(senha_temporaria)
+
             db.session.add(admin)
             db.session.commit()
-            
+
             print("=" * 60)
             print("👤 ADMINISTRADOR PADRÃO CRIADO")
             print("=" * 60)
             print("Usuário: admin")
-            print("PIN: 1234")
-            print("⚠️  IMPORTANTE: Altere o PIN após o primeiro login!")
+            print(f"Senha temporária: {senha_temporaria}")
+            print("⚠️  IMPORTANTE: copie agora — não será exibida de novo.")
+            print("   Troque a senha após o primeiro login (tela Usuários).")
             print("=" * 60)
 

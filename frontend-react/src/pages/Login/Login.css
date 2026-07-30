@@ -45,7 +45,7 @@
 
 .login-body {
     width: 100%;
-    max-width: 450px;
+    max-width: 560px;
 }
 
 .form-container {
@@ -125,16 +125,17 @@
 
 .pin-input-group {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     justify-content: center;
+    flex-wrap: nowrap;
 }
 
 .pin-digit {
-    width: 54px;
-    height: 58px;
+    width: 42px;
+    height: 52px;
     text-align: center;
     font-family: var(--font-mono);
-    font-size: 1.45rem;
+    font-size: 1.2rem;
     font-weight: 700;
     border: 1.5px solid var(--border);
     border-radius: var(--r-md);
@@ -260,9 +261,13 @@
     }
 
     .pin-digit {
-        width: 48px;
-        height: 52px;
-        font-size: 1.25rem;
+        width: 32px;
+        height: 44px;
+        font-size: 1.05rem;
+    }
+
+    .pin-input-group {
+        gap: 5px;
     }
 
     .role-grid {
@@ -286,12 +291,13 @@
     }
 
     .pin-input-group {
-        gap: 8px;
+        gap: 4px;
     }
 
     .pin-digit {
-        width: 42px;
-        height: 48px;
+        width: 28px;
+        height: 40px;
+        font-size: 0.95rem;
     }
 }
 
@@ -333,8 +339,8 @@
     }
 
     .pin-digit {
-        width: 40px;
-        height: 44px;
-        font-size: 1.1rem;
+        width: 30px;
+        height: 38px;
+        font-size: 0.95rem;
     }
 }

@@ -2,24 +2,29 @@ import { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/auth-context';
 import ThemeToggle from '../../components/ThemeToggle/ThemeToggle';
+import PasswordRequirements from '../../components/PasswordRequirements/PasswordRequirements';
+import { senhaValida } from '../../utils/passwordValidation';
 import { canAccess, defaultPathForUser } from '../../config/permissions';
 import './Login.css';
 
-function PinInput({ pins, setPins, refs, onPaste, onChange, onKeyDown, showPin, type = 'password' }) {
+const TAMANHO_SENHA = 8;
+const vazio = () => Array(TAMANHO_SENHA).fill('');
+
+function SenhaInput({ chars, setChars, refs, onPaste, onChange, onKeyDown, showSenha }) {
     return (
         <div className="pin-input-group">
-            {[0, 1, 2, 3].map((i) => (
+            {chars.map((_, i) => (
                 <input
                     key={i}
                     ref={(el) => (refs.current[i] = el)}
-                    type={showPin ? 'text' : type}
+                    type={showSenha ? 'text' : 'password'}
                     maxLength={1}
                     className="pin-digit"
-                    value={pins[i]}
-                    onChange={(e) => onChange(i, e.target.value, pins, setPins, refs)}
+                    value={chars[i]}
+                    onChange={(e) => onChange(i, e.target.value, chars, setChars, refs)}
                     onKeyDown={(e) => onKeyDown(e, i, refs)}
-                    onPaste={(e) => onPaste(e, setPins, refs)}
-                    inputMode="numeric"
+                    onPaste={(e) => onPaste(e, setChars, refs)}
+                    autoComplete="off"
                 />
             ))}
         </div>
@@ -30,24 +35,24 @@ function Login() {
     const [isLogin, setIsLogin] = useState(true);
     const [showAdminVerify, setShowAdminVerify] = useState(false);
     const [adminVerified, setAdminVerified] = useState(false);
-    const [showPin, setShowPin] = useState(false);
+    const [showSenha, setShowSenha] = useState(false);
     const [loading, setLoading] = useState(false);
     const [alert, setAlert] = useState({ show: false, type: '', message: '' });
     const [selectedRole, setSelectedRole] = useState('supervisor');
 
-    const [loginData, setLoginData] = useState({ usuario: '', pin: ['', '', '', ''] });
+    const [loginData, setLoginData] = useState({ usuario: '', senha: vazio() });
     const [registerData, setRegisterData] = useState({
         nome: '',
         usuario: '',
-        pin: ['', '', '', ''],
-        confirmPin: ['', '', '', '']
+        senha: vazio(),
+        confirmSenha: vazio()
     });
-    const [adminPin, setAdminPin] = useState(['', '', '', '']);
+    const [adminSenha, setAdminSenha] = useState(vazio());
 
-    const loginPinRefs = useRef([]);
-    const adminPinRefs = useRef([]);
-    const registerPinRefs = useRef([]);
-    const confirmPinRefs = useRef([]);
+    const loginSenhaRefs = useRef([]);
+    const adminSenhaRefs = useRef([]);
+    const registerSenhaRefs = useRef([]);
+    const confirmSenhaRefs = useRef([]);
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -65,50 +70,49 @@ function Login() {
         setTimeout(() => setAlert({ show: false, type: '', message: '' }), 5000);
     };
 
-    const handlePinChange = (index, value, pins, setPins, refs) => {
-        if (!/^\d*$/.test(value)) return;
+    const handleCharChange = (index, value, chars, setChars, refs) => {
+        const char = value.slice(-1);
 
-        const newPins = [...pins];
-        newPins[index] = value.slice(-1);
+        const newChars = [...chars];
+        newChars[index] = char;
 
-        // Atualizar o estado baseado no tipo de pins
-        if (pins === loginData.pin) {
-            setLoginData(prev => ({ ...prev, pin: newPins }));
-        } else if (pins === registerData.pin) {
-            setRegisterData(prev => ({ ...prev, pin: newPins }));
-        } else if (pins === registerData.confirmPin) {
-            setRegisterData(prev => ({ ...prev, confirmPin: newPins }));
-        } else if (pins === adminPin) {
-            setAdminPin(newPins);
+        if (chars === loginData.senha) {
+            setLoginData(prev => ({ ...prev, senha: newChars }));
+        } else if (chars === registerData.senha) {
+            setRegisterData(prev => ({ ...prev, senha: newChars }));
+        } else if (chars === registerData.confirmSenha) {
+            setRegisterData(prev => ({ ...prev, confirmSenha: newChars }));
+        } else if (chars === adminSenha) {
+            setAdminSenha(newChars);
         } else {
-            setPins(newPins);
+            setChars(newChars);
         }
 
         // Auto-focus no próximo campo
-        if (value && index < 3) {
+        if (char && index < TAMANHO_SENHA - 1) {
             setTimeout(() => {
                 refs.current[index + 1]?.focus();
             }, 10);
         }
     };
 
-    const handlePinKeyDown = (e, index, refs) => {
+    const handleCharKeyDown = (e, index, refs) => {
         if (e.key === 'Backspace' && !e.target.value && index > 0) {
             refs.current[index - 1]?.focus();
         }
     };
 
-    const handlePinPaste = (e, setPins, refs) => {
+    const handleCharPaste = (e, setChars, refs) => {
         e.preventDefault();
-        const pasted = e.clipboardData.getData('text').slice(0, 4);
-        const newPins = pasted.split('').map(c => /\d/.test(c) ? c : '');
-        while (newPins.length < 4) newPins.push('');
-        setPins(newPins);
-        if (pasted.length === 4) refs.current[3]?.focus();
+        const pasted = e.clipboardData.getData('text').trim().slice(0, TAMANHO_SENHA);
+        const newChars = pasted.split('');
+        while (newChars.length < TAMANHO_SENHA) newChars.push('');
+        setChars(newChars);
+        if (pasted.length === TAMANHO_SENHA) refs.current[TAMANHO_SENHA - 1]?.focus();
     };
 
-    const clearPins = (setPins, refs) => {
-        setPins(['', '', '', '']);
+    const clearChars = (setChars, refs) => {
+        setChars(vazio());
         refs.current[0]?.focus();
     };
 
@@ -120,14 +124,14 @@ function Login() {
             return;
         }
 
-        const pin = loginData.pin.join('');
-        if (pin.length !== 4) {
-            showAlert('error', 'Digite o PIN completo');
+        const senha = loginData.senha.join('');
+        if (!senhaValida(senha)) {
+            showAlert('error', 'A senha não atende aos requisitos. Verifique a lista abaixo do campo.');
             return;
         }
 
         setLoading(true);
-        const result = await login(loginData.usuario, pin);
+        const result = await login(loginData.usuario, senha);
         setLoading(false);
 
         if (result.success) {
@@ -138,23 +142,23 @@ function Login() {
                 navigate(destination && canAccess(result.user, destination) ? destination : fallback);
             }, 1000);
         } else {
-            showAlert('error', result.message || 'Usuário ou PIN inválido');
-            clearPins(
-                (newPins) => setLoginData(prev => ({ ...prev, pin: newPins })),
-                loginPinRefs
+            showAlert('error', result.message || 'Usuário ou senha inválido');
+            clearChars(
+                (newChars) => setLoginData(prev => ({ ...prev, senha: newChars })),
+                loginSenhaRefs
             );
         }
     };
 
     const handleVerifyAdmin = async () => {
-        const pin = adminPin.join('');
-        if (pin.length !== 4) {
-            showAlert('error', 'Digite o PIN completo do administrador');
+        const senha = adminSenha.join('');
+        if (!senhaValida(senha)) {
+            showAlert('error', 'Digite a senha completa do administrador');
             return;
         }
 
         setLoading(true);
-        const result = await verifyAdmin(pin);
+        const result = await verifyAdmin(senha);
         setLoading(false);
 
         if (result.success) {
@@ -162,8 +166,8 @@ function Login() {
             setShowAdminVerify(false);
             showAlert('success', 'Verificação concluída. Preencha os dados do novo usuário');
         } else {
-            showAlert('error', 'PIN de administrador inválido');
-            clearPins(setAdminPin, adminPinRefs);
+            showAlert('error', 'Senha de administrador inválida');
+            clearChars(setAdminSenha, adminSenhaRefs);
         }
     };
 
@@ -175,19 +179,19 @@ function Login() {
             return;
         }
 
-        const pin = registerData.pin.join('');
-        const confirmPin = registerData.confirmPin.join('');
+        const senha = registerData.senha.join('');
+        const confirmSenha = registerData.confirmSenha.join('');
 
-        if (pin.length !== 4) {
-            showAlert('error', 'Digite o PIN completo');
+        if (!senhaValida(senha)) {
+            showAlert('error', 'A senha não atende aos requisitos. Verifique a lista abaixo do campo.');
             return;
         }
 
-        if (pin !== confirmPin) {
-            showAlert('error', 'Os PINs não coincidem');
-            clearPins(
-                (newPins) => setRegisterData(prev => ({ ...prev, confirmPin: newPins })),
-                confirmPinRefs
+        if (senha !== confirmSenha) {
+            showAlert('error', 'As senhas não coincidem');
+            clearChars(
+                (newChars) => setRegisterData(prev => ({ ...prev, confirmSenha: newChars })),
+                confirmSenhaRefs
             );
             return;
         }
@@ -196,7 +200,7 @@ function Login() {
         const result = await register({
             nome: registerData.nome,
             usuario: registerData.usuario,
-            pin,
+            senha,
             role: selectedRole
         });
         setLoading(false);
@@ -206,13 +210,18 @@ function Login() {
             setTimeout(() => {
                 setIsLogin(true);
                 setAdminVerified(false);
-                setLoginData({ usuario: registerData.usuario, pin: ['', '', '', ''] });
-                setRegisterData({ nome: '', usuario: '', pin: ['', '', '', ''], confirmPin: ['', '', '', ''] });
+                setLoginData({ usuario: registerData.usuario, senha: vazio() });
+                setRegisterData({ nome: '', usuario: '', senha: vazio(), confirmSenha: vazio() });
             }, 2000);
         } else {
             showAlert('error', result.message || 'Erro ao criar conta');
         }
     };
+
+    const loginSenhaTexto = loginData.senha.join('');
+    const registerSenhaTexto = registerData.senha.join('');
+    const podeEntrar = loginData.usuario.trim() && senhaValida(loginSenhaTexto);
+    const podeCriarConta = registerData.nome.trim() && registerData.usuario.trim() && senhaValida(registerSenhaTexto);
 
     return (
         <div className="login-container">
@@ -251,29 +260,30 @@ function Login() {
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">PIN de 4 Dígitos</label>
+                                <label className="form-label">Senha</label>
                                 <div className="pin-container">
-                                    <PinInput
-                                        pins={loginData.pin}
-                                        setPins={(newPins) => setLoginData(prev => ({ ...prev, pin: newPins }))}
-                                        refs={loginPinRefs}
-                                        onPaste={handlePinPaste}
-                                        onChange={handlePinChange}
-                                        onKeyDown={handlePinKeyDown}
-                                        showPin={showPin}
+                                    <SenhaInput
+                                        chars={loginData.senha}
+                                        setChars={(newChars) => setLoginData(prev => ({ ...prev, senha: newChars }))}
+                                        refs={loginSenhaRefs}
+                                        onPaste={handleCharPaste}
+                                        onChange={handleCharChange}
+                                        onKeyDown={handleCharKeyDown}
+                                        showSenha={showSenha}
                                     />
                                     <button
                                         type="button"
                                         className="pin-toggle-btn"
-                                        onClick={() => setShowPin(!showPin)}
+                                        onClick={() => setShowSenha(!showSenha)}
                                     >
-                                        <i className={`fas fa-eye${showPin ? '-slash' : ''}`}></i>
-                                        <span>{showPin ? 'Ocultar' : 'Mostrar'} PIN</span>
+                                        <i className={`fas fa-eye${showSenha ? '-slash' : ''}`}></i>
+                                        <span>{showSenha ? 'Ocultar' : 'Mostrar'} senha</span>
                                     </button>
                                 </div>
+                                <PasswordRequirements senha={loginSenhaTexto} />
                             </div>
 
-                            <button type="submit" className="btn btn-primary" disabled={loading}>
+                            <button type="submit" className="btn btn-primary" disabled={loading || !podeEntrar}>
                                 {loading ? (
                                     <><i className="fas fa-spinner fa-spin"></i> Entrando...</>
                                 ) : (
@@ -291,19 +301,19 @@ function Login() {
                             <div className="admin-verification">
                                 <div className="alert alert-info">
                                     <i className="fas fa-info-circle"></i>
-                                    Apenas administradores podem criar novas contas. Insira o PIN do administrador.
+                                    Apenas administradores podem criar novas contas. Insira a senha do administrador.
                                 </div>
 
                                 <div className="form-group">
-                                    <label className="form-label">PIN do Administrador</label>
-                                    <PinInput
-                                        pins={adminPin}
-                                        setPins={setAdminPin}
-                                        refs={adminPinRefs}
-                                        onPaste={handlePinPaste}
-                                        onChange={handlePinChange}
-                                        onKeyDown={handlePinKeyDown}
-                                        showPin={showPin}
+                                    <label className="form-label">Senha do Administrador</label>
+                                    <SenhaInput
+                                        chars={adminSenha}
+                                        setChars={setAdminSenha}
+                                        refs={adminSenhaRefs}
+                                        onPaste={handleCharPaste}
+                                        onChange={handleCharChange}
+                                        onKeyDown={handleCharKeyDown}
+                                        showSenha={showSenha}
                                     />
                                 </div>
 
@@ -368,32 +378,33 @@ function Login() {
                                 </div>
 
                                 <div className="form-group">
-                                    <label className="form-label">PIN de 4 Dígitos</label>
-                                    <PinInput
-                                        pins={registerData.pin}
-                                        setPins={(newPins) => setRegisterData(prev => ({ ...prev, pin: newPins }))}
-                                        refs={registerPinRefs}
-                                        onPaste={handlePinPaste}
-                                        onChange={handlePinChange}
-                                        onKeyDown={handlePinKeyDown}
-                                        showPin={showPin}
+                                    <label className="form-label">Senha</label>
+                                    <SenhaInput
+                                        chars={registerData.senha}
+                                        setChars={(newChars) => setRegisterData(prev => ({ ...prev, senha: newChars }))}
+                                        refs={registerSenhaRefs}
+                                        onPaste={handleCharPaste}
+                                        onChange={handleCharChange}
+                                        onKeyDown={handleCharKeyDown}
+                                        showSenha={showSenha}
                                     />
+                                    <PasswordRequirements senha={registerSenhaTexto} />
                                 </div>
 
                                 <div className="form-group">
-                                    <label className="form-label">Confirmar PIN</label>
-                                    <PinInput
-                                        pins={registerData.confirmPin}
-                                        setPins={(newPins) => setRegisterData(prev => ({ ...prev, confirmPin: newPins }))}
-                                        refs={confirmPinRefs}
-                                        onPaste={handlePinPaste}
-                                        onChange={handlePinChange}
-                                        onKeyDown={handlePinKeyDown}
-                                        showPin={showPin}
+                                    <label className="form-label">Confirmar Senha</label>
+                                    <SenhaInput
+                                        chars={registerData.confirmSenha}
+                                        setChars={(newChars) => setRegisterData(prev => ({ ...prev, confirmSenha: newChars }))}
+                                        refs={confirmSenhaRefs}
+                                        onPaste={handleCharPaste}
+                                        onChange={handleCharChange}
+                                        onKeyDown={handleCharKeyDown}
+                                        showSenha={showSenha}
                                     />
                                 </div>
 
-                                <button type="submit" className="btn btn-primary" disabled={loading}>
+                                <button type="submit" className="btn btn-primary" disabled={loading || !podeCriarConta}>
                                     {loading ? <><i className="fas fa-spinner fa-spin"></i> Criando...</> : <><i className="fas fa-user-plus"></i> Criar Conta</>}
                                 </button>
 
@@ -415,4 +426,3 @@ function Login() {
 }
 
 export default Login;
-

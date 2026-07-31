@@ -1047,8 +1047,17 @@ textarea.form-control {
 }
 
 @media (max-width: 600px) {
+    .dashboard-actions {
+        width: auto;
+        flex-wrap: nowrap;
+        gap: 0.4rem;
+    }
+
     .dashboard-actions .btn {
-        width: 100%;
+        width: 42px;
+        min-width: 42px;
+        height: 42px;
+        padding: 0;
     }
 
     .composer-grid {

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/auth-context';
 import ThemeToggle from '../../components/ThemeToggle/ThemeToggle';
@@ -7,27 +7,16 @@ import { senhaValida } from '../../utils/passwordValidation';
 import { canAccess, defaultPathForUser } from '../../config/permissions';
 import './Login.css';
 
-const TAMANHO_SENHA = 8;
-const vazio = () => Array(TAMANHO_SENHA).fill('');
-
-function SenhaInput({ chars, setChars, refs, onPaste, onChange, onKeyDown, showSenha }) {
+function SenhaField({ value, onChange, showSenha, placeholder = 'Digite sua senha', autoComplete = 'current-password' }) {
     return (
-        <div className="pin-input-group">
-            {chars.map((_, i) => (
-                <input
-                    key={i}
-                    ref={(el) => (refs.current[i] = el)}
-                    type={showSenha ? 'text' : 'password'}
-                    maxLength={1}
-                    className="pin-digit"
-                    value={chars[i]}
-                    onChange={(e) => onChange(i, e.target.value, chars, setChars, refs)}
-                    onKeyDown={(e) => onKeyDown(e, i, refs)}
-                    onPaste={(e) => onPaste(e, setChars, refs)}
-                    autoComplete="off"
-                />
-            ))}
-        </div>
+        <input
+            type={showSenha ? 'text' : 'password'}
+            className="form-control"
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            autoComplete={autoComplete}
+        />
     );
 }
 
@@ -40,23 +29,16 @@ function Login() {
     const [alert, setAlert] = useState({ show: false, type: '', message: '' });
     const [selectedRole, setSelectedRole] = useState('supervisor');
 
-    const [loginData, setLoginData] = useState({ usuario: '', senha: vazio() });
+    const [loginData, setLoginData] = useState({ usuario: '', senha: '' });
     const [registerData, setRegisterData] = useState({
         nome: '',
         usuario: '',
-        senha: vazio(),
-        confirmSenha: vazio()
+        senha: '',
+        confirmSenha: ''
     });
-    const [adminSenha, setAdminSenha] = useState(vazio());
+    const [adminSenha, setAdminSenha] = useState('');
     const [resetToken, setResetToken] = useState(null);
-    const [resetData, setResetData] = useState({ senha: vazio(), confirmSenha: vazio() });
-
-    const loginSenhaRefs = useRef([]);
-    const adminSenhaRefs = useRef([]);
-    const registerSenhaRefs = useRef([]);
-    const confirmSenhaRefs = useRef([]);
-    const resetSenhaRefs = useRef([]);
-    const resetConfirmSenhaRefs = useRef([]);
+    const [resetData, setResetData] = useState({ senha: '', confirmSenha: '' });
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -74,56 +56,6 @@ function Login() {
         setTimeout(() => setAlert({ show: false, type: '', message: '' }), 5000);
     };
 
-    const handleCharChange = (index, value, chars, setChars, refs) => {
-        const char = value.slice(-1);
-
-        const newChars = [...chars];
-        newChars[index] = char;
-
-        if (chars === loginData.senha) {
-            setLoginData(prev => ({ ...prev, senha: newChars }));
-        } else if (chars === registerData.senha) {
-            setRegisterData(prev => ({ ...prev, senha: newChars }));
-        } else if (chars === registerData.confirmSenha) {
-            setRegisterData(prev => ({ ...prev, confirmSenha: newChars }));
-        } else if (chars === adminSenha) {
-            setAdminSenha(newChars);
-        } else if (chars === resetData.senha) {
-            setResetData(prev => ({ ...prev, senha: newChars }));
-        } else if (chars === resetData.confirmSenha) {
-            setResetData(prev => ({ ...prev, confirmSenha: newChars }));
-        } else {
-            setChars(newChars);
-        }
-
-        // Auto-focus no próximo campo
-        if (char && index < TAMANHO_SENHA - 1) {
-            setTimeout(() => {
-                refs.current[index + 1]?.focus();
-            }, 10);
-        }
-    };
-
-    const handleCharKeyDown = (e, index, refs) => {
-        if (e.key === 'Backspace' && !e.target.value && index > 0) {
-            refs.current[index - 1]?.focus();
-        }
-    };
-
-    const handleCharPaste = (e, setChars, refs) => {
-        e.preventDefault();
-        const pasted = e.clipboardData.getData('text').trim().slice(0, TAMANHO_SENHA);
-        const newChars = pasted.split('');
-        while (newChars.length < TAMANHO_SENHA) newChars.push('');
-        setChars(newChars);
-        if (pasted.length === TAMANHO_SENHA) refs.current[TAMANHO_SENHA - 1]?.focus();
-    };
-
-    const clearChars = (setChars, refs) => {
-        setChars(vazio());
-        refs.current[0]?.focus();
-    };
-
     const handleLogin = async (e) => {
         e.preventDefault();
 
@@ -132,7 +64,7 @@ function Login() {
             return;
         }
 
-        const senha = loginData.senha.join('');
+        const senha = loginData.senha;
         if (!senha) {
             showAlert('error', 'Digite sua senha');
             return;
@@ -151,21 +83,18 @@ function Login() {
             }, 1000);
         } else if (result.requiresPasswordReset && result.passwordResetToken) {
             setResetToken(result.passwordResetToken);
-            setResetData({ senha: vazio(), confirmSenha: vazio() });
+            setResetData({ senha: '', confirmSenha: '' });
             showAlert('info', 'Defina uma nova senha para continuar.');
         } else {
             showAlert('error', result.message || 'Usuário ou senha inválido');
-            clearChars(
-                (newChars) => setLoginData(prev => ({ ...prev, senha: newChars })),
-                loginSenhaRefs
-            );
+            setLoginData(prev => ({ ...prev, senha: '' }));
         }
     };
 
     const handleLegacyPasswordReset = async (e) => {
         e.preventDefault();
-        const senha = resetData.senha.join('');
-        const confirmSenha = resetData.confirmSenha.join('');
+        const senha = resetData.senha;
+        const confirmSenha = resetData.confirmSenha;
 
         if (!senhaValida(senha)) {
             showAlert('error', 'A senha deve ter ao menos 8 caracteres, incluindo maiúscula, minúscula, número e caractere especial.');
@@ -191,7 +120,7 @@ function Login() {
     };
 
     const handleVerifyAdmin = async () => {
-        const senha = adminSenha.join('');
+        const senha = adminSenha;
         if (!senhaValida(senha)) {
             showAlert('error', 'Digite a senha completa do administrador');
             return;
@@ -207,7 +136,7 @@ function Login() {
             showAlert('success', 'Verificação concluída. Preencha os dados do novo usuário');
         } else {
             showAlert('error', 'Senha de administrador inválida');
-            clearChars(setAdminSenha, adminSenhaRefs);
+            setAdminSenha('');
         }
     };
 
@@ -219,8 +148,8 @@ function Login() {
             return;
         }
 
-        const senha = registerData.senha.join('');
-        const confirmSenha = registerData.confirmSenha.join('');
+        const senha = registerData.senha;
+        const confirmSenha = registerData.confirmSenha;
 
         if (!senhaValida(senha)) {
             showAlert('error', 'A senha não atende aos requisitos. Verifique a lista abaixo do campo.');
@@ -229,10 +158,7 @@ function Login() {
 
         if (senha !== confirmSenha) {
             showAlert('error', 'As senhas não coincidem');
-            clearChars(
-                (newChars) => setRegisterData(prev => ({ ...prev, confirmSenha: newChars })),
-                confirmSenhaRefs
-            );
+            setRegisterData(prev => ({ ...prev, confirmSenha: '' }));
             return;
         }
 
@@ -250,16 +176,16 @@ function Login() {
             setTimeout(() => {
                 setIsLogin(true);
                 setAdminVerified(false);
-                setLoginData({ usuario: registerData.usuario, senha: vazio() });
-                setRegisterData({ nome: '', usuario: '', senha: vazio(), confirmSenha: vazio() });
+                setLoginData({ usuario: registerData.usuario, senha: '' });
+                setRegisterData({ nome: '', usuario: '', senha: '', confirmSenha: '' });
             }, 2000);
         } else {
             showAlert('error', result.message || 'Erro ao criar conta');
         }
     };
 
-    const loginSenhaTexto = loginData.senha.join('');
-    const registerSenhaTexto = registerData.senha.join('');
+    const loginSenhaTexto = loginData.senha;
+    const registerSenhaTexto = registerData.senha;
     const podeEntrar = loginData.usuario.trim() && loginSenhaTexto.length > 0;
     const podeCriarConta = registerData.nome.trim() && registerData.usuario.trim() && senhaValida(registerSenhaTexto);
 
@@ -288,27 +214,23 @@ function Login() {
                         <form onSubmit={handleLegacyPasswordReset}>
                             <div className="form-group">
                                 <label className="form-label">Nova senha</label>
-                                <SenhaInput
-                                    chars={resetData.senha}
-                                    setChars={(newChars) => setResetData(prev => ({ ...prev, senha: newChars }))}
-                                    refs={resetSenhaRefs}
-                                    onPaste={handleCharPaste}
-                                    onChange={handleCharChange}
-                                    onKeyDown={handleCharKeyDown}
+                                <SenhaField
+                                    value={resetData.senha}
+                                    onChange={(e) => setResetData(prev => ({ ...prev, senha: e.target.value }))}
                                     showSenha={showSenha}
+                                    placeholder="Digite a nova senha"
+                                    autoComplete="new-password"
                                 />
-                                <PasswordRequirements senha={resetData.senha.join('')} />
+                                <PasswordRequirements senha={resetData.senha} />
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Confirmar nova senha</label>
-                                <SenhaInput
-                                    chars={resetData.confirmSenha}
-                                    setChars={(newChars) => setResetData(prev => ({ ...prev, confirmSenha: newChars }))}
-                                    refs={resetConfirmSenhaRefs}
-                                    onPaste={handleCharPaste}
-                                    onChange={handleCharChange}
-                                    onKeyDown={handleCharKeyDown}
+                                <SenhaField
+                                    value={resetData.confirmSenha}
+                                    onChange={(e) => setResetData(prev => ({ ...prev, confirmSenha: e.target.value }))}
                                     showSenha={showSenha}
+                                    placeholder="Confirme a nova senha"
+                                    autoComplete="new-password"
                                 />
                             </div>
                             <button type="button" className="pin-toggle-btn" onClick={() => setShowSenha(!showSenha)}>
@@ -340,13 +262,9 @@ function Login() {
                             <div className="form-group">
                                 <label className="form-label">Senha</label>
                                 <div className="pin-container">
-                                    <SenhaInput
-                                        chars={loginData.senha}
-                                        setChars={(newChars) => setLoginData(prev => ({ ...prev, senha: newChars }))}
-                                        refs={loginSenhaRefs}
-                                        onPaste={handleCharPaste}
-                                        onChange={handleCharChange}
-                                        onKeyDown={handleCharKeyDown}
+                                    <SenhaField
+                                        value={loginData.senha}
+                                        onChange={(e) => setLoginData(prev => ({ ...prev, senha: e.target.value }))}
                                         showSenha={showSenha}
                                     />
                                     <button
@@ -384,13 +302,9 @@ function Login() {
 
                                 <div className="form-group">
                                     <label className="form-label">Senha do Administrador</label>
-                                    <SenhaInput
-                                        chars={adminSenha}
-                                        setChars={setAdminSenha}
-                                        refs={adminSenhaRefs}
-                                        onPaste={handleCharPaste}
-                                        onChange={handleCharChange}
-                                        onKeyDown={handleCharKeyDown}
+                                    <SenhaField
+                                        value={adminSenha}
+                                        onChange={(e) => setAdminSenha(e.target.value)}
                                         showSenha={showSenha}
                                     />
                                 </div>
@@ -457,28 +371,24 @@ function Login() {
 
                                 <div className="form-group">
                                     <label className="form-label">Senha</label>
-                                    <SenhaInput
-                                        chars={registerData.senha}
-                                        setChars={(newChars) => setRegisterData(prev => ({ ...prev, senha: newChars }))}
-                                        refs={registerSenhaRefs}
-                                        onPaste={handleCharPaste}
-                                        onChange={handleCharChange}
-                                        onKeyDown={handleCharKeyDown}
+                                    <SenhaField
+                                        value={registerData.senha}
+                                        onChange={(e) => setRegisterData(prev => ({ ...prev, senha: e.target.value }))}
                                         showSenha={showSenha}
+                                        placeholder="Crie uma senha forte"
+                                        autoComplete="new-password"
                                     />
                                     <PasswordRequirements senha={registerSenhaTexto} />
                                 </div>
 
                                 <div className="form-group">
                                     <label className="form-label">Confirmar Senha</label>
-                                    <SenhaInput
-                                        chars={registerData.confirmSenha}
-                                        setChars={(newChars) => setRegisterData(prev => ({ ...prev, confirmSenha: newChars }))}
-                                        refs={confirmSenhaRefs}
-                                        onPaste={handleCharPaste}
-                                        onChange={handleCharChange}
-                                        onKeyDown={handleCharKeyDown}
+                                    <SenhaField
+                                        value={registerData.confirmSenha}
+                                        onChange={(e) => setRegisterData(prev => ({ ...prev, confirmSenha: e.target.value }))}
                                         showSenha={showSenha}
+                                        placeholder="Confirme a senha"
+                                        autoComplete="new-password"
                                     />
                                 </div>
 

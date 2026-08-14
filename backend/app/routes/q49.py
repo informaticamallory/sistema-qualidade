@@ -1,4 +1,4 @@
-# routes/q49.py - Rotas de Produto Importado (Q49)
+﻿# routes/q49.py - Rotas de Produto Importado (Q49)
 from datetime import datetime
 from flask import Blueprint, request, current_app
 
@@ -25,7 +25,7 @@ def _parse_date(value):
         return None
     if hasattr(value, 'isoformat') and not isinstance(value, str):
         return value
-    return datetime.strptime(value, '%Y-%m-%d').date()
+    return datetime.strptime(str(value)[:10], '%Y-%m-%d').date()
 
 
 def _to_int(value):

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import ExcelJS from 'exceljs';
 import Sidebar from '../../../components/Sidebar/Sidebar';
 import { injecaoAPI, produtosAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
@@ -10,6 +11,7 @@ import '../InspecaoMontagem/InspecaoMontagem.css';
 import './InspecaoInjecao.css';
 
 const conformeOpcoes = [
+    { value: '', label: 'Pendente' },
     { value: 'C', label: 'C — Conforme' },
     { value: 'NC', label: 'NC — Não Conforme' },
     { value: 'NA', label: 'N/A' }
@@ -19,6 +21,59 @@ const todayISO = () => {
     const now = new Date();
     const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
     return localDate.toISOString().split('T')[0];
+};
+
+const currentMonthISO = () => todayISO().slice(0, 7);
+
+const monthRangeISO = (value = currentMonthISO()) => {
+    const [year, month] = String(value || currentMonthISO()).split('-').map(Number);
+    const safeYear = year || Number(currentMonthISO().slice(0, 4));
+    const safeMonth = month || Number(currentMonthISO().slice(5, 7));
+    const lastDay = new Date(safeYear, safeMonth, 0).getDate();
+    const prefix = `${safeYear}-${String(safeMonth).padStart(2, '0')}`;
+    return {
+        start: `${prefix}-01`,
+        end: `${prefix}-${String(lastDay).padStart(2, '0')}`
+    };
+};
+
+const previousMonthISO = () => {
+    const [year, month] = currentMonthISO().split('-').map(Number);
+    const date = new Date(year, month - 2, 1);
+    return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
+};
+
+const previousMonthFromISO = (value) => {
+    const [year, month] = String(value || currentMonthISO()).split('-').map(Number);
+    const date = new Date(year, month - 2, 1);
+    return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
+};
+
+const formatMonthLabel = (value) => {
+    const [year, month] = String(value || '').split('-').map(Number);
+    if (!year || !month) return 'Mês atual';
+
+    const label = new Intl.DateTimeFormat('pt-BR', {
+        month: 'long',
+        year: 'numeric'
+    }).format(new Date(year, month - 1, 1));
+
+    return label.charAt(0).toUpperCase() + label.slice(1);
+};
+
+const normalizarDataISO = (value) => {
+    if (!value) return todayISO();
+    const texto = String(value);
+    const match = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+    return todayISO();
+};
+
+const formatarDataBR = (value) => {
+    const texto = String(value || '');
+    const match = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) return 'N/A';
+    return `${match[3]}/${match[2]}/${match[1]}`;
 };
 
 const ajustarAlturaDefeito = (element) => {
@@ -47,37 +102,57 @@ const estadoInicial = {
     cod: '',
     peca: '',
     molde: '',
-    amostra_insp: 0,
-    amostra_nc: 0,
-    qtde_lote: 0,
-    status: 'pendente',
+    amostra_insp: '',
+    amostra_nc: '',
+    qtde_lote: '',
+    status: '',
     defeito: '',
     cota1: '',
     cota2: '',
     cota3: '',
     cota4: '',
     peso: '',
-    visual: 'C',
-    cor_padrao: 'C',
-    encaixe: 'C',
-    contra_peca: 'C',
-    rebarbas: 'C',
-    funcional: 'C',
-    observacao: ''
+    visual: '',
+    cor_padrao: '',
+    encaixe: '',
+    contra_peca: '',
+    rebarbas: '',
+    funcional: '',
+    observacao: '',
+    foto_peca: '',
+    foto_peca_nome: ''
 };
 
 export default function InspecaoInjecao() {
     const { user } = useAuth();
     const [registros, setRegistros] = useState([]);
+    const [resumoRegistros, setResumoRegistros] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
+    const [dateFilter, setDateFilter] = useState('');
+    const [dateEndFilter, setDateEndFilter] = useState('');
+    const [rangeStartDraft, setRangeStartDraft] = useState('');
+    const [rangeEndDraft, setRangeEndDraft] = useState('');
+    const [monthFilter, setMonthFilter] = useState(currentMonthISO());
+    const [shiftFilter, setShiftFilter] = useState('');
+    const [showPeriodMenu, setShowPeriodMenu] = useState(false);
     const [showModal, setShowModal] = useState(false);
+    const [formDirty, setFormDirty] = useState(false);
+    const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [formData, setFormData] = useState(estadoInicial);
     const [activeTab, setActiveTab] = useState('dados-injecao');
     const [formViewMode, setFormViewMode] = useState('tabs');
     const [sheetData, setSheetData] = useState(null);
+    const [panoramaRegistro, setPanoramaRegistro] = useState(null);
+    const [panoramaDados, setPanoramaDados] = useState({
+        loading: false,
+        atual: [],
+        anterior: [],
+        mesAtual: '',
+        mesAnterior: ''
+    });
 
     // Autocomplete de produtos (campo Cód.)
     const [produtoSugestoes, setProdutoSugestoes] = useState([]);
@@ -85,6 +160,8 @@ export default function InspecaoInjecao() {
     const [sugestaoAtivaIndex, setSugestaoAtivaIndex] = useState(-1);
     const searchTimeout = useRef(null);
     const maquinaSearchTimeout = useRef(null);
+    const formModalRef = useRef(null);
+    const viewModalRef = useRef(null);
     const [maquinaSugestoes, setMaquinaSugestoes] = useState([]);
     const [showMaquinaSugestoes, setShowMaquinaSugestoes] = useState(false);
     const [maquinaAtivaIndex, setMaquinaAtivaIndex] = useState(-1);
@@ -93,6 +170,9 @@ export default function InspecaoInjecao() {
     const [showDefeitoSugestoes, setShowDefeitoSugestoes] = useState(false);
     const [defeitoAtivoIndex, setDefeitoAtivoIndex] = useState(-1);
     const defeitoTextareaRef = useRef(null);
+    const fotoPecaInputRef = useRef(null);
+    const periodMenuRef = useRef(null);
+    const loadRequestRef = useRef(0);
 
     // Visualização (somente leitura)
     const [showViewModal, setShowViewModal] = useState(false);
@@ -100,7 +180,7 @@ export default function InspecaoInjecao() {
 
     useEffect(() => {
         loadRegistros();
-    }, [search, statusFilter]);
+    }, [search, statusFilter, dateFilter, dateEndFilter, monthFilter, shiftFilter]);
 
     useEffect(() => {
         if (!sheetData) return;
@@ -116,23 +196,226 @@ export default function InspecaoInjecao() {
     }, [sheetData]);
 
     const loadRegistros = async () => {
+        const requestId = ++loadRequestRef.current;
+
         try {
             setLoading(true);
             const params = {};
             if (search) params.search = search;
-            if (statusFilter) params.status = statusFilter;
+
+            if (dateFilter) params.data_inicio = dateFilter;
+            if (dateEndFilter) params.data_fim = dateEndFilter;
+            if (monthFilter) params.mes = monthFilter;
+            if (shiftFilter) params.turno = shiftFilter;
 
             const response = await injecaoAPI.getAll(params);
+            if (requestId !== loadRequestRef.current) return;
+
             if (response.data.success) {
-                setRegistros(response.data.data);
+                const dadosRecebidos = Array.isArray(response.data.data) ? response.data.data : [];
+                const termoBusca = String(params.search || '').trim().toLowerCase();
+                const statusBusca = String(statusFilter || '').trim().toLowerCase();
+                const turnoBusca = String(params.turno || '').trim().toUpperCase();
+
+                const dadosFiltrados = dadosRecebidos.filter((registro) => {
+                    const dataRegistro = String(registro.data || '').match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '';
+                    if (params.data_inicio && dataRegistro < params.data_inicio) return false;
+                    if (params.data_fim && dataRegistro > params.data_fim) return false;
+                    if (!params.data_inicio && !params.data_fim && params.mes && !dataRegistro.startsWith(`${params.mes}-`)) return false;
+                    if (statusBusca && String(registro.status || '').trim().toLowerCase() !== statusBusca) return false;
+                    if (turnoBusca && normalizarTurno(registro.turno_injecao) !== turnoBusca) return false;
+                    if (termoBusca) {
+                        const conteudo = [registro.cod, registro.peca, registro.maquina]
+                            .map((valor) => String(valor || '').toLowerCase())
+                            .join(' ');
+                        if (!conteudo.includes(termoBusca)) return false;
+                    }
+                    return true;
+                });
+
+                setResumoRegistros(dadosRecebidos);
+                setRegistros(dadosFiltrados);
+            } else {
+                setResumoRegistros([]);
+                setRegistros([]);
             }
         } catch (error) {
+            if (requestId !== loadRequestRef.current) return;
             console.error('Erro ao carregar inspeções de injeção:', error);
+            setResumoRegistros([]);
+            setRegistros([]);
         } finally {
-            setLoading(false);
+            if (requestId === loadRequestRef.current) setLoading(false);
         }
     };
 
+    const exportarExcel = async () => {
+        if (loading) return;
+
+        let dadosExportacao = [];
+        try {
+            const params = {};
+            if (search) params.search = search;
+            if (shiftFilter) params.turno = shiftFilter;
+
+            if (dateFilter || dateEndFilter) {
+                if (dateFilter) params.data_inicio = dateFilter;
+                if (dateEndFilter) params.data_fim = dateEndFilter;
+            } else {
+                const intervaloMes = monthRangeISO(monthFilter);
+                params.data_inicio = intervaloMes.start;
+                params.data_fim = intervaloMes.end;
+            }
+
+            const response = await injecaoAPI.getAll(params);
+            const recebidos = response.data.success && Array.isArray(response.data.data)
+                ? response.data.data
+                : [];
+            const termoBusca = String(search || '').trim().toLowerCase();
+            const statusBusca = String(statusFilter || '').trim().toLowerCase();
+            const turnoBusca = String(shiftFilter || '').trim().toUpperCase();
+
+            dadosExportacao = recebidos.filter((registro) => {
+                const dataRegistro = String(registro.data || '').match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '';
+                if (params.data_inicio && dataRegistro < params.data_inicio) return false;
+                if (params.data_fim && dataRegistro > params.data_fim) return false;
+                if (statusBusca && String(registro.status || '').trim().toLowerCase() !== statusBusca) return false;
+                if (turnoBusca && normalizarTurno(registro.turno_injecao) !== turnoBusca) return false;
+                if (termoBusca) {
+                    const conteudo = [registro.cod, registro.peca, registro.maquina]
+                        .map((valor) => String(valor || '').toLowerCase())
+                        .join(' ');
+                    if (!conteudo.includes(termoBusca)) return false;
+                }
+                return true;
+            });
+        } catch (error) {
+            console.error('Erro ao buscar inspeções para exportação:', error);
+            alert('Não foi possível buscar os registros para exportação.');
+            return;
+        }
+
+        if (dadosExportacao.length === 0) {
+            alert('Nenhum registro encontrado no período selecionado.');
+            return;
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'Sistema Mallory';
+        workbook.created = new Date();
+
+        const worksheet = workbook.addWorksheet('Inspeções de Injeção', {
+            views: [{ state: 'frozen', ySplit: 1 }]
+        });
+
+        worksheet.columns = [
+            { header: 'Data', key: 'data', width: 13 },
+            { header: 'Semana', key: 'semana', width: 10 },
+            { header: 'Turno', key: 'turno', width: 10 },
+            { header: 'Máquina', key: 'maquina', width: 14 },
+            { header: 'Modelo da Máquina', key: 'modelo_maquina', width: 22 },
+            { header: 'Código SAP', key: 'cod', width: 16 },
+            { header: 'Peça', key: 'peca', width: 38 },
+            { header: 'Molde', key: 'molde', width: 10 },
+            { header: 'Amostra Inspecionada', key: 'amostra_insp', width: 21 },
+            { header: 'Amostra NC', key: 'amostra_nc', width: 14 },
+            { header: 'Quantidade do Lote', key: 'qtde_lote', width: 20 },
+            { header: 'Peso (Kg)', key: 'peso', width: 14 },
+            { header: 'Índice (%)', key: 'indice', width: 13 },
+            { header: 'Visual', key: 'visual', width: 16 },
+            { header: 'Cor Padrão', key: 'cor_padrao', width: 16 },
+            { header: 'Encaixe', key: 'encaixe', width: 16 },
+            { header: 'Contra Peça', key: 'contra_peca', width: 16 },
+            { header: 'Rebarbas', key: 'rebarbas', width: 16 },
+            { header: 'Funcional', key: 'funcional', width: 16 },
+            { header: 'Status', key: 'status', width: 15 },
+            { header: 'Defeito', key: 'defeito', width: 24 },
+            { header: 'Observação', key: 'observacao', width: 42 },
+            { header: 'Foto registrada', key: 'foto_registrada', width: 18 },
+            { header: 'Inspetor', key: 'inspetor', width: 24 }
+        ];
+
+        dadosExportacao.forEach((registro) => {
+            const dataISO = String(registro.data || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+            const dataExcel = dataISO
+                ? new Date(Number(dataISO[1]), Number(dataISO[2]) - 1, Number(dataISO[3]))
+                : null;
+            const quantidadeLote = Number(registro.qtde_lote) || 0;
+            const amostraInspecionada = Number(registro.amostra_insp) || 0;
+
+            worksheet.addRow({
+                data: dataExcel,
+                semana: Number(registro.semana) || registro.semana || '',
+                turno: normalizarTurno(registro.turno_injecao),
+                maquina: registro.maquina || '',
+                modelo_maquina: registro.modelo_maquina || '',
+                cod: registro.cod || '',
+                peca: registro.peca || '',
+                molde: registro.molde || '',
+                amostra_insp: amostraInspecionada,
+                amostra_nc: Number(registro.amostra_nc) || 0,
+                qtde_lote: quantidadeLote,
+                peso: registro.peso || '',
+                indice: quantidadeLote > 0 ? amostraInspecionada / quantidadeLote : 0,
+                visual: formatarResultadoAvaliacao(registro.visual),
+                cor_padrao: formatarResultadoAvaliacao(registro.cor_padrao),
+                encaixe: formatarResultadoAvaliacao(registro.encaixe),
+                contra_peca: formatarResultadoAvaliacao(registro.contra_peca),
+                rebarbas: formatarResultadoAvaliacao(registro.rebarbas),
+                funcional: formatarResultadoAvaliacao(registro.funcional),
+                status: formatarStatus(registro.status),
+                defeito: registro.defeito || '',
+                observacao: String(registro.observacao || '').replace(/\r?\n+/g, ' ').trim(),
+                foto_registrada: registro.foto_peca ? 'Sim' : 'Não',
+                inspetor: registro.inspetor || ''
+            });
+        });
+
+        const header = worksheet.getRow(1);
+        header.height = 28;
+        header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF7A00' } };
+        header.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+
+        worksheet.autoFilter = { from: 'A1', to: `X${worksheet.rowCount}` };
+        worksheet.getColumn('data').numFmt = 'dd/mm/yyyy';
+        worksheet.getColumn('indice').numFmt = '0.00%';
+        worksheet.getColumn('cod').numFmt = '@';
+        worksheet.getColumn('maquina').numFmt = '@';
+
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) return;
+            row.height = 24;
+            row.alignment = { vertical: 'middle', wrapText: false };
+            row.eachCell((cell) => {
+                cell.border = {
+                    bottom: { style: 'thin', color: { argb: 'FFD9E1EA' } }
+                };
+            });
+        });
+
+        ['semana', 'turno', 'amostra_insp', 'amostra_nc', 'qtde_lote', 'indice', 'status', 'foto_registrada']
+            .forEach((key) => {
+                worksheet.getColumn(key).alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
+            });
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const sufixoFiltro = dateFilter && dateEndFilter
+            ? `${dateFilter}_a_${dateEndFilter}`
+            : monthFilter || currentMonthISO();
+
+        link.href = url;
+        link.download = `inspecoes_injecao_${sufixoFiltro}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    };
     const openMobileActions = (registro) => {
         if (typeof window !== 'undefined' && window.innerWidth <= 1024) {
             setSheetData((current) => (
@@ -146,18 +429,113 @@ export default function InspecaoInjecao() {
     const resetForm = () => {
         const data = todayISO();
         setFormData({ ...estadoInicial, data, semana: getWeekFromDate(data), inspetor: user?.nome || '' });
+        setFormDirty(false);
         setEditingId(null);
         setActiveTab('dados-injecao');
         setFormViewMode('tabs');
     };
 
+    const handleFotoPecaChange = (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            alert('Selecione uma imagem válida.');
+            return;
+        }
+        if (file.size > 15 * 1024 * 1024) {
+            alert('A imagem deve ter no máximo 15 MB.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            const imagem = new Image();
+            imagem.onload = () => {
+                const limite = 1600;
+                const escala = Math.min(1, limite / Math.max(imagem.width, imagem.height));
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.round(imagem.width * escala));
+                canvas.height = Math.max(1, Math.round(imagem.height * escala));
+                const contexto = canvas.getContext('2d');
+                contexto.drawImage(imagem, 0, 0, canvas.width, canvas.height);
+                setFormData((prev) => ({
+                    ...prev,
+                    foto_peca: canvas.toDataURL('image/jpeg', 0.8),
+                    foto_peca_nome: file.name
+                }));
+            };
+            imagem.onerror = () => alert('Não foi possível processar a imagem.');
+            imagem.src = String(reader.result || '');
+        };
+        reader.onerror = () => alert('Não foi possível ler a imagem.');
+        reader.readAsDataURL(file);
+    };
+
+    const removerFotoPeca = () => {
+        setFormData((prev) => ({ ...prev, foto_peca: '', foto_peca_nome: '' }));
+        setFormDirty(true);
+        if (fotoPecaInputRef.current) fotoPecaInputRef.current.value = '';
+    };
+
+    const fecharFormularioSemSalvar = () => {
+        setShowUnsavedConfirm(false);
+        setShowModal(false);
+        resetForm();
+    };
+
+    const solicitarFechamentoFormulario = () => {
+        if (formDirty) {
+            setShowUnsavedConfirm(true);
+            return;
+        }
+
+        fecharFormularioSemSalvar();
+    };
+
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        const camposDadosPendentes = [
+            !String(formData.turno_injecao || '').trim() && 'Turno de Injeção',
+            !String(formData.maquina || '').trim() && 'Máquina',
+            !String(formData.molde || '').trim() && 'Molde',
+            (formData.amostra_insp === '' || Number(formData.amostra_insp) <= 0) && 'Amostra Inspecionada',
+            (formData.amostra_nc === '' || Number(formData.amostra_nc) < 0) && 'Amostra NC',
+            (formData.qtde_lote === '' || Number(formData.qtde_lote) <= 0) && 'Quantidade do Lote'
+        ].filter(Boolean);
+
+        if (camposDadosPendentes.length > 0) {
+            setFormViewMode('tabs');
+            setActiveTab('dados-injecao');
+            alert(`Preencha os campos obrigatórios: ${camposDadosPendentes.join(', ')}.`);
+            return;
+        }
+
+        const criteriosPendentes = camposAvaliacao.filter(({ id }) => !['C', 'NC', 'NA'].includes(formData[id]));
+        if (criteriosPendentes.length > 0) {
+            setFormViewMode('tabs');
+            setActiveTab('avaliacao');
+            alert(`Preencha todos os campos obrigatórios da avaliação: ${criteriosPendentes.map(({ label }) => label).join(', ')}.`);
+            return;
+        }
+
+        const statusSelecionado = String(formData.status || '').toLowerCase();
+        if (!['aprovado', 'reprovado'].includes(statusSelecionado)) {
+            setFormViewMode('tabs');
+            setActiveTab('avaliacao');
+            alert('Selecione o status Aprovado ou Reprovado antes de salvar.');
+            return;
+        }
+
         try {
             const isReprovado = String(formData.status || '').toLowerCase() === 'reprovado';
             const payload = {
                 ...formData,
+                data: normalizarDataISO(formData.data),
                 defeito: isReprovado ? formData.defeito : '',
+                foto_peca: isReprovado ? formData.foto_peca : '',
+                foto_peca_nome: isReprovado ? formData.foto_peca_nome : '',
                 status: formData.status?.toUpperCase(),
                 inspetor: user?.nome || formData.inspetor || 'Sistema'
             };
@@ -180,7 +558,7 @@ export default function InspecaoInjecao() {
     };
 
     const handleEdit = (registro) => {
-        const data = registro.data || todayISO();
+        const data = normalizarDataISO(registro.data || todayISO());
 
         setFormData({
             data,
@@ -191,33 +569,92 @@ export default function InspecaoInjecao() {
             cod: registro.cod || '',
             peca: registro.peca || '',
             molde: registro.molde || '',
-            amostra_insp: registro.amostra_insp || 0,
-            amostra_nc: registro.amostra_nc || 0,
-            qtde_lote: registro.qtde_lote || 0,
-            status: registro.status || 'pendente',
+            amostra_insp: registro.amostra_insp ?? '',
+            amostra_nc: registro.amostra_nc ?? '',
+            qtde_lote: registro.qtde_lote ?? '',
+            status: ['aprovado', 'reprovado'].includes(normalizarStatus(registro.status)) ? normalizarStatus(registro.status) : '',
             defeito: registro.defeito || '',
             cota1: registro.cota1 || '',
             cota2: registro.cota2 || '',
             cota3: registro.cota3 || '',
             cota4: registro.cota4 || '',
             peso: registro.peso || '',
-            visual: registro.visual || 'C',
-            cor_padrao: registro.cor_padrao || 'C',
-            encaixe: registro.encaixe || 'C',
-            contra_peca: registro.contra_peca || 'C',
-            rebarbas: registro.rebarbas || 'C',
-            funcional: registro.funcional || 'C',
-            observacao: registro.observacao || ''
+            visual: ['C', 'NC', 'NA'].includes(registro.visual) ? registro.visual : '',
+            cor_padrao: ['C', 'NC', 'NA'].includes(registro.cor_padrao) ? registro.cor_padrao : '',
+            encaixe: ['C', 'NC', 'NA'].includes(registro.encaixe) ? registro.encaixe : '',
+            contra_peca: ['C', 'NC', 'NA'].includes(registro.contra_peca) ? registro.contra_peca : '',
+            rebarbas: ['C', 'NC', 'NA'].includes(registro.rebarbas) ? registro.rebarbas : '',
+            funcional: ['C', 'NC', 'NA'].includes(registro.funcional) ? registro.funcional : '',
+            observacao: registro.observacao || '',
+            foto_peca: registro.foto_peca || '',
+            foto_peca_nome: registro.foto_peca_nome || ''
         });
         setEditingId(registro.id);
+        setFormDirty(false);
         setActiveTab('dados-injecao');
         setFormViewMode('tabs');
         setShowModal(true);
     };
 
+    useEffect(() => {
+        if (!showModal || !formDirty) return undefined;
+
+        const protegerSaidaDaPagina = (event) => {
+            event.preventDefault();
+            event.returnValue = '';
+        };
+
+        window.addEventListener('beforeunload', protegerSaidaDaPagina);
+        return () => window.removeEventListener('beforeunload', protegerSaidaDaPagina);
+    }, [showModal, formDirty]);
+
+    useEffect(() => {
+        const modal = showModal ? formModalRef.current : (showViewModal ? viewModalRef.current : null);
+        if (!modal) return;
+
+        modal.scrollTop = 0;
+        window.requestAnimationFrame(() => {
+            modal.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+        });
+    }, [showModal, showViewModal]);
+
     const handleView = (reg) => {
         setViewData(reg);
         setShowViewModal(true);
+    };
+
+    const carregarPanorama = async (registro) => {
+        setPanoramaRegistro(registro);
+        const mesBase = monthFilter || String(dateFilter || registro.data || currentMonthISO()).slice(0, 7);
+        const mesAnterior = previousMonthFromISO(mesBase);
+        const termo = String(registro.cod || registro.peca || '').trim();
+        setPanoramaDados({ loading: true, atual: [], anterior: [], mesAtual: mesBase, mesAnterior });
+
+        try {
+            const [respostaAtual, respostaAnterior] = await Promise.all([
+                injecaoAPI.getAll({ search: termo, mes: mesBase }),
+                injecaoAPI.getAll({ search: termo, mes: mesAnterior })
+            ]);
+            const filtrarPecaExata = (resposta) => {
+                const lista = resposta?.data?.success && Array.isArray(resposta.data.data) ? resposta.data.data : [];
+                return lista.filter((item) => registro.cod
+                    ? String(item.cod || '').trim() === String(registro.cod).trim()
+                    : String(item.peca || '').trim() === String(registro.peca || '').trim());
+            };
+            setPanoramaDados({ loading: false, atual: filtrarPecaExata(respostaAtual),
+                anterior: filtrarPecaExata(respostaAnterior), mesAtual: mesBase, mesAnterior });
+        } catch (error) {
+            console.error('Erro ao carregar panorama da peça:', error);
+            setPanoramaDados({ loading: false, atual: [], anterior: [], mesAtual: mesBase, mesAnterior });
+        }
+    };
+
+    const handleRowClick = (registro) => {
+        if (typeof window !== 'undefined' && window.innerWidth >= 1600) {
+            carregarPanorama(registro);
+            return;
+        }
+        openMobileActions(registro);
     };
 
     const handleDelete = async (id) => {
@@ -227,34 +664,54 @@ export default function InspecaoInjecao() {
                 loadRegistros();
             } catch (error) {
                 console.error('Erro ao excluir inspeção de injeção:', error);
-                alert('Erro ao excluir inspeção de injeção');
+                const mensagem = error.response?.data?.message || 'Erro ao excluir inspeção de injeção';
+                alert(mensagem);
             }
         }
     };
 
-    const formatarData = (dataString) => {
-        if (!dataString) return 'N/A';
-        try {
-            return new Date(dataString).toLocaleDateString('pt-BR');
-        } catch {
-            return 'N/A';
-        }
-    };
+    const formatarData = (dataString) => formatarDataBR(dataString);
+
+    const normalizarStatus = (status) => String(status || 'pendente')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
 
     const getStatusClass = (status) => {
         const classes = {
-            'aprovado': 'badge-success',
-            'pendente': 'badge-warning',
-            'reprovado': 'badge-danger'
+            aprovado: 'badge-success',
+            pendente: 'badge-warning',
+            reprovado: 'badge-danger',
+            concessao: 'badge-info'
         };
-        return classes[status?.toLowerCase()] || 'badge-warning';
+        return classes[normalizarStatus(status)] || 'badge-warning';
+    };
+
+    const getStatusIconClass = (status) => {
+        const icons = {
+            aprovado: 'fa-check',
+            pendente: 'fa-clock',
+            reprovado: 'fa-times',
+            concessao: 'fa-handshake'
+        };
+        return icons[normalizarStatus(status)] || 'fa-clock';
     };
 
     const formatarStatus = (status) => String(status || 'pendente').toUpperCase();
 
+    const formatarResultadoAvaliacao = (valor) => {
+        const resultados = {
+            C: 'Conforme',
+            NC: 'Não Conforme',
+            NA: 'Não se aplica'
+        };
+
+        return resultados[String(valor || '').trim().toUpperCase()] || 'Pendente';
+    };
+
     const setCampo = (campo, valor) => setFormData((prev) => {
         if (campo === 'status' && String(valor || '').toLowerCase() !== 'reprovado') {
-            return { ...prev, status: valor, defeito: '' };
+            return { ...prev, status: valor, defeito: '', foto_peca: '', foto_peca_nome: '' };
         }
 
         return { ...prev, [campo]: valor };
@@ -487,18 +944,7 @@ export default function InspecaoInjecao() {
     ];
 
     const atualizarAvaliacao = (campo, valor) => {
-        setFormData((anterior) => {
-            const proximo = { ...anterior, [campo]: valor };
-            const defeitos = camposAvaliacao
-                .filter(({ id }) => proximo[id] === 'NC')
-                .map(({ label }) => label);
-
-            return {
-                ...proximo,
-                status: defeitos.length ? 'reprovado' : 'aprovado',
-                defeito: defeitos.length ? anterior.defeito : ''
-            };
-        });
+        setCampo(campo, valor);
     };
 
     const tabs = [
@@ -508,6 +954,96 @@ export default function InspecaoInjecao() {
     ];
 
     const sheetRegistro = sheetData ? registros.find((registro) => registro.id === sheetData.id) : null;
+
+    const resumoInspecoes = resumoRegistros.reduce((resumo, registro) => {
+        const status = normalizarStatus(registro.status);
+
+        resumo.total += 1;
+        if (status === 'aprovado') {
+            resumo.aprovadas += 1;
+        } else if (status === 'reprovado') {
+            resumo.reprovadas += 1;
+        } else {
+            resumo.pendentes += 1;
+        }
+
+        return resumo;
+    }, { total: 0, aprovadas: 0, reprovadas: 0, pendentes: 0 });
+
+    const resumirPanorama = (lista) => lista.reduce((resumo, registro) => {
+        const status = normalizarStatus(registro.status);
+        resumo.total += 1;
+        if (status === 'aprovado') resumo.aprovadas += 1;
+        if (status === 'reprovado') resumo.reprovadas += 1;
+        return resumo;
+    }, { total: 0, aprovadas: 0, reprovadas: 0 });
+    const panoramaAtualResumo = resumirPanorama(panoramaDados.atual);
+    const panoramaAnteriorResumo = resumirPanorama(panoramaDados.anterior);
+    const panoramaMaiorValor = Math.max(panoramaAtualResumo.aprovadas, panoramaAtualResumo.reprovadas,
+        panoramaAnteriorResumo.aprovadas, panoramaAnteriorResumo.reprovadas, 1);
+    const camposDefeito = [['visual', 'Visual'], ['cor_padrao', 'Cor padrão'], ['encaixe', 'Encaixe'],
+        ['contra_peca', 'Contra peça'], ['rebarbas', 'Rebarbas'], ['funcional', 'Funcional']];
+    const contagemDefeitos = panoramaDados.atual.reduce((mapa, registro) => {
+        if (normalizarStatus(registro.status) !== 'reprovado') return mapa;
+        const descritos = String(registro.defeito || '').split(/[,;|]/).map((item) => item.trim()).filter(Boolean);
+        const nomes = descritos.length ? descritos : camposDefeito
+            .filter(([campo]) => String(registro[campo] || '').toUpperCase() === 'NC').map(([, label]) => label);
+        nomes.forEach((nome) => mapa.set(nome, (mapa.get(nome) || 0) + 1));
+        return mapa;
+    }, new Map());
+    const panoramaDefeitos = [...contagemDefeitos.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const maiorDefeito = Math.max(...panoramaDefeitos.map(([, quantidade]) => quantidade), 1);
+    const panoramaMaquinas = [...new Set(panoramaDados.atual.map((item) => item.maquina).filter(Boolean))];
+    const panoramaMoldes = [...new Set(panoramaDados.atual.map((item) => item.molde).filter(Boolean))];
+    const ativarFiltroStatus = (status) => setStatusFilter((atual) => atual === status ? '' : status);
+    const acionarCardPorTeclado = (event, status) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            if (status) ativarFiltroStatus(status);
+            else setStatusFilter('');
+        }
+    };
+
+    const periodoLabel = dateFilter && dateEndFilter
+        ? `${formatarData(dateFilter)} até ${formatarData(dateEndFilter)}`
+        : formatMonthLabel(monthFilter);
+
+    const selecionarMes = (mes) => {
+        setRegistros([]);
+        setDateFilter('');
+        setDateEndFilter('');
+        setRangeStartDraft('');
+        setRangeEndDraft('');
+        setMonthFilter(mes || currentMonthISO());
+        setShowPeriodMenu(false);
+    };
+
+    const selecionarInicioIntervalo = (dataInicio) => {
+        setRangeStartDraft(dataInicio);
+        if (dataInicio && rangeEndDraft && dataInicio > rangeEndDraft) {
+            setRangeEndDraft(dataInicio);
+        }
+    };
+
+    const selecionarFimIntervalo = (dataFim) => {
+        setRangeEndDraft(dataFim);
+        if (dataFim && rangeStartDraft && dataFim < rangeStartDraft) {
+            setRangeStartDraft(dataFim);
+        }
+    };
+
+    const aplicarIntervalo = () => {
+        if (!rangeStartDraft || !rangeEndDraft) {
+            alert('Selecione a data inicial e a data final.');
+            return;
+        }
+
+        setRegistros([]);
+        setDateFilter(rangeStartDraft);
+        setDateEndFilter(rangeEndDraft);
+        setMonthFilter('');
+        setShowPeriodMenu(false);
+    };
 
     const calcularIndice = (amostraInsp, qtde_lote) => {
     const inspecionada = Number(amostraInsp);
@@ -521,7 +1057,7 @@ export default function InspecaoInjecao() {
     };
 
     return (
-        <div className="app-container">
+        <div className="app-container injecao-page">
             <Sidebar />
 
             <main className="main-content">
@@ -530,31 +1066,158 @@ export default function InspecaoInjecao() {
                         <h1><i className="fas fa-cubes"></i> Inspeção de peças plasticas</h1>
                         <p>Acompanhamento de inspeção — Injeção</p>
                     </div>
-                    <div className="header-actions">
+                    <div className="header-actions injecao-filters">
                         <input
-                            type="text"
-                            className="form-control"
+                            type="search"
+                            className="form-control injecao-search"
                             placeholder="Buscar por código, peça, máquina..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
-                        <select
-                            className="form-control"
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
+                        <div className="period-filter-wrapper" ref={periodMenuRef}>
+                            <button
+                                type="button"
+                                className={showPeriodMenu ? 'period-filter-button active' : 'period-filter-button'}
+                                onClick={() => setShowPeriodMenu((current) => !current)}
+                                aria-expanded={showPeriodMenu}
+                                aria-haspopup="dialog"
+                                title={'Período: ' + periodoLabel}
+                            >
+                                <i className="fas fa-calendar-alt" aria-hidden="true"></i>
+                                <span className="filter-label">
+                                    <span className="period-filter-title">Período</span>
+                                    <span className="period-filter-value">{periodoLabel}</span>
+                                </span>
+                                <i className="fas fa-chevron-down period-filter-chevron" aria-hidden="true"></i>
+                            </button>
+
+                            {showPeriodMenu && (
+                                <div className="period-filter-menu" role="dialog" aria-label="Selecionar período">
+                                    <div className="period-filter-quick-actions">
+                                        <button type="button" onClick={() => selecionarMes(currentMonthISO())}>
+                                            Mês atual
+                                        </button>
+                                        <button type="button" onClick={() => selecionarMes(previousMonthISO())}>
+                                            Mês anterior
+                                        </button>
+                                    </div>
+
+                                    <label>
+                                        <span>Outro mês</span>
+                                        <input
+                                            type="month"
+                                            value={monthFilter}
+                                            onChange={(e) => selecionarMes(e.target.value)}
+                                        />
+                                    </label>
+                                    <div className="period-range-fields">
+                                        <label>
+                                            <span>Data inicial</span>
+                                            <input
+                                                type="date"
+                                                value={rangeStartDraft}
+                                                max={rangeEndDraft || undefined}
+                                                onChange={(e) => selecionarInicioIntervalo(e.target.value)}
+                                            />
+                                        </label>
+                                        <label>
+                                            <span>Data final</span>
+                                            <input
+                                                type="date"
+                                                value={rangeEndDraft}
+                                                min={rangeStartDraft || undefined}
+                                                onChange={(e) => selecionarFimIntervalo(e.target.value)}
+                                            />
+                                        </label>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="period-range-apply"
+                                        onClick={aplicarIntervalo}
+                                    >
+                                        Aplicar intervalo
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                        <label className={shiftFilter ? 'shift-filter-button active' : 'shift-filter-button'} title={shiftFilter ? 'Turno: ' + shiftFilter : 'Filtrar por turno'}>
+                            <i className="fas fa-clock" aria-hidden="true"></i>
+                            <span className="filter-label">{shiftFilter ? 'Turno ' + shiftFilter : 'Turno'}</span>
+                            <select
+                                value={shiftFilter}
+                                onChange={(e) => setShiftFilter(e.target.value)}
+                                aria-label="Filtrar inspeções por turno"
+                            >
+                                <option value="">Todos os turnos</option>
+                                <option value="A">Turno A</option>
+                                <option value="B">Turno B</option>
+                                <option value="C">Turno C</option>
+                            </select>
+                        </label>
+                        <label className={`other-status-filter ${['pendente', 'concessão'].includes(statusFilter) ? 'active' : ''}`} title="Outros status">
+                            <i className="fas fa-filter" aria-hidden="true"></i>
+                            <span className="filter-label">Outros</span>
+                            <select
+                                value={['pendente', 'concessão'].includes(statusFilter) ? statusFilter : ''}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                aria-label="Filtrar por outros status"
+                            >
+                                <option value="">Todos</option>
+                                <option value="pendente">Pendente</option>
+                                <option value="concessão">Concessão</option>
+                            </select>
+                        </label>
+                        <button
+                            type="button"
+                            className="btn btn-success btn-sm export-excel-button"
+                            onClick={exportarExcel}
+                            disabled={loading || registros.length === 0}
+                            title="Exportar registros filtrados para Excel"
                         >
-                            <option value="">Todos os Status</option>
-                            <option value="pendente">Pendente</option>
-                            <option value="aprovado">Aprovado</option>
-                            <option value="reprovado">Reprovado</option>
-                        </select>
-                        <button className="btn btn-primary btn-sm" onClick={() => { resetForm(); setShowModal(true); }}>
-                            <i className="fas fa-plus"></i> Novo Registro
+                            <i className="fas fa-file-excel" aria-hidden="true"></i>
+                            <span className="filter-label">Exportar Excel</span>
+                        </button>
+                        <button className="btn btn-primary btn-sm new-inspection-button" onClick={() => { resetForm(); setShowModal(true); }} title="Nova Inspeção">
+                            <i className="fas fa-plus" aria-hidden="true"></i>
+                            <span className="filter-label">Nova Inspeção</span>
                         </button>
                     </div>
                 </div>
 
-                {/* Tabela */}
+                <section className="injecao-summary" aria-label="Resumo e filtros das inspeções">
+                    <article className={`injecao-summary-card filter-card total ${!statusFilter ? 'active' : ''}`}
+                        role="button" tabIndex="0" aria-pressed={!statusFilter}
+                        onClick={() => setStatusFilter('')} onKeyDown={(event) => acionarCardPorTeclado(event, '')}>
+                        <div className="injecao-summary-heading"><i className="fas fa-clipboard-list" aria-hidden="true"></i><span>Total de inspeções</span></div>
+                        <strong>{loading ? '—' : resumoInspecoes.total}</strong><small>Todos os status</small>
+                        <span className="injecao-summary-line" aria-hidden="true"></span>
+                    </article>
+                    <article className={`injecao-summary-card filter-card approved ${statusFilter === 'aprovado' ? 'active' : ''}`}
+                        role="button" tabIndex="0" aria-pressed={statusFilter === 'aprovado'}
+                        onClick={() => ativarFiltroStatus('aprovado')} onKeyDown={(event) => acionarCardPorTeclado(event, 'aprovado')}>
+                        <div className="injecao-summary-heading"><i className="fas fa-check-circle" aria-hidden="true"></i><span>Aprovadas</span></div>
+                        <strong>{loading ? '—' : resumoInspecoes.aprovadas}</strong><small>Inspeções aprovadas</small>
+                        <span className="injecao-summary-line" aria-hidden="true"></span>
+                    </article>
+                    <article className={`injecao-summary-card filter-card rejected ${statusFilter === 'reprovado' ? 'active' : ''}`}
+                        role="button" tabIndex="0" aria-pressed={statusFilter === 'reprovado'}
+                        onClick={() => ativarFiltroStatus('reprovado')} onKeyDown={(event) => acionarCardPorTeclado(event, 'reprovado')}>
+                        <div className="injecao-summary-heading"><i className="fas fa-times-circle" aria-hidden="true"></i><span>Reprovadas</span></div>
+                        <strong>{loading ? '—' : resumoInspecoes.reprovadas}</strong><small>Inspeções reprovadas</small>
+                        <span className="injecao-summary-line" aria-hidden="true"></span>
+                    </article>
+                    <article className={`injecao-summary-card filter-card pending ${statusFilter === 'pendente' ? 'active' : ''}`}
+                        role="button" tabIndex="0" aria-pressed={statusFilter === 'pendente'}
+                        onClick={() => ativarFiltroStatus('pendente')} onKeyDown={(event) => acionarCardPorTeclado(event, 'pendente')}>
+                        <div className="injecao-summary-heading"><i className="fas fa-clock" aria-hidden="true"></i><span>Pendentes</span></div>
+                        <strong>{loading ? '—' : resumoInspecoes.pendentes}</strong><small>Pendentes ou em concessão</small>
+                        <span className="injecao-summary-line" aria-hidden="true"></span>
+                    </article>
+                </section>
+
+                {/* Tabela e panorama responsivo */}
+                <div className="injecao-content-layout">
+                    <div className="injecao-table-column">
                 <div className="table-card">
                     <div className="table-container">
                         <table className="table">
@@ -583,12 +1246,12 @@ export default function InspecaoInjecao() {
                                     registros.map((reg) => (
                                         <tr
                                             key={reg.id}
-                                            className={`mobile-clickable-row ${sheetData?.id === reg.id ? 'mobile-row-active' : ''}`}
-                                            onClick={() => openMobileActions(reg)}
+                                            className={`mobile-clickable-row ${sheetData?.id === reg.id ? 'mobile-row-active' : ''} ${panoramaRegistro?.id === reg.id ? 'panorama-row-active' : ''}`}
+                                            onClick={() => handleRowClick(reg)}
                                         >
                                             <td>{formatarData(reg.data)}</td>
                                             <td className="col-semana">{reg.semana || '-'}</td>
-                                            <td>{formatarTurno(reg.turno_injecao)}</td>
+                                            <td>{normalizarTurno(reg.turno_injecao) || '-'}</td>
                                             <td>{reg.maquina || '-'}</td>
                                             <td>{reg.cod || '-'}</td>
                                             <td>{reg.peca || '-'}</td>
@@ -596,10 +1259,10 @@ export default function InspecaoInjecao() {
                                             <td className="col-hide">{reg.amostra_insp ?? 0}</td>
                                             <td className="col-hide">{reg.amostra_nc ?? 0}</td>
                                             <td>{reg.qtde_lote ?? 0}</td>
-                                            <td><span className={`badge ${getStatusClass(reg.status)}`}>{formatarStatus(reg.status)}</span></td>
+                                            <td className="col-status"><span className={`badge responsive-status ${getStatusClass(reg.status)}`} title={formatarStatus(reg.status)} aria-label={formatarStatus(reg.status)}><span className="status-text">{formatarStatus(reg.status)}</span><i className={`status-icon fas ${getStatusIconClass(reg.status)}`} aria-hidden="true"></i></span></td>
                                             <td className="actions-column col-acoes">
                                                 <div className="acoes">
-                                                    <button className="btn-icon btn-view" title="Visualizar" onClick={(e) => { e.stopPropagation(); handleView(reg); }}>
+                                                    <button className="btn-icon btn-view" title="Visualizar inspeção completa" onClick={(e) => { e.stopPropagation(); handleView(reg); }}>
                                                         <i className="fas fa-eye"></i>
                                                     </button>
                                                     <button className="btn-icon btn-edit" title="Editar" onClick={(e) => { e.stopPropagation(); handleEdit(reg); }}>
@@ -617,14 +1280,51 @@ export default function InspecaoInjecao() {
                         </table>
                     </div>
                 </div>
+                    </div>
+                    <aside className="piece-panorama" aria-live="polite">
+                        {!panoramaRegistro ? (
+                            <div className="piece-panorama-empty"><i className="fas fa-chart-column"></i>
+                                <h3>Panorama da peça</h3><p>Clique em uma linha da tabela para ver o histórico da peça.</p></div>
+                        ) : panoramaDados.loading ? (
+                            <div className="piece-panorama-empty"><i className="fas fa-spinner fa-spin"></i><p>Carregando panorama...</p></div>
+                        ) : (
+                            <>
+                                <div className="piece-panorama-header"><span>Panorama da peça</span>
+                                    <button type="button" onClick={() => setPanoramaRegistro(null)} aria-label="Fechar panorama"><i className="fas fa-times"></i></button></div>
+                                <h3>{panoramaRegistro.peca || 'Peça sem descrição'}</h3><p className="piece-panorama-code">Código {panoramaRegistro.cod || '—'}</p>
+                                <div className="piece-panorama-kpis">
+                                    <div><strong>{panoramaAtualResumo.total}</strong><span>inspeções</span></div>
+                                    <div className="positive"><strong>{panoramaAtualResumo.aprovadas}</strong><span>aprovadas</span></div>
+                                    <div className="negative"><strong>{panoramaAtualResumo.reprovadas}</strong><span>reprovadas</span></div>
+                                    <div><strong>{panoramaAtualResumo.total ? ((panoramaAtualResumo.aprovadas / panoramaAtualResumo.total) * 100).toFixed(1) : '0,0'}%</strong><span>aprovação</span></div>
+                                </div>
+                                <section className="panorama-block"><h4>Mês atual × mês anterior</h4>
+                                    {[[panoramaDados.mesAnterior, panoramaAnteriorResumo], [panoramaDados.mesAtual, panoramaAtualResumo]].map(([mes, resumo]) => (
+                                        <div className="panorama-month-row" key={mes}><span>{formatMonthLabel(mes)}</span><div className="panorama-bars">
+                                            <i className="approved-bar" style={{ width: `${(resumo.aprovadas / panoramaMaiorValor) * 100}%` }}></i><b>{resumo.aprovadas}</b>
+                                            <i className="rejected-bar" style={{ width: `${(resumo.reprovadas / panoramaMaiorValor) * 100}%` }}></i><b>{resumo.reprovadas}</b>
+                                        </div></div>))}
+                                    <div className="panorama-legend"><span><i className="approved-dot"></i>Aprovadas</span><span><i className="rejected-dot"></i>Reprovadas</span></div>
+                                </section>
+                                <section className="panorama-block"><h4>Defeitos mais frequentes</h4>
+                                    {panoramaDefeitos.length ? panoramaDefeitos.map(([nome, quantidade]) => (
+                                        <div className="defect-row" key={nome}><span>{nome}</span><i><b style={{ width: `${(quantidade / maiorDefeito) * 100}%` }}></b></i><strong>{quantidade}</strong></div>
+                                    )) : <p className="panorama-no-data">Nenhum defeito registrado no período.</p>}
+                                </section>
+                                <section className="panorama-meta"><div><span>Máquinas</span><strong>{panoramaMaquinas.join(', ') || '—'}</strong></div>
+                                    <div><span>Moldes</span><strong>{panoramaMoldes.join(', ') || '—'}</strong></div></section>
+                            </>
+                        )}
+                    </aside>
+                </div>
 
                 {/* Modal de cadastro/edição */}
-                {showModal && (
-                    <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                        <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
+                {showModal && typeof document !== 'undefined' && createPortal((
+                    <div className="modal-overlay" onClick={solicitarFechamentoFormulario}>
+                        <div ref={formModalRef} className="modal-content modal-large injecao-form-modal" onClick={(e) => e.stopPropagation()}>
                             <div className="modal-header">
                                 <h2>{editingId ? 'Editar' : 'Novo'} Registro de Injeção</h2>
-                                <button className="modal-close" onClick={() => setShowModal(false)}>
+                                <button type="button" className="modal-close" onClick={solicitarFechamentoFormulario}>
                                     <i className="fas fa-times"></i>
                                 </button>
                             </div>
@@ -663,7 +1363,7 @@ export default function InspecaoInjecao() {
                                 </div>
                             )}
 
-                            <form onSubmit={handleSubmit}>
+                            <form onSubmit={handleSubmit} onChange={() => setFormDirty(true)}>
                                 <div className="modal-body">
                                     {/* Dados de Injeção */}
                                     {(formViewMode === 'geral' || activeTab === 'dados-injecao') && (
@@ -681,25 +1381,26 @@ export default function InspecaoInjecao() {
                                                     </div>
                                                     <div className="form-group form-group-week">
                                                         <label>Semana</label>
-                                                        <input type="text" className="form-control field-upper" value={formData.semana}
-                                                            onChange={(e) => setCampo('semana', e.target.value)} />
+                                                        <input type="text" className="form-control field-upper calculated-field" value={formData.semana}
+                                                            readOnly aria-readonly="true" title="Calculado automaticamente pela data" />
                                                     </div>
                                                     <div className="form-group form-group-turno">
-                                                        <label>Turno de Injeção</label>
+                                                        <label>Turno de Injeção *</label>
                                                         <select className="form-control" value={formData.turno_injecao}
-                                                            onChange={(e) => setCampo('turno_injecao', e.target.value)}>
-                                                            <option value="">--</option>
+                                                            onChange={(e) => setCampo('turno_injecao', e.target.value)} aria-required="true">
+                                                            <option value="" disabled>--</option>
                                                             <option value="A">Turno A</option>
                                                             <option value="B">Turno B</option>
                                                             <option value="C">Turno C</option>
                                                         </select>
                                                     </div>
                                                     <div className="form-group form-group-machine" style={{ position: 'relative' }}>
-                                                        <label>Máquina</label>
+                                                        <label>Máquina *</label>
                                                         <input
                                                             type="text"
                                                             className="form-control field-upper"
                                                             value={formData.maquina}
+                                                            aria-required="true"
                                                             onChange={(e) => {
                                                                 const valor = e.target.value.toUpperCase();
                                                                 setFormData((prev) => ({ ...prev, maquina: valor, modelo_maquina: '' }));
@@ -790,37 +1491,37 @@ export default function InspecaoInjecao() {
                                                             readOnly style={{ backgroundColor: 'var(--surface-3)' }} placeholder="Descrição da peça" />
                                                     </div>
                                                     <div className="form-group">
-                                                        <label>Molde</label>
+                                                        <label>Molde *</label>
                                                         <input type="text" className="form-control field-upper" value={formData.molde}
-                                                            onChange={(e) => setCampo('molde', e.target.value)} />
+                                                            onChange={(e) => setCampo('molde', e.target.value)} aria-required="true" />
                                                     </div>
                                                 </div>
 
                                                 <div className="form-row form-row-compact form-row-numeric">
                                                     <div className="form-group form-group-number">
-                                                        <label>Amostra Insp.</label>
-                                                        <input type="text" className="form-control" value={formData.amostra_insp}
-                                                            onChange={(e) => setCampo('amostra_insp', parseInt(e.target.value) || 0)} />
+                                                        <label>Amostra Insp. *</label>
+                                                        <input type="text" inputMode="numeric" pattern="[0-9]*" className="form-control" value={formData.amostra_insp}
+                                                            onChange={(e) => setCampo('amostra_insp', e.target.value === '' ? '' : Number(e.target.value))} aria-required="true" />
                                                     </div>
                                                     <div className="form-group form-group-number">
-                                                        <label>Amostra NC</label>
-                                                        <input type="text" className="form-control" value={formData.amostra_nc}
-                                                            onChange={(e) => setCampo('amostra_nc', parseInt(e.target.value) || 0)} />
+                                                        <label>Amostra NC *</label>
+                                                        <input type="text" inputMode="numeric" pattern="[0-9]*" className="form-control" value={formData.amostra_nc}
+                                                            onChange={(e) => setCampo('amostra_nc', e.target.value === '' ? '' : Number(e.target.value))} aria-required="true" />
                                                     </div>
                                                     <div className="form-group form-group-number">
-                                                        <label>Qtde Lote</label>
-                                                        <input type="text" className="form-control" value={formData.qtde_lote}
-                                                            onChange={(e) => setCampo('qtde_lote', parseInt(e.target.value) || 0)} />
+                                                        <label>Qtde Lote *</label>
+                                                        <input type="text" inputMode="numeric" pattern="[0-9]*" className="form-control" value={formData.qtde_lote}
+                                                            onChange={(e) => setCampo('qtde_lote', e.target.value === '' ? '' : Number(e.target.value))} aria-required="true" />
                                                     </div>
                                                     <div className="form-group form-group-number">
                                                         <label>Peso (Kg)</label>
-                                                        <input type="text" className="form-control" value={formData.peso}
+                                                        <input type="text" inputMode="decimal" className="form-control" value={formData.peso}
                                                             onChange={(e) => setCampo('peso', e.target.value)} placeholder="Ex: 0,250" />
                                                     </div>
                                                     <div className="form-group form-group-number">
                                                         <label>Índice(%)</label>
-                                                        <input type="text" className="form-control" value={calcularIndice(formData.amostra_insp, formData.qtde_lote)}
-                                                            onChange={(e) => setCampo('indice', e.target.value)} placeholder="Ex: 100%" />
+                                                        <input type="text" className="form-control calculated-field" value={calcularIndice(formData.amostra_insp, formData.qtde_lote)}
+                                                            readOnly aria-readonly="true" title="Calculado automaticamente pela amostra e quantidade do lote" />
                                                     </div>
                                                 </div>
                                             </div>
@@ -853,11 +1554,11 @@ export default function InspecaoInjecao() {
                                         <div className="avaliacao-grid">
                                             {camposAvaliacao.map((campo) => (
                                                 <div className="form-group" key={campo.id}>
-                                                    <label>{campo.label}</label>
+                                                    <label>{campo.label} *</label>
                                                     <select className="form-control" value={formData[campo.id]}
-                                                        onChange={(e) => atualizarAvaliacao(campo.id, e.target.value)}>
+                                                        onChange={(e) => atualizarAvaliacao(campo.id, e.target.value)} aria-required="true">
                                                         {conformeOpcoes.map((op) => (
-                                                            <option key={op.value} value={op.value}>{op.label}</option>
+                                                            <option key={op.value || 'pendente'} value={op.value} disabled={op.value === ''}>{op.label}</option>
                                                         ))}
                                                     </select>
                                                 </div>
@@ -867,13 +1568,12 @@ export default function InspecaoInjecao() {
                                         <div className="avaliacao-resultado-layout">
                                             <div className="avaliacao-resultado-fields">
                                                 <div className="form-group">
-                                                    <label>Status</label>
+                                                    <label>Status *</label>
                                                     <select className="form-control" value={formData.status}
-                                                        onChange={(e) => setCampo('status', e.target.value)}>
-                                                        <option value="pendente">Pendente</option>
+                                                        onChange={(e) => setCampo('status', e.target.value)} aria-required="true">
+                                                        <option value="" disabled>Pendente</option>
                                                         <option value="aprovado">Aprovado</option>
                                                         <option value="reprovado">Reprovado</option>
-                                                        <option value="concessão">Concessão</option>
                                                     </select>
                                                 </div>
                                                 {String(formData.status || '').toLowerCase() === 'reprovado' && (
@@ -924,6 +1624,53 @@ export default function InspecaoInjecao() {
                                                 <textarea className="form-control" rows="4" value={formData.observacao}
                                                     onChange={(e) => setCampo('observacao', e.target.value)}></textarea>
                                             </div>
+                                            {String(formData.status || '').toLowerCase() === 'reprovado' && (
+                                            <div className="injecao-photo-field">
+                                                <div className="injecao-photo-header">
+                                                    <div>
+                                                        <strong><i className="fas fa-camera" aria-hidden="true"></i> Foto da peça reprovada</strong>
+                                                        <small>Registre uma evidência visual do defeito.</small>
+                                                    </div>
+                                                    <div className="injecao-photo-actions">
+                                                        <label className="btn btn-primary btn-sm">
+                                                            <i className="fas fa-camera" aria-hidden="true"></i>
+                                                            {formData.foto_peca ? 'Tirar novamente' : 'Tirar foto'}
+                                                            <input
+                                                                ref={fotoPecaInputRef}
+                                                                type="file"
+                                                                accept="image/*"
+                                                                capture="environment"
+                                                                onChange={handleFotoPecaChange}
+                                                                hidden
+                                                            />
+                                                        </label>
+                                                        {formData.foto_peca && (
+                                                            <button type="button" className="btn btn-secondary btn-sm" onClick={removerFotoPeca}>
+                                                                <i className="fas fa-trash" aria-hidden="true"></i> Remover
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                {formData.foto_peca ? (
+                                                    <div className="injecao-photo-preview">
+                                                        <img src={formData.foto_peca} alt="Pré-visualização da peça reprovada" />
+                                                        <span>{formData.foto_peca_nome || 'Foto capturada'}</span>
+                                                    </div>
+                                                ) : (
+                                                    <label className="injecao-photo-empty">
+                                                        <i className="fas fa-camera" aria-hidden="true"></i>
+                                                        <span>Nenhuma foto registrada</span>
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            capture="environment"
+                                                            onChange={handleFotoPecaChange}
+                                                            hidden
+                                                        />
+                                                    </label>
+                                                )}
+                                            </div>
+                                            )}
                                         </div>
                                             </div>
                                         </div>
@@ -931,7 +1678,7 @@ export default function InspecaoInjecao() {
                                 </div>
 
                                 <div className="modal-footer">
-                                    <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
+                                    <button type="button" className="btn btn-secondary" onClick={solicitarFechamentoFormulario}>
                                         Cancelar
                                     </button>
                                     <button type="submit" className="btn btn-primary">
@@ -941,12 +1688,24 @@ export default function InspecaoInjecao() {
                             </form>
                         </div>
                     </div>
-                )}
+                ), document.body)}
+
+                {showUnsavedConfirm && typeof document !== 'undefined' && createPortal((
+                    <div className="unsaved-confirm-overlay" onClick={() => setShowUnsavedConfirm(false)}>
+                        <div className="unsaved-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="unsaved-confirm-title" onClick={(event) => event.stopPropagation()}>
+                            <div className="unsaved-confirm-icon"><i className="fas fa-exclamation-triangle"></i></div>
+                            <div className="unsaved-confirm-copy"><h2 id="unsaved-confirm-title">Alterações não salvas</h2>
+                                <p>Você tem alterações que ainda não foram salvas. Deseja realmente sair sem salvar?</p></div>
+                            <div className="unsaved-confirm-actions"><button type="button" className="btn-confirm-cancel" onClick={() => setShowUnsavedConfirm(false)}>Cancelar</button>
+                                <button type="button" className="btn-confirm-leave" onClick={fecharFormularioSemSalvar}>Sair sem salvar</button></div>
+                        </div>
+                    </div>
+                ), document.body)}
 
                 {/* Modal de visualização (somente leitura) */}
-                {showViewModal && viewData && (
+                {showViewModal && viewData && typeof document !== 'undefined' && createPortal((
                     <div className="modal-overlay" onClick={() => setShowViewModal(false)}>
-                        <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
+                        <div ref={viewModalRef} className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
                             <div className="modal-header">
                                 <h2>Detalhes da Inspeção de Injeção</h2>
                                 <button className="modal-close" onClick={() => setShowViewModal(false)}>
@@ -972,7 +1731,17 @@ export default function InspecaoInjecao() {
                                     )}
                                 </div>
 
-                                <div className="view-section">
+                                {viewData.foto_peca && (
+                                <div className="view-section injecao-view-photo">
+                                    <h4><i className="fas fa-camera" aria-hidden="true"></i> Foto da peça reprovada</h4>
+                                    <a href={viewData.foto_peca} target="_blank" rel="noreferrer" title="Abrir foto em tamanho completo">
+                                        <img src={viewData.foto_peca} alt="Peça reprovada" />
+                                    </a>
+                                    <span>{viewData.foto_peca_nome || 'Imagem registrada'}</span>
+                                </div>
+                                )}
+                                <div className="injecao-view-secondary-grid">
+                                    <div className="view-section">
                                     <h4>Cotas Críticas:</h4>
                                     <div className="view-grid">
                                         <div className="view-item"><span className="view-label">Cota 1:</span><span className="view-value">{viewData.cota1 || '-'}</span></div>
@@ -982,16 +1751,17 @@ export default function InspecaoInjecao() {
                                     </div>
                                 </div>
 
-                                <div className="view-section">
+                                    <div className="view-section">
                                     <h4>Avaliação:</h4>
                                     <div className="view-grid">
                                         {camposAvaliacao.map((c) => (
                                             <div className="view-item" key={c.id}>
                                                 <span className="view-label">{c.label}:</span>
-                                                <span className="view-value">{viewData[c.id] || '-'}</span>
+                                                <span className="view-value">{formatarResultadoAvaliacao(viewData[c.id])}</span>
                                             </div>
                                         ))}
                                     </div>
+                                </div>
                                 </div>
 
                                 {viewData.observacao && (
@@ -1009,7 +1779,7 @@ export default function InspecaoInjecao() {
                             </div>
                         </div>
                     </div>
-                )}
+                ), document.body)}
 
                 {typeof document !== 'undefined' && createPortal(
                     <div className={`mobile-action-sheet ${sheetRegistro ? 'open' : ''}`}>
@@ -1041,3 +1811,13 @@ export default function InspecaoInjecao() {
         </div>
     );
 }
+
+
+
+
+
+
+
+
+
+

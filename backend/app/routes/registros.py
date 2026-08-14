@@ -29,7 +29,7 @@ def _parse_date(value):
         return datetime.now().date()
     if hasattr(value, 'date') and not isinstance(value, str):
         return value
-    return datetime.strptime(value, '%Y-%m-%d').date()
+    return datetime.strptime(str(value)[:10], '%Y-%m-%d').date()
 
 
 def _to_int(value, default=0):
@@ -270,7 +270,7 @@ def handle_registro_individual(id):
             # Atualizar data
             if 'data_inspecao' in dados and dados['data_inspecao']:
                 if isinstance(dados['data_inspecao'], str):
-                    registro.data_inspecao = datetime.strptime(dados['data_inspecao'], '%Y-%m-%d').date()
+                    registro.data_inspecao = datetime.strptime(str(dados['data_inspecao'])[:10], '%Y-%m-%d').date()
 
             # Atualizar outros campos
             campos = [

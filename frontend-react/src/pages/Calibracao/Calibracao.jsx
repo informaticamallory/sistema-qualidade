@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Sidebar from '../../components/Sidebar/Sidebar';
 import { equipamentosAPI, calibracoesAPI, tiposEquipamentoAPI } from '../../services/api';
 import { useAuth } from '../../context/auth-context';
 import { toUpper, upperFields } from '../../utils/text';
+import { daysBetweenDates, formatDateBR, normalizeISODate, todayISO } from '../../utils/date';
 import './Calibracao.css';
 
 export default function Calibracao() {
@@ -65,7 +66,7 @@ export default function Calibracao() {
     // Formulário de Calibração
     const [calibracaoForm, setCalibracaoForm] = useState({
         equipamento_id: '',
-        data_calibracao: new Date().toISOString().split('T')[0],
+        data_calibracao: todayISO(),
         data_validade: '',
         laboratorio: '',
         numero_certificado: '',
@@ -141,7 +142,11 @@ export default function Calibracao() {
     const handleEquipamentoSubmit = async (e) => {
         e.preventDefault();
         try {
-            const equipamentoPayload = upperFields(equipamentoForm, [
+            const equipamentoPayload = upperFields({
+                ...equipamentoForm,
+                data_ultima_calibracao: normalizeISODate(equipamentoForm.data_ultima_calibracao, ''),
+                data_proxima_calibracao: normalizeISODate(equipamentoForm.data_proxima_calibracao, '')
+            }, [
                 'codigo', 'codigo_sap', 'numero_serie', 'nome', 'fabricante', 'modelo',
                 'setor', 'responsavel', 'tipo_afericao', 'status_equipamento',
                 'frequencia_calibracao', 'ultimo_certificado', 'ultimo_certificado_rastreavel',
@@ -258,7 +263,7 @@ export default function Calibracao() {
         setSelectedEquipamento(equip);
         setCalibracaoForm({
             equipamento_id: equip.id,
-            data_calibracao: new Date().toISOString().split('T')[0],
+            data_calibracao: todayISO(),
             data_validade: '',
             laboratorio: '',
             numero_certificado: '',
@@ -282,7 +287,11 @@ export default function Calibracao() {
     const handleCalibracaoSubmit = async (e) => {
         e.preventDefault();
         try {
-            const calibracaoPayload = upperFields(calibracaoForm, ['laboratorio', 'numero_certificado']);
+            const calibracaoPayload = upperFields({
+                ...calibracaoForm,
+                data_calibracao: normalizeISODate(calibracaoForm.data_calibracao),
+                data_validade: normalizeISODate(calibracaoForm.data_validade, '')
+            }, ['laboratorio', 'numero_certificado']);
 
             if (calibracaoForm.arquivo) {
                 // Com arquivo - usar FormData
@@ -345,11 +354,9 @@ export default function Calibracao() {
             return { status: 'pendente', label: 'Pendente', color: 'gray' };
         }
 
-        const hoje = new Date();
-        const validade = new Date(equip.ultima_calibracao.data_validade);
-        const diasRestantes = Math.ceil((validade - hoje) / (1000 * 60 * 60 * 24));
+        const diasRestantes = daysBetweenDates(todayISO(), equip.ultima_calibracao.data_validade);
 
-        if (diasRestantes < 0) {
+        if (diasRestantes === null || diasRestantes < 0) {
             return { status: 'vencida', label: 'Vencida', color: 'red', dias: diasRestantes };
         } else if (diasRestantes <= 20) {
             return { status: 'vencendo', label: `Vence em ${diasRestantes}d`, color: 'yellow', dias: diasRestantes };
@@ -361,7 +368,9 @@ export default function Calibracao() {
     const formatarData = (dataString) => {
         if (!dataString) return '-';
         try {
-            return new Date(dataString).toLocaleDateString('pt-BR');
+            const [year, month, day] = dataString.split('-');
+            if (!year || !month || !day) return '-';
+            return `${day}/${month}/${year}`;
         } catch {
             return '-';
         }

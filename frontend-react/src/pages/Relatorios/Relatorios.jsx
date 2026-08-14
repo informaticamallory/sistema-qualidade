@@ -2,20 +2,22 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Sidebar from '../../components/Sidebar/Sidebar';
 import {
     cartoesAPI,
+    fichasAPI,
     injecaoAPI,
     recebimentoAPI,
     registrosAPI,
     relatorioRecebimentoAPI
 } from '../../services/api';
 import { formatarTurno, normalizarTurno } from '../../utils/turnos';
+import { formatDateBR, formatLocalDateISO, parseLocalDate, todayISO } from '../../utils/date';
 import './Relatorios.css';
 
-const hojeISO = () => new Date().toISOString().split('T')[0];
+const hojeISO = todayISO;
 
 const mesPassadoISO = () => {
-    const data = new Date();
+    const data = parseLocalDate(todayISO()) || new Date();
     data.setMonth(data.getMonth() - 1);
-    return data.toISOString().split('T')[0];
+    return formatLocalDateISO(data);
 };
 
 const normalizarStatus = (status) => (status || 'pendente').toLowerCase();
@@ -35,7 +37,8 @@ export default function Relatorios() {
         injecao: [],
         recebimento: [],
         entradaMp: [],
-        cartoes: []
+        cartoes: [],
+        fichasNC: []
     });
 
     const [filtros, setFiltros] = useState({
@@ -57,14 +60,7 @@ export default function Relatorios() {
         taxaAprovacao: 0
     });
 
-    const formatarData = (dataString) => {
-        if (!dataString) return 'N/A';
-        try {
-            return new Date(dataString).toLocaleDateString('pt-BR');
-        } catch {
-            return 'N/A';
-        }
-    };
+    const formatarData = (dataString) => formatDateBR(dataString);
 
     const getStatusClass = (status) => {
         const classes = {
@@ -178,38 +174,28 @@ export default function Relatorios() {
     }, [fontes.cartoes]);
 
     const normalizarFichasNC = useCallback((base = fontes) => {
-        const registrosNC = normalizarRegistros(base)
-            .filter((item) => item.status === 'reprovado' || item.qtdNC > 0 || item.defeito || item.documento)
-            .map((item) => ({
-                ...item,
-                origemNC: item.tipoLabel,
-                responsavel: item.inspetor
+        return (base.fichasNC || [])
+            .filter((ficha) => ficha.ficha_nc_id)
+            .map((ficha) => ({
+                id: ficha.ficha_nc_id,
+                key: `ficha-${ficha.ficha_nc_id}`,
+                tipo: 'ficha-nc',
+                tipoLabel: 'Ficha NC',
+                origemNC: ficha.numero_fnc || 'Ficha NC',
+                data: ficha.data_fnc || ficha.data_inspecao,
+                codigo: ficha.codigo || ficha.cod_sap,
+                descricao: ficha.produto || ficha.modelo,
+                local: ficha.linha_montagem || ficha.linha || ficha.origemNC || '',
+                turno: ficha.turno || '',
+                qtdTotal: ficha.quantidade || ficha.qtd_total || 0,
+                qtdInspecionada: ficha.qtd_inspecionadas || ficha.qtd_inspecionada || 0,
+                qtdNC: ficha.qtd_nao_conforme || ficha.qtd_nc || 0,
+                status: normalizarStatus(ficha.status || 'aberta'),
+                responsavel: ficha.responsavel || ficha.responsavel_acao || ficha.inspetor || '',
+                documento: ficha.numero_fnc || '',
+                defeito: ficha.descricao_nc || ficha.defeito || ''
             }));
-
-        const cartoesNC = normalizarCartoes(base.cartoes)
-            .filter((item) => item.status === 'reprovado' || item.qtdNC > 0 || item.documento)
-            .map((item) => ({
-                id: item.id,
-                key: item.key,
-                tipo: 'cartao',
-                tipoLabel: 'Cartão',
-                origemNC: 'Cartão',
-                data: item.data,
-                codigo: item.codigo,
-                descricao: item.produto,
-                local: item.setor,
-                turno: item.turno,
-                qtdTotal: item.qtdConforme + item.qtdNC,
-                qtdInspecionada: item.qtdConforme + item.qtdNC,
-                qtdNC: item.qtdNC,
-                status: item.status,
-                responsavel: item.responsavel,
-                documento: item.documento,
-                defeito: ''
-            }));
-
-        return [...registrosNC, ...cartoesNC];
-    }, [normalizarCartoes, normalizarRegistros]);
+    }, [fontes]);
 
     const baseAtual = useMemo(() => {
         if (activeTab === 'cartoes') return normalizarCartoes();
@@ -218,11 +204,11 @@ export default function Relatorios() {
     }, [activeTab, normalizarCartoes, normalizarFichasNC, normalizarRegistros]);
 
     const aplicarFiltros = useCallback((data) => {
-        const inicio = filtros.dataInicio ? new Date(`${filtros.dataInicio}T00:00:00`) : null;
-        const fim = filtros.dataFim ? new Date(`${filtros.dataFim}T23:59:59`) : null;
+        const inicio = filtros.dataInicio ? parseLocalDate(filtros.dataInicio) : null;
+        const fim = filtros.dataFim ? parseLocalDate(filtros.dataFim) : null;
 
         return data.filter((item) => {
-            const dataItem = item.data ? new Date(item.data) : null;
+            const dataItem = item.data ? parseLocalDate(item.data) : null;
             const dentroInicio = !inicio || (dataItem && dataItem >= inicio);
             const dentroFim = !fim || (dataItem && dataItem <= fim);
             const mesmoStatus = !filtros.status || item.status === filtros.status;
@@ -249,12 +235,13 @@ export default function Relatorios() {
     const buscarDados = useCallback(async () => {
         try {
             setLoading(true);
-            const [montagem, injecao, recebimento, entradaMp, cartoes] = await Promise.allSettled([
+            const [montagem, injecao, recebimento, entradaMp, cartoes, fichasNC] = await Promise.allSettled([
                 registrosAPI.getAll({ limit: 100 }),
                 injecaoAPI.getAll({ limit: 100 }),
                 recebimentoAPI.getAll({ limit: 100 }),
                 relatorioRecebimentoAPI.getAll({ limit: 100 }),
-                cartoesAPI.getAll({})
+                cartoesAPI.getAll({}),
+                fichasAPI.getAll({ limit: 100 })
             ]);
 
             const novasFontes = {
@@ -262,7 +249,8 @@ export default function Relatorios() {
                 injecao: injecao.status === 'fulfilled' && injecao.value.data.success ? injecao.value.data.data || [] : [],
                 recebimento: recebimento.status === 'fulfilled' && recebimento.value.data.success ? recebimento.value.data.data || [] : [],
                 entradaMp: entradaMp.status === 'fulfilled' && entradaMp.value.data.success ? entradaMp.value.data.data || [] : [],
-                cartoes: cartoes.status === 'fulfilled' && cartoes.value.data.success ? cartoes.value.data.data || [] : []
+                cartoes: cartoes.status === 'fulfilled' && cartoes.value.data.success ? cartoes.value.data.data || [] : [],
+                fichasNC: fichasNC.status === 'fulfilled' && fichasNC.value.data.success ? fichasNC.value.data.data || [] : []
             };
 
             setFontes(novasFontes);
@@ -354,7 +342,7 @@ export default function Relatorios() {
             const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = `relatorio_${activeTab}_${new Date().toISOString().split('T')[0]}.csv`;
+            link.download = `relatorio_${activeTab}_${todayISO()}.csv`;
             link.click();
             URL.revokeObjectURL(link.href);
         } catch (error) {

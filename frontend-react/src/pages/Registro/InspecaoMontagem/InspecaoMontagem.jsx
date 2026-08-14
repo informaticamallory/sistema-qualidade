@@ -4,13 +4,9 @@ import Sidebar from '../../../components/Sidebar/Sidebar';
 import { registrosAPI, defeitosAPI, produtosAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
 import { upperFields } from '../../../utils/text';
+import { formatDateBR, normalizeISODate, todayISO } from '../../../utils/date';
 import './InspecaoMontagem.css';
 
-const todayISO = () => {
-    const now = new Date();
-    const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-    return localDate.toISOString().split('T')[0];
-};
 
 const getWeekFromDate = (value = todayISO()) => {
     const [year, month, day] = String(value || '').split('-').map(Number);
@@ -309,7 +305,7 @@ export default function InspecaoMontagem() {
     };
 
     const handleEdit = (registro) => {
-        const dataInspecao = registro.data_inspecao || todayISO();
+        const dataInspecao = normalizeISODate(registro.data_inspecao || todayISO());
 
         setFormData({
             data_inspecao: dataInspecao,
@@ -542,7 +538,9 @@ export default function InspecaoMontagem() {
     const formatarData = (dataString) => {
         if (!dataString) return 'N/A';
         try {
-            return new Date(dataString).toLocaleDateString('pt-BR');
+            const [year, month, day] = dataString.split('-');
+            if (!year || !month || !day) return 'N/A';
+            return `${day}/${month}/${year}`;
         } catch {
             return 'N/A';
         }

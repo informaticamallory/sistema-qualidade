@@ -214,3 +214,50 @@ input::-ms-clear {
 .text-muted {
   color: var(--text-muted);
 }
+
+
+/* Responsive header actions shared by all pages */
+@media (max-width: 1024px) {
+  body .page-header {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  body .header-actions {
+    box-sizing: border-box;
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  body .header-actions .form-control {
+    flex: 1 1 220px;
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  body .header-actions .btn {
+    flex: 0 1 auto;
+    width: auto;
+    min-width: max-content;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  body .header-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  body .header-actions .form-control,
+  body .header-actions .btn {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+  }
+}

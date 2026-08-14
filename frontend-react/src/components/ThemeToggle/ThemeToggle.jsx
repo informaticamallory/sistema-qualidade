@@ -3,7 +3,7 @@ import './ThemeToggle.css';
 
 /**
  * Toggle de tema claro/escuro.
- * variant="sidebar"  -> botão largo com rótulo, para a sidebar
+ * variant="sidebar"  -> botão compacto no cabeçalho da sidebar
  * variant="floating" -> botão circular flutuante, para a tela de login
  */
 export default function ThemeToggle({ variant = 'sidebar' }) {
@@ -35,7 +35,6 @@ export default function ThemeToggle({ variant = 'sidebar' }) {
             aria-label={label}
         >
             <i className={`fas ${icon}`}></i>
-            <span>{label}</span>
         </button>
     );
 }

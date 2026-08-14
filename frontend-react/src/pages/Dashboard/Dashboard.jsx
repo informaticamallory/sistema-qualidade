@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Chart as ChartJS,
@@ -11,6 +11,7 @@ import { Bar, Bubble, Doughnut, Line, Pie, Radar, PolarArea } from 'react-chartj
 import Sidebar from '../../components/Sidebar/Sidebar';
 import { dashboardAPI } from '../../services/api';
 import { useTheme } from '../../context/theme-context';
+import { formatDateBR } from '../../utils/date';
 import './Dashboard.css';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Filler, RadialLinearScale);
@@ -719,7 +720,11 @@ export default function Dashboard() {
 
     const formatarData = (dataString) => {
         if (!dataString) return 'N/A';
-        try { return new Date(dataString).toLocaleDateString('pt-BR'); } catch { return 'N/A'; }
+        try {
+            const [year, month, day] = dataString.split('-');
+            if (!year || !month || !day) return 'N/A';
+            return `${day}/${month}/${year}`;
+        } catch { return 'N/A'; }
     };
 
     const getStatusClass = (status) => ({ aprovado: 'badge-success', pendente: 'badge-warning', reprovado: 'badge-danger' }[status?.toLowerCase()] || 'badge-warning');

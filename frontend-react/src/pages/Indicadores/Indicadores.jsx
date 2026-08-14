@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+﻿import { useCallback, useEffect, useState } from 'react';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Filler } from 'chart.js';
 import { Doughnut, Bar, Line } from 'react-chartjs-2';
 import Sidebar from '../../components/Sidebar/Sidebar';
@@ -6,6 +6,7 @@ import { injecaoAPI, recebimentoAPI, registrosAPI, relatorioRecebimentoAPI } fro
 import { useAuth } from '../../context/auth-context';
 import { useTheme } from '../../context/theme-context';
 import { formatarTurno, normalizarTurno } from '../../utils/turnos';
+import { formatLocalDateISO, parseLocalDate, todayISO } from '../../utils/date';
 import './Indicadores.css';
 
 // Registrar componentes do Chart.js
@@ -89,13 +90,13 @@ export default function Indicadores() {
     }, [registros, injecoes, fichasRecebimento, entradasMateriaPrima]);
 
     const filtrarIndicadores = useCallback((data) => {
-        const hoje = new Date();
-        const diasAtras = new Date();
+        const hoje = parseLocalDate(todayISO()) || new Date();
+        const diasAtras = new Date(hoje);
         diasAtras.setDate(hoje.getDate() - parseInt(filtros.periodo));
 
         let dadosFiltrados = data.filter(d => {
             if (!d.data) return false;
-            const dataReg = new Date(d.data);
+            const dataReg = parseLocalDate(d.data);
             return dataReg >= diasAtras && dataReg <= hoje;
         });
 
@@ -115,8 +116,8 @@ export default function Indicadores() {
     }, [filtros]);
 
     const calcularIndicadores = useCallback((data) => {
-        const hoje = new Date();
-        const diasAtras = new Date();
+        const hoje = parseLocalDate(todayISO()) || new Date();
+        const diasAtras = new Date(hoje);
         diasAtras.setDate(hoje.getDate() - parseInt(filtros.periodo));
         const dadosFiltrados = filtrarIndicadores(data);
         const total = dadosFiltrados.length;
@@ -134,7 +135,7 @@ export default function Indicadores() {
 
         const dadosPeriodoAnterior = data.filter(d => {
             if (!d.data) return false;
-            const dataReg = new Date(d.data);
+            const dataReg = parseLocalDate(d.data);
             const dentroPeriodo = dataReg >= periodoAnteriorInicio && dataReg < diasAtras;
             const mesmoTipo = !filtros.tipo || d.tipo === filtros.tipo;
             const mesmoLocal = !filtros.local || d.local === filtros.local;
@@ -261,14 +262,14 @@ export default function Indicadores() {
     });
 
     const filtrarPorPeriodo = (data, campoData) => {
-        const hoje = new Date();
-        const diasAtras = new Date();
+        const hoje = parseLocalDate(todayISO()) || new Date();
+        const diasAtras = new Date(hoje);
         diasAtras.setDate(hoje.getDate() - parseInt(filtros.periodo));
 
         return data.filter((item) => {
             const valorData = item[campoData];
             if (!valorData) return false;
-            const dataReg = new Date(valorData);
+            const dataReg = parseLocalDate(valorData);
             return dataReg >= diasAtras && dataReg <= hoje;
         });
     };
@@ -338,7 +339,7 @@ export default function Indicadores() {
     // Dados para gráfico de evolução mensal
     const getEvolucaoData = () => {
         const dadosIndicadores = filtrarIndicadores(normalizarInspecoes());
-        const hoje = new Date();
+        const hoje = parseLocalDate(todayISO()) || new Date();
         const labels = [];
         const aprovados = [];
         const reprovados = [];
@@ -351,8 +352,8 @@ export default function Indicadores() {
             labels.push(diaStr);
 
             const registrosDia = dadosIndicadores.filter(r => {
-                const dataReg = new Date(r.data);
-                return dataReg.toDateString() === dia.toDateString();
+                const dataReg = parseLocalDate(r.data);
+                return dataReg && formatLocalDateISO(dataReg) === formatLocalDateISO(dia);
             });
 
             aprovados.push(registrosDia.filter(r => r.status?.toLowerCase() === 'aprovado').length);

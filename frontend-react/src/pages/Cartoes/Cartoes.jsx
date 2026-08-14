@@ -303,7 +303,7 @@ export default function Cartoes() {
                     .card { border: 3px solid #333; border-radius: 15px; max-width: 500px; margin: 0 auto; background: #fff; overflow: hidden; }
                     .header { text-align: center; background: linear-gradient(135deg, #fda619 0%, #ff8c00 100%); padding: 20px; color: #fff; }
                     .header h1 { font-size: 1.8rem; margin-bottom: 5px; }
-                    .header h2 { font-size: 1.3rem; font-weight: normal; margin-top: 10px; }
+                    .header h2 { font-size: 1.3rem; font-weight: normal; margin-top: 10px; overflow-wrap: anywhere; }
                     .body-card { padding: 25px; }
                     .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
                     .info-item { text-align: center; padding: 12px; background: #f8f9fa; border-radius: 10px; }
@@ -329,7 +329,8 @@ export default function Cartoes() {
                 <div class="card">
                     <div class="header">
                         <h1>CARTÃO DE QUALIDADE</h1>
-                        <h2>${cartaoParaImprimir.codigo_produto || '-'}</h2>
+                        <h2>${cartaoParaImprimir.codigo_produto || '-'} - ${produto}</h2>
+                        
                     </div>
                     <div class="body-card">
                         <div class="info-grid">
@@ -427,7 +428,9 @@ export default function Cartoes() {
     const formatarData = (dataString) => {
         if (!dataString) return 'N/A';
         try {
-            return new Date(dataString).toLocaleDateString('pt-BR');
+            const [year, month, day] = dataString.split('-');
+            if (!year || !month || !day) return 'N/A';
+            return `${day}/${month}/${year}`;
         } catch {
             return 'N/A';
         }
@@ -821,7 +824,7 @@ export default function Cartoes() {
                                         <i className="fas fa-times"></i> Fechar
                                     </button>
                                     <button className="btn btn-primary" onClick={executePrint}>
-                                        <i className="fas fa-print"></i> Imprimir Cartão
+                                        <i className="fas fa-print"></i> Editar Cartão
                                     </button>
                                 </div>
                             </div>

@@ -25,6 +25,17 @@
   display: none;
 }
 
+.sidebar.collapsed .sidebar-header {
+  flex-direction: column;
+  gap: 8px;
+  min-height: 112px;
+  padding: 16px 10px;
+}
+
+.sidebar.collapsed .sidebar-header-actions {
+  flex-direction: column;
+}
+
 .sidebar-header {
   display: flex;
   align-items: center;
@@ -50,6 +61,11 @@
   box-shadow: 0 4px 12px var(--primary-shadow);
 }
 
+.logo-text {
+  flex: 1;
+  min-width: 0;
+}
+
 .logo-text h2 {
   margin: 0;
   font-size: 1.15rem;
@@ -63,6 +79,64 @@
   font-size: 0.75rem;
   color: var(--sidebar-text-dim);
   line-height: 1.2;
+}
+
+.sidebar-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sidebar-header-toggle {
+  display: grid;
+  place-items: center;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--sidebar-text);
+  cursor: pointer;
+  transition: color 180ms ease, border-color 180ms ease, background 180ms ease, transform 180ms ease;
+}
+
+.sidebar-header-toggle svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sidebar-header-toggle .sidebar-toggle-divider {
+  stroke: var(--primary);
+  stroke-width: 2.2;
+}
+
+.sidebar-header-toggle:hover {
+  color: #fff;
+  border-color: color-mix(in srgb, var(--primary) 65%, var(--sidebar-border));
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+  transform: translateY(-1px);
+}
+
+.sidebar-header-toggle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.sidebar.collapsed .sidebar-header-toggle {
+  flex-basis: 34px;
+  order: 1;
+}
+
+.sidebar.collapsed .theme-toggle-sidebar {
+  order: 2;
 }
 
 .sidebar-menu {
@@ -200,6 +274,13 @@
   background: var(--sidebar-footer);
 }
 
+.sidebar.collapsed .sidebar-user {
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 8px;
+}
+
 .user-avatar {
   width: 44px;
   height: 44px;
@@ -230,56 +311,36 @@
 }
 
 .user-role {
-  margin: 2px 0 8px;
+  margin: 3px 0 0;
   font-size: 0.75rem;
   color: var(--sidebar-text-dim);
 }
 
-.logout-btn-sidebar {
-  background: var(--danger-soft);
+.logout-btn-collapsed {
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  padding: 0;
   border: 1px solid var(--danger-soft-strong);
-  color: var(--danger-text);
-  padding: 6px 12px;
-  border-radius: var(--r-md);
-  cursor: pointer;
-  font-size: 0.8rem;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 700;
-  transition: all 0.2s ease;
-}
-
-.logout-btn-sidebar:hover {
-  background: var(--danger-soft-strong);
-  border-color: var(--danger);
-}
-
-.sidebar-toggle {
-  position: fixed;
-  left: var(--ui-sidebar-width, 280px);
-  top: 20px;
-  width: 30px;
-  height: 30px;
-  background: var(--sidebar-solid);
-  border: 1px solid var(--sidebar-border);
   border-radius: 10px;
-  color: #fff;
+  background: var(--danger-soft);
+  color: var(--danger-text);
   cursor: pointer;
-  z-index: 1001;
-  transition: left var(--transition-normal, 240ms ease), transform 180ms ease, background 180ms ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: var(--shadow-md);
+  font-size: .95rem;
+  transition: color 180ms ease, border-color 180ms ease, background 180ms ease, transform 180ms ease;
 }
 
-.sidebar-toggle:hover {
-  transform: scale(1.06);
+.logout-btn-collapsed:hover {
+  border-color: var(--danger);
+  background: var(--danger-soft-strong);
+  transform: translateY(-1px);
 }
 
-.sidebar.collapsed~.sidebar-toggle {
-  left: var(--ui-sidebar-collapsed-width, 80px);
+.logout-btn-collapsed:focus-visible {
+  outline: 2px solid var(--danger);
+  outline-offset: 2px;
 }
 
 .mobile-toggle {
@@ -333,7 +394,7 @@
     transform: translateX(0);
   }
 
-  .sidebar-toggle {
+  .sidebar-header-toggle {
     display: none;
   }
 
@@ -407,12 +468,6 @@
 
   .user-name {
     font-size: 0.9rem;
-  }
-
-  .logout-btn-sidebar {
-    width: 100%;
-    justify-content: center;
-    margin-top: 5px;
   }
 }
 

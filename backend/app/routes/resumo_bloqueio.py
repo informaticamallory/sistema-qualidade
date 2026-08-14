@@ -13,7 +13,7 @@ resumo_bloqueio_bp = Blueprint('resumo_bloqueio', __name__)
 
 
 def _parse_date(data_iso):
-    return datetime.strptime(data_iso, '%Y-%m-%d').date()
+    return datetime.strptime(str(data_iso)[:10], '%Y-%m-%d').date()
 
 
 def _can_save():

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Sidebar from '../../components/Sidebar/Sidebar';
 import { produtosAPI, q49API } from '../../services/api';
+import { formatDateBR, normalizeISODate, todayISO } from '../../utils/date';
 import './Q49.css';
 
 const MONTHS = [
@@ -51,15 +53,11 @@ const NACIONALIZACAO_OPTIONS = [
 ];
 
 
-const todayISO = () => {
-    const now = new Date();
-    const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-    return localDate.toISOString().split('T')[0];
-};
 
 const dateParts = (value) => {
-    if (!value) return { ano: '', mes: '' };
-    const [ano, mes] = value.split('-');
+    const date = normalizeISODate(value, '');
+    if (!date) return { ano: '', mes: '' };
+    const [ano, mes] = date.split('-');
     return {
         ano: ano || '',
         mes: MONTHS[Number(mes) - 1] || ''
@@ -215,10 +213,7 @@ const FIELDS_BY_TAB = {
 };
 
 function formatDate(value) {
-    if (!value) return '-';
-    const [year, month, day] = value.split('-');
-    if (!year || !month || !day) return value;
-    return `${day}/${month}/${year}`;
+    return formatDateBR(value, '-');
 }
 
 function normalizeSearch(value) {
@@ -780,7 +775,7 @@ export default function Q49() {
                     )}
                 </div>
 
-                {renderModal()}
+                {typeof document !== 'undefined' && createPortal(renderModal(), document.body)}
             </main>
         </div>
     );

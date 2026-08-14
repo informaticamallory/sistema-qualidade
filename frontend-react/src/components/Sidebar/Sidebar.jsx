@@ -136,6 +136,22 @@ export default function Sidebar() {
                         <h2>MALLORY</h2>
                         <p>Qualidade Industrial</p>
                     </div>
+                    <div className="sidebar-header-actions">
+                        <ThemeToggle variant="sidebar" />
+                        <button
+                            type="button"
+                            className="sidebar-header-toggle"
+                            onClick={toggleSidebar}
+                            title={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
+                            aria-label={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
+                        >
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <rect x="3" y="3" width="18" height="18" rx="3"></rect>
+                                <path className="sidebar-toggle-divider" d="M9 3v18"></path>
+                                {collapsed ? <path d="m13 9 3 3-3 3"></path> : <path d="m15 9-3 3 3 3"></path>}
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
                 <div className="sidebar-menu">
@@ -194,30 +210,24 @@ export default function Sidebar() {
                     })}
                 </div>
 
-                <ThemeToggle variant="sidebar" />
-
                 <div className="sidebar-user">
                     <div className="user-avatar">{userInitial}</div>
                     <div className="user-details">
                         <p className="user-name">{user?.nome || 'Usuário'}</p>
                         <p className="user-role">{getRoleLabel()}</p>
-                        <button className="logout-btn-sidebar" onClick={handleLogout} title="Sair do sistema">
-                            <i className="fas fa-sign-out-alt"></i>
-                            <span>Sair</span>
-                        </button>
                     </div>
+                    <button
+                        type="button"
+                        className="logout-btn-collapsed"
+                        onClick={handleLogout}
+                        title="Sair do sistema"
+                        aria-label="Sair do sistema"
+                    >
+                        <i className="fas fa-sign-out-alt" aria-hidden="true"></i>
+                    </button>
                 </div>
             </nav>
 
-            {/* Toggle Button for Desktop */}
-            <button
-                className="sidebar-toggle"
-                onClick={toggleSidebar}
-                title={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
-                aria-label={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
-            >
-                <i className={`fas fa-chevron-${collapsed ? 'right' : 'left'}`}></i>
-            </button>
         </>
     );
 }

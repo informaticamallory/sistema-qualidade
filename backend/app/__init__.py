@@ -1,4 +1,4 @@
-﻿# app/__init__.py - Factory Pattern Flask
+# app/__init__.py - Factory Pattern Flask
 import os
 import logging
 from flask import Flask
@@ -157,7 +157,9 @@ def garantir_schema_injecao(app):
             colunas = {col['name'] for col in inspector.get_columns('registros_injecao')}
             campos = {
                 'semana': 'VARCHAR(10)',
-                'modelo_maquina': 'VARCHAR(100)'
+                'modelo_maquina': 'VARCHAR(100)',
+                'foto_peca': 'LONGTEXT',
+                'foto_peca_nome': 'VARCHAR(255)'
             }
             alterou = False
             for campo, tipo in campos.items():

@@ -1,4 +1,4 @@
-# routes/recebimento.py - Rotas de Inspeção e Relatório de Recebimento
+﻿# routes/recebimento.py - Rotas de Inspeção e Relatório de Recebimento
 from flask import Blueprint, request, current_app
 from datetime import datetime
 
@@ -25,7 +25,7 @@ def _negar_se_sem_permissao(mapa):
 def _parse_date(value):
     if value and isinstance(value, str):
         try:
-            return datetime.strptime(value, '%Y-%m-%d').date()
+            return datetime.strptime(str(value)[:10], '%Y-%m-%d').date()
         except ValueError:
             return None
     return None

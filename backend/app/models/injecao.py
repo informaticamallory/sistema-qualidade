@@ -1,6 +1,7 @@
 # models/injecao.py - Modelo de Registro de Inspeção de Injeção (peças plásticas)
 from datetime import datetime
 from app.extensions import db
+from sqlalchemy.dialects.mysql import LONGTEXT
 
 
 class RegistroInjecao(db.Model):
@@ -33,6 +34,8 @@ class RegistroInjecao(db.Model):
     # Status / defeito
     status = db.Column(db.String(20), default='pendente', index=True)
     defeito = db.Column(db.String(255))
+    foto_peca = db.Column(db.Text().with_variant(LONGTEXT(), 'mysql'))
+    foto_peca_nome = db.Column(db.String(255))
 
     # Cotas críticas
     cota1 = db.Column(db.String(50))
@@ -74,6 +77,8 @@ class RegistroInjecao(db.Model):
             'peso': self.peso,
             'status': self.status,
             'defeito': self.defeito,
+            'foto_peca': self.foto_peca,
+            'foto_peca_nome': self.foto_peca_nome,
             'cota1': self.cota1,
             'cota2': self.cota2,
             'cota3': self.cota3,

@@ -1,4 +1,4 @@
-# routes/dashboard.py - Rotas de dashboard e estatísticas
+﻿# routes/dashboard.py - Rotas de dashboard e estatísticas
 from flask import Blueprint, current_app, request
 from datetime import datetime, timedelta
 
@@ -353,7 +353,7 @@ def get_dashboard_builder_data():
             raw = request.args.get(name)
             if not raw:
                 return None
-            return datetime.strptime(raw, '%Y-%m-%d').date()
+            return datetime.strptime(str(raw)[:10], '%Y-%m-%d').date()
 
         start_date = parse_date('start_date')
         end_date = parse_date('end_date')
@@ -726,7 +726,7 @@ def get_ultimas_inspecoes():
             raw = request.args.get(name)
             if not raw:
                 return None
-            return datetime.strptime(raw, '%Y-%m-%d').date()
+            return datetime.strptime(str(raw)[:10], '%Y-%m-%d').date()
 
         start_date = parse_date('start_date')
         end_date = parse_date('end_date')

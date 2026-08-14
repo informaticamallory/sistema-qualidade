@@ -1624,3 +1624,73 @@ body.is-resizing-widget {
     color: var(--text-muted);
     font-style: italic;
 }
+
+/* Indicadores principais compactos no layout responsivo. */
+@media (max-width: 1200px) {
+    .dashboard-builder-grid .dashboard-widget.metric-widget {
+        grid-column: span 4;
+    }
+
+    .dashboard-builder-grid .dashboard-widget.chart-widget {
+        grid-column: span 12;
+    }
+}
+
+@media (max-width: 700px) {
+    .dashboard-builder-grid {
+        gap: 10px;
+    }
+
+    .dashboard-builder-grid .dashboard-widget.metric-widget {
+        grid-column: span 4;
+        min-height: 132px;
+        padding: 12px;
+        border-radius: 12px;
+    }
+
+    .dashboard-builder-grid .metric-widget:not(.is-editing) .widget-actions {
+        display: none;
+    }
+
+    .dashboard-builder-grid .metric-widget .widget-header {
+        min-height: 34px;
+        margin-bottom: 8px;
+        padding-right: 0;
+        flex-direction: row;
+    }
+
+    .dashboard-builder-grid .metric-widget .widget-header h3 {
+        display: -webkit-box;
+        overflow: hidden;
+        font-size: 0.72rem;
+        line-height: 1.25;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+    }
+
+    .dashboard-builder-grid .metric-widget .metric-content {
+        min-height: 64px;
+        padding-top: 4px;
+    }
+
+    .dashboard-builder-grid .metric-widget .metric-value {
+        font-size: 1.45rem;
+        line-height: 1.1;
+    }
+
+    .dashboard-builder-grid .metric-widget .metric-label,
+    .dashboard-builder-grid .metric-widget .metric-compare {
+        font-size: 0.65rem;
+        line-height: 1.2;
+    }
+}
+
+@media (max-width: 360px) {
+    .dashboard-builder-grid .dashboard-widget.metric-widget {
+        grid-column: span 6;
+    }
+
+    .dashboard-builder-grid .dashboard-widget.metric-widget:nth-child(3) {
+        grid-column: span 12;
+    }
+}

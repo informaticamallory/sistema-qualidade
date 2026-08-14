@@ -33,6 +33,8 @@ class RegistroInjecaoSchema(Schema):
     status = fields.Str(validate=validate.OneOf(['pendente', 'aprovado', 'reprovado']),
                         load_default='pendente')
     defeito = fields.Str(validate=validate.Length(max=255), allow_none=True)
+    foto_peca = fields.Str(allow_none=True)
+    foto_peca_nome = fields.Str(validate=validate.Length(max=255), allow_none=True)
 
     cota1 = fields.Str(validate=validate.Length(max=50), allow_none=True)
     cota2 = fields.Str(validate=validate.Length(max=50), allow_none=True)

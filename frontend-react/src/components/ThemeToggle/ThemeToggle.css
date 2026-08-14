@@ -1,39 +1,36 @@
 .theme-toggle-sidebar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: calc(100% - 20px);
-    margin: 0 10px 10px;
-    padding: 10px 14px;
-    background: transparent;
-    border: 1px solid var(--sidebar-border);
-    border-radius: var(--r-md);
-    color: var(--sidebar-text);
-    font-size: 0.86rem;
-    font-weight: 600;
+    display: grid;
+    place-items: center;
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    margin: 0;
+    padding: 0;
+    background: color-mix(in srgb, var(--primary) 9%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 52%, var(--sidebar-border));
+    border-radius: 9px;
+    color: var(--primary);
+    font-size: 1rem;
     cursor: pointer;
-    transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+    transition: background 180ms ease, color 180ms ease, border-color 180ms ease, transform 180ms ease;
 }
 
 .theme-toggle-sidebar:hover {
-    background: var(--sidebar-hover);
-    color: var(--sidebar-text-strong);
-    border-color: color-mix(in srgb, var(--primary) 28%, var(--sidebar-border));
+    background: color-mix(in srgb, var(--primary) 18%, transparent);
+    border-color: color-mix(in srgb, var(--primary) 76%, var(--sidebar-border));
+    color: color-mix(in srgb, var(--primary) 82%, #fff);
+    transform: translateY(-1px);
+}
+
+.theme-toggle-sidebar:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
 }
 
 .theme-toggle-sidebar i {
-    width: 22px;
-    text-align: center;
+    width: auto;
     font-size: 1rem;
-}
-
-.sidebar.collapsed .theme-toggle-sidebar span {
-    display: none;
-}
-
-.sidebar.collapsed .theme-toggle-sidebar {
-    justify-content: center;
-    padding: 12px;
+    text-align: center;
 }
 
 .theme-toggle-floating {

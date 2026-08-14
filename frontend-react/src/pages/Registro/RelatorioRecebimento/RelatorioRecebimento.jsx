@@ -1,18 +1,23 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import Sidebar from '../../../components/Sidebar/Sidebar';
 import { relatorioRecebimentoAPI, produtosAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
 import { ColumnToggle } from '../../../ui';
 import { upperFields } from '../../../utils/text';
+import { formatDateBR, normalizeISODate, todayISO } from '../../../utils/date';
 import useColumnVisibility from '../../../hooks/useColumnVisibility';
 import '../InspecaoMontagem/InspecaoMontagem.css';
 import '../recebimento.css';
 
-const hoje = () => new Date().toISOString().split('T')[0];
+const hoje = todayISO;
 
 const formatarData = (d) => {
     if (!d) return '-';
-    try { return new Date(d).toLocaleDateString('pt-BR'); } catch { return '-'; }
+    try {
+        const [year, month, day] = d.split('-');
+        if (!year || !month || !day) return '-';
+        return `${day}/${month}/${year}`;
+    } catch { return '-'; }
 };
 
 const normalizarStatus = (status) => (status || 'pendente').toLowerCase();
@@ -206,7 +211,12 @@ export default function RelatorioRecebimento() {
     };
 
     const handleEdit = (reg) => {
-        setFormData({ ...estadoInicial(), ...reg, data_entrada: reg.data_entrada || hoje(), data_inspecao: reg.data_inspecao || hoje() });
+        setFormData({
+            ...estadoInicial(),
+            ...reg,
+            data_entrada: normalizeISODate(reg.data_entrada || hoje()),
+            data_inspecao: normalizeISODate(reg.data_inspecao || hoje())
+        });
         setEditingId(reg.id);
         setActiveTab('entrada');
         setFormViewMode('tabs');

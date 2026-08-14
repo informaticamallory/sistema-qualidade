@@ -1,12 +1,13 @@
-import { useState, useEffect, Fragment } from 'react';
+﻿import { useState, useEffect, Fragment } from 'react';
 import Sidebar from '../../../components/Sidebar/Sidebar';
 import { recebimentoAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
 import { toUpper, upperFields } from '../../../utils/text';
+import { formatDateBR, normalizeISODate, todayISO } from '../../../utils/date';
 import '../InspecaoMontagem/InspecaoMontagem.css';
 import '../recebimento.css';
 
-const hoje = () => new Date().toISOString().split('T')[0];
+const hoje = todayISO;
 const NUM_AMOSTRAS = 12;
 
 const linhaLoteVazia = () => ({
@@ -156,7 +157,7 @@ export default function InspecaoRecebimento() {
             setor: ficha.setor || '',
             fornecedor: ficha.fornecedor || '',
             revisao_desenho: ficha.revisao_desenho || '',
-            data_inspecao: ficha.data_inspecao || hoje(),
+            data_inspecao: normalizeISODate(ficha.data_inspecao || hoje()),
             status: ficha.status || 'pendente',
             observacao: ficha.observacao || '',
             lotes: ficha.lotes?.length ? ficha.lotes : [linhaLoteVazia()],
@@ -183,7 +184,11 @@ export default function InspecaoRecebimento() {
 
     const formatarData = (d) => {
         if (!d) return '-';
-        try { return new Date(d).toLocaleDateString('pt-BR'); } catch { return '-'; }
+        try {
+            const [year, month, day] = d.split('-');
+            if (!year || !month || !day) return '-';
+            return `${day}/${month}/${year}`;
+        } catch { return '-'; }
     };
 
     const getStatusClass = (status) => ({

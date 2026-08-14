@@ -1,4 +1,4 @@
-# routes/calibracoes.py - Rotas de equipamentos, tipos e calibrações
+﻿# routes/calibracoes.py - Rotas de equipamentos, tipos e calibrações
 import os
 from datetime import datetime, date
 from flask import Blueprint, request, current_app, redirect, send_from_directory
@@ -45,7 +45,7 @@ def _parse_date(valor):
         return None
     if isinstance(valor, date):
         return valor
-    return datetime.strptime(valor, '%Y-%m-%d').date()
+    return datetime.strptime(str(valor)[:10], '%Y-%m-%d').date()
 
 
 def _dias_restantes(equipamento, hoje):

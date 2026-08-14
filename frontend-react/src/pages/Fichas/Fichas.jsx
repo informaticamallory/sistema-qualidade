@@ -4,6 +4,7 @@ import Sidebar from '../../components/Sidebar/Sidebar';
 import { useAuth } from '../../context/auth-context';
 import { fichasAPI, produtosAPI } from '../../services/api';
 import { upperFields } from '../../utils/text';
+import { formatDateBR, normalizeISODate, todayISO } from '../../utils/date';
 import './Fichas.css';
 
 const PARTIAL_TABS = ['analise', 'acoes', 'custos'];
@@ -50,7 +51,7 @@ export default function Fichas() {
         numero_fnc: '',
         ficha_nc_id: null,
         fonte_registro_id: null,
-        data_fnc: new Date().toISOString().split('T')[0],
+        data_fnc: todayISO(),
         de_departamento: 'CONTROLE DE QUALIDADE',
         para_departamento: '',
         codigo: '',
@@ -271,6 +272,9 @@ export default function Fichas() {
                 'aprovacao_manager'
             ]),
             numero_fnc: numero,
+            data_fnc: normalizeISODate(formData.data_fnc),
+            prazo_acao: normalizeISODate(formData.prazo_acao, ''),
+            data_inspecao: normalizeISODate(formData.data_inspecao, ''),
             ficha_nc_id: formData.ficha_nc_id,
             fonte_registro_id: formData.fonte_registro_id
         });
@@ -300,7 +304,7 @@ export default function Fichas() {
         try {
             const response = await fichasAPI.getById(ficha.id);
             const dados = response.data?.success ? response.data.data : ficha;
-            const today = new Date().toISOString().split('T')[0];
+            const today = todayISO();
             const numero = dados.numero_fnc || `FNC-${dados.id || ficha.id}`;
 
             setFormData({
@@ -308,7 +312,7 @@ export default function Fichas() {
                 ficha_nc_id: dados.ficha_nc_id || null,
                 fonte_registro_id: dados.fonte_registro_id || null,
                 numero_fnc: numero,
-                data_fnc: dados.data_fnc || dados.data_inspecao || today,
+                data_fnc: normalizeISODate(dados.data_fnc || dados.data_inspecao || today),
                 de_departamento: dados.de_departamento || 'CONTROLE DE QUALIDADE',
                 para_departamento: dados.para_departamento || '',
                 codigo: dados.codigo || dados.cod_sap || '',
@@ -332,7 +336,7 @@ export default function Fichas() {
                 correcao: dados.correcao || '',
                 acao_corretiva: dados.acao_corretiva || '',
                 responsavel_acao: dados.responsavel_acao || user?.nome || '',
-                prazo_acao: dados.prazo_acao || '',
+                prazo_acao: normalizeISODate(dados.prazo_acao, ''),
                 total_horas: dados.total_horas || 0,
                 taxa_trabalho: dados.taxa_trabalho || 0,
                 custo_material: dados.custo_material || 0,
@@ -342,7 +346,7 @@ export default function Fichas() {
                 status: dados.status || 'Aberta',
                 observacoes: dados.observacoes || dados.observacao || '',
                 inspecao_resultado: dados.inspecao_resultado || '',
-                data_inspecao: dados.data_inspecao_fnc || '',
+                data_inspecao: normalizeISODate(dados.data_inspecao_fnc, ''),
                 aprovacao_qc: dados.aprovacao_qc || '',
                 aprovacao_responsavel: dados.aprovacao_responsavel || '',
                 aprovacao_manager: dados.aprovacao_manager || ''
@@ -374,14 +378,7 @@ export default function Fichas() {
         setShowSugestoes(false);
     };
 
-    const formatarData = (dataString) => {
-        if (!dataString) return 'N/A';
-        try {
-            return new Date(dataString).toLocaleDateString('pt-BR');
-        } catch {
-            return 'N/A';
-        }
-    };
+    const formatarData = (dataString) => formatDateBR(dataString);
 
     const tabs = [
         { id: 'identificacao', icon: 'fa-info-circle', label: 'Identificação' },

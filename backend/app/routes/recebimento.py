@@ -34,6 +34,7 @@ def _parse_date(value):
 # ==================== FICHA DE INSPEÇÃO DE RECEBIMENTO ====================
 CAMPOS_FICHA = ['codigo', 'aplicacao', 'componente', 'setor', 'fornecedor',
                 'revisao_desenho', 'lotes', 'dimensoes', 'resultados',
+                'defeito', 'foto_peca', 'foto_peca_nome',
                 'inspetor', 'status', 'observacao']
 
 
@@ -94,6 +95,9 @@ def handle_fichas():
                 data_inspecao=_parse_date(dados.get('data_inspecao')),
                 inspetor=dados.get('inspetor', 'Sistema'),
                 status=dados.get('status', 'pendente'),
+                defeito=dados.get('defeito'),
+                foto_peca=dados.get('foto_peca'),
+                foto_peca_nome=dados.get('foto_peca_nome'),
                 observacao=dados.get('observacao')
             )
             db.session.add(nova)

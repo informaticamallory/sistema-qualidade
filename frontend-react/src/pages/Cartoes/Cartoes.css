@@ -662,11 +662,30 @@
     align-items: start;
 }
 
-.cartao-dados-row {
+/* Seletor duplo (.form-row.cartao-dados-row) de propósito: o elemento carrega
+   as duas classes, e `.form-row` genérico — que usa auto-fit minmax(200px) —
+   aparece depois no bundle. Com especificidade igual ele vencia e, num modal
+   entre 400 e 600px, resolvia em 2 colunas, jogando o Turno para a linha de
+   baixo. Duas classes garantem a precedência sem depender da ordem. */
+.form-row.cartao-dados-row {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 15px;
+    gap: 16px;
     align-items: end;
+}
+
+/* Controle de Qualidade: Qtd. Conforme | Qtd. Não Conforme e Status | Inspetor,
+   sempre em duas colunas com o mesmo gap. */
+.form-row.cartao-qualidade-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+.form-row.cartao-qualidade-row .form-group {
+    margin-bottom: 0;
+    min-width: 0;
 }
 
 .cartao-produto-row .form-group,
@@ -680,7 +699,8 @@
 
 @media (max-width: 768px) {
     .cartao-produto-row,
-    .cartao-dados-row {
+    .form-row.cartao-dados-row,
+    .form-row.cartao-qualidade-row {
         grid-template-columns: 1fr;
     }
 }
@@ -692,4 +712,197 @@
 
 .btn-print:hover {
     background: #cfe9fb;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Layout no padrão da Inspeção de Injeção: cabeçalho, barra de ações, KPIs
+   e tabela. Os estilos de period-filter, shift-filter e dos botões vêm de
+   InspecaoInjecao.css, importado pela página, em vez de recriados aqui.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── KPIs ── */
+.cartoes-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.cartoes-summary-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+}
+
+.cartoes-summary-heading {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--text-2);
+    font-size: .86rem;
+    font-weight: 600;
+}
+
+.cartoes-summary-card strong {
+    margin-top: .5rem;
+    font-size: 1.9rem;
+    line-height: 1;
+    color: var(--text);
+}
+
+/* Barra colorida na base, como nos cards de referência */
+.cartoes-summary-line {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 12px;
+    height: 3px;
+    border-radius: 3px;
+    background: var(--border);
+}
+
+.cartoes-summary-card.total .cartoes-summary-heading i { color: #f97316; }
+.cartoes-summary-card.total .cartoes-summary-line { background: #f97316; }
+.cartoes-summary-card.approved .cartoes-summary-heading i { color: #22c55e; }
+.cartoes-summary-card.approved .cartoes-summary-line { background: #22c55e; }
+.cartoes-summary-card.rejected .cartoes-summary-heading i { color: #ef4444; }
+.cartoes-summary-card.rejected .cartoes-summary-line { background: #ef4444; }
+.cartoes-summary-card.pending .cartoes-summary-heading i { color: #f59e0b; }
+.cartoes-summary-card.pending .cartoes-summary-line { background: #f59e0b; }
+
+/* Card como filtro clicável */
+.cartoes-summary-card.filter-card {
+    cursor: pointer;
+    outline: none;
+    transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease;
+}
+
+.cartoes-summary-card.filter-card:hover { transform: translateY(-2px); }
+.cartoes-summary-card.filter-card:focus-visible { outline: 2px solid #f97316; outline-offset: 3px; }
+
+.cartoes-summary-card.filter-card.total.active { border-color: rgba(249,115,22,.72); background: linear-gradient(145deg, rgba(249,115,22,.055), var(--surface)); }
+.cartoes-summary-card.filter-card.approved.active { border-color: rgba(34,197,94,.72); background: linear-gradient(145deg, rgba(34,197,94,.055), var(--surface)); }
+.cartoes-summary-card.filter-card.rejected.active { border-color: rgba(239,68,68,.72); background: linear-gradient(145deg, rgba(239,68,68,.055), var(--surface)); }
+.cartoes-summary-card.filter-card.pending.active { border-color: rgba(245,158,11,.72); background: linear-gradient(145deg, rgba(245,158,11,.055), var(--surface)); }
+
+/* ── Barra de ações ── */
+.cartoes-filters { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.cartoes-filters .cartoes-search { flex: 1 1 260px; min-width: 180px; }
+
+/* Em desktop tudo numa linha: os botões não encolhem e a busca cede espaço.
+   stretch alinha as alturas, que variam entre os controles. */
+@media (min-width: 1025px) {
+    .cartoes-filters { align-items: stretch; }
+    .cartoes-filters .cartoes-search { flex: 1 1 180px; min-width: 150px; }
+    .cartoes-filters .period-filter-wrapper,
+    .cartoes-filters .shift-filter-button,
+    .cartoes-filters .export-excel-button,
+    .cartoes-filters .new-inspection-button { flex: 0 0 auto; }
+    .cartoes-filters .period-filter-button { height: 100%; }
+}
+
+/* ── Status na tabela ── */
+.cartoes-page .table .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+/* Estado vazio centralizado, no padrão da página de referência */
+.cartoes-page .table .tabela-vazia {
+    padding: 34px 12px;
+    color: var(--text-muted);
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    font-size: .82rem;
+}
+
+@media (max-width: 1024px) {
+    .cartoes-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .header-actions.cartoes-filters {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .5rem;
+        align-items: stretch;
+    }
+    .cartoes-filters .cartoes-search { grid-column: 1 / -1; width: 100%; }
+    .cartoes-filters .period-filter-button,
+    .cartoes-filters .shift-filter-button,
+    .cartoes-filters .export-excel-button,
+    .cartoes-filters .new-inspection-button { min-height: 42px; height: 100%; }
+}
+
+@media (max-width: 600px) {
+    .cartoes-summary { gap: 10px; }
+    .cartoes-summary-card { padding: 12px 13px; }
+    .cartoes-summary-card strong { margin-top: .45rem; font-size: 1.45rem; }
+    .cartoes-summary-heading { font-size: .78rem; }
+
+    /* Filtros empilhados, controles em largura total */
+    .cartoes-filters .cartoes-search { grid-column: 1 / -1 !important; order: 2; width: 100%; min-width: 0; }
+    .cartoes-filters .filter-label { display: none; }
+    .cartoes-filters .period-filter-wrapper,
+    .cartoes-filters .shift-filter-button,
+    .cartoes-filters .export-excel-button,
+    .cartoes-filters .new-inspection-button {
+        order: 1; grid-column: auto; width: 100%; min-width: 0;
+        min-height: 42px; padding: .55rem; border-radius: 12px;
+    }
+    .cartoes-filters .period-filter-wrapper { padding: 0; }
+    .cartoes-filters .period-filter-menu .filter-label { display: initial; }
+
+    /* Status compacto: só o ícone, cor e title preservam a identificação */
+    .cartoes-page .table .status-badge .status-text { display: none; }
+    .cartoes-page .table .status-badge {
+        justify-content: center;
+        min-width: 34px;
+        padding: 5px 7px;
+    }
+}
+
+@media (max-width: 340px) {
+    .cartoes-summary { grid-template-columns: 1fr; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Largura fluida ao recolher a sidebar
+   ══════════════════════════════════════════════════════════════════════
+   O vazio à direita não vinha de largura fixa no layout: `.main-content` já
+   usa flex: 1 e a margem já cai de 280px para 80px ao recolher. O que travava
+   era `max-width: 1440px` em ui-kit.css, aplicado a todo o sistema — o espaço
+   liberado não podia ser ocupado e sobrava como faixa vazia.
+
+   Largura explícita com calc() em vez de depender do flex reagir; é o mesmo
+   padrão já em produção em Relatórios e no Dashboard. Escopado em
+   .cartoes-page para não afetar as páginas que dependem do teto de leitura.
+   ══════════════════════════════════════════════════════════════════════ */
+.main-content.cartoes-page {
+    flex: 0 0 auto;
+    width: calc(100% - var(--ui-sidebar-width, 280px));
+    max-width: none;
+    /* width na transição para o collapse não ficar abrupto */
+    transition: margin-left var(--transition-normal, 0.25s ease),
+                padding var(--transition-normal, 0.25s ease),
+                width 0.2s ease;
+}
+
+.sidebar.collapsed ~ .main-content.cartoes-page {
+    width: calc(100% - var(--ui-sidebar-collapsed-width, 80px));
+}
+
+/* Abaixo de 1024px a sidebar sai do fluxo (vira menu sobreposto) e a margem
+   zera, então o conteúdo usa a largura inteira — mantém o responsivo. */
+@media (max-width: 1024px) {
+    .main-content.cartoes-page,
+    .sidebar.collapsed ~ .main-content.cartoes-page {
+        width: 100%;
+    }
 }

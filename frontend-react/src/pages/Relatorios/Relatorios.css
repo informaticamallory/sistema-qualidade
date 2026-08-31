@@ -2,6 +2,23 @@
 @import '../Dashboard/Dashboard.css';
 @import '../Registro/InspecaoMontagem/InspecaoMontagem.css';
 
+/* A página de relatórios aproveita toda a largura disponível em monitores grandes. */
+.relatorios-page .main-content {
+    flex: 0 0 auto;
+    width: calc(100% - var(--ui-sidebar-width));
+    max-width: none;
+}
+
+.relatorios-page .sidebar.collapsed ~ .main-content {
+    width: calc(100% - var(--ui-sidebar-collapsed-width));
+}
+
+@media (max-width: 1024px) {
+    .relatorios-page .main-content {
+        width: 100%;
+    }
+}
+
 /* Report Tabs */
 .report-tabs-container {
     background: var(--surface);
@@ -111,6 +128,126 @@
     transition: color 0.2s;
 }
 
+.relatorios-stats-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 12px;
+}
+
+.stat-card-volume .stat-header {
+    gap: 0.75rem;
+}
+
+.stat-volume-copy {
+    min-width: 0;
+}
+
+.stat-volume-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem;
+}
+
+.stat-volume-metrics > div {
+    display: grid;
+    min-width: 0;
+    gap: 0.15rem;
+}
+
+.stat-volume-metrics > div:first-child {
+    padding-right: 0.7rem;
+    border-right: 1px solid var(--border);
+}
+
+.stat-volume-metrics strong {
+    color: var(--text);
+    font-size: clamp(1.05rem, 1.35vw, 1.55rem);
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+.stat-volume-metrics strong.danger {
+    color: var(--danger);
+}
+
+.stat-volume-metrics span {
+    color: var(--text-muted);
+    font-size: 0.66rem;
+    line-height: 1.2;
+}
+
+.stat-icon.info {
+    background: var(--info-soft);
+    color: var(--info);
+}
+
+@media (max-width: 1600px) and (min-width: 1101px) {
+    .relatorios-stats-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+        gap: 10px;
+    }
+
+    .relatorios-stats-grid .stat-card {
+        min-width: 0;
+        padding: 14px;
+    }
+
+    .relatorios-stats-grid .stat-header {
+        gap: 0.45rem;
+    }
+
+    .relatorios-stats-grid .stat-value {
+        font-size: 1.35rem;
+    }
+
+    .relatorios-stats-grid .stat-label {
+        font-size: 0.7rem;
+    }
+
+    .relatorios-stats-grid .stat-icon {
+        width: 38px;
+        height: 38px;
+        flex: 0 0 38px;
+    }
+
+    .relatorios-stats-grid .stat-volume-metrics {
+        gap: 0.45rem;
+    }
+
+    .relatorios-stats-grid .stat-volume-metrics > div:first-child {
+        padding-right: 0.45rem;
+    }
+
+    .relatorios-stats-grid .stat-volume-metrics strong {
+        font-size: 1rem;
+    }
+
+    .relatorios-stats-grid .stat-volume-metrics span {
+        font-size: 0.58rem;
+    }
+}
+
+@media (max-width: 1100px) {
+    .relatorios-stats-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (max-width: 800px) {
+    .relatorios-stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (max-width: 600px) {
+    .relatorios-stats-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+.relatorios-page .badge {
+    text-transform: uppercase;
+}
+
 .btn-link:hover {
     color: var(--danger);
 }
@@ -143,15 +280,36 @@
     }
 
     .stats-grid {
-        display: flex !important;
-        gap: 20px;
+        display: grid !important;
+        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+        gap: 8px;
         margin-bottom: 20px;
     }
 
     .stat-card {
-        flex: 1;
+        min-width: 0;
+        padding: 10px !important;
         box-shadow: none !important;
         border: 1px solid var(--border);
+    }
+
+    .stat-card .stat-value {
+        font-size: 1.2rem !important;
+    }
+
+    .stat-card .stat-label,
+    .stat-volume-metrics span {
+        font-size: 0.62rem !important;
+    }
+
+    .stat-volume-metrics strong {
+        font-size: 1rem !important;
+    }
+
+    .stat-card .stat-icon {
+        width: 30px;
+        height: 30px;
+        flex: 0 0 30px;
     }
 
     .table-card {
@@ -252,5 +410,131 @@
 
     .filters-actions {
         gap: 10px;
+    }
+}
+/* Composição compacta para tablets e smartphones. */
+@media (max-width: 1024px) {
+    .relatorios-page .page-header {
+        gap: 14px;
+    }
+
+    body .relatorios-page .header-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+        gap: 10px;
+    }
+
+    body .relatorios-page .header-actions .btn {
+        width: 100%;
+        min-width: 0;
+        min-height: 42px;
+        padding-inline: 10px;
+        font-size: 0.82rem;
+    }
+
+    .relatorios-page .report-tabs-container {
+        padding: 4px;
+        margin-bottom: 18px;
+        overflow: hidden;
+    }
+
+    .relatorios-page .report-tabs {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        gap: 6px;
+        overflow-x: auto;
+        overscroll-behavior-inline: contain;
+        scroll-snap-type: x proximity;
+        scrollbar-width: none;
+    }
+
+    .relatorios-page .report-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .relatorios-page .report-tab {
+        flex: 1 0 180px;
+        min-width: 0;
+        padding: 11px 12px;
+        justify-content: center;
+        gap: 7px;
+        font-size: 0.8rem;
+        white-space: nowrap;
+        scroll-snap-align: start;
+    }
+
+    .relatorios-page .filters-card {
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+
+    .relatorios-page .filters-header {
+        flex-direction: row;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    .relatorios-page .filters-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 0;
+    }
+
+    .relatorios-page .filters-grid .form-group {
+        min-width: 0;
+        margin-bottom: 0;
+    }
+
+    .relatorios-page .filters-grid label {
+        font-size: 0.72rem;
+    }
+
+    .relatorios-page .filters-grid .form-control {
+        min-width: 0;
+        min-height: 42px;
+        padding-inline: 10px;
+        font-size: 0.84rem;
+    }
+
+    .relatorios-page .filter-local,
+    .relatorios-page .filter-search {
+        grid-column: 1 / -1;
+    }
+
+    .relatorios-page .filter-search {
+        margin-bottom: 0 !important;
+    }
+
+    .relatorios-page .filter-search .btn {
+        min-height: 42px !important;
+    }
+
+    .relatorios-page .relatorios-stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px;
+    }
+
+    .relatorios-page .relatorios-stats-grid .stat-card {
+        min-width: 0;
+        padding: 14px;
+    }
+
+    .relatorios-page .stat-card-volume {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 340px) {
+    .relatorios-page .filters-grid,
+    .relatorios-page .relatorios-stats-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .relatorios-page .filter-local,
+    .relatorios-page .filter-search,
+    .relatorios-page .stat-card-volume {
+        grid-column: auto;
     }
 }

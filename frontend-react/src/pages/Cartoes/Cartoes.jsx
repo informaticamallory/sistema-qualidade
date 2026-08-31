@@ -1,16 +1,40 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import ExcelJS from 'exceljs';
 import Sidebar from '../../components/Sidebar/Sidebar';
 import { cartoesAPI, produtosAPI } from '../../services/api';
 import { upperFields } from '../../utils/text';
+import {
+    formatDateBR, normalizeISODate, currentMonthISO, monthRangeISO,
+    previousMonthISO, formatMonthLabel
+} from '../../utils/date';
+import { formatarTurno, normalizarTurno } from '../../utils/turnos';
 import { useAuth } from '../../context/auth-context';
+/* Reaproveita do layout de Inspeção de Injeção: seletor de período, botões de
+   filtro e barra de ações — importado em vez de reescrito. */
+import '../Registro/InspecaoInjecao/InspecaoInjecao.css';
 import './Cartoes.css';
 
 export default function Cartoes() {
     const { user } = useAuth();
     const [cartoes, setCartoes] = useState([]);
+    /* Espelho filtrado só por período/turno/busca: alimenta os cards, para que
+       os números continuem visíveis com um status selecionado. */
+    const [resumoCartoes, setResumoCartoes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+
+    // Filtros no mesmo modelo da Inspeção de Injeção
+    const [statusFilter, setStatusFilter] = useState('');
+    const [shiftFilter, setShiftFilter] = useState('');
+    const [monthFilter, setMonthFilter] = useState(currentMonthISO());
+    const [dateFilter, setDateFilter] = useState('');
+    const [dateEndFilter, setDateEndFilter] = useState('');
+    const [rangeStartDraft, setRangeStartDraft] = useState('');
+    const [rangeEndDraft, setRangeEndDraft] = useState('');
+    const [showPeriodMenu, setShowPeriodMenu] = useState(false);
+    const periodMenuRef = useRef(null);
+    const loadRequestRef = useRef(0);
     const [showModal, setShowModal] = useState(false);
     const [showPrintModal, setShowPrintModal] = useState(false);
     const [editingId, setEditingId] = useState(null);
@@ -37,7 +61,17 @@ export default function Cartoes() {
 
     useEffect(() => {
         loadCartoes();
-    }, [search]);
+    }, [search, statusFilter, shiftFilter, monthFilter, dateFilter, dateEndFilter]);
+
+    // Fecha o seletor de período ao clicar fora
+    useEffect(() => {
+        if (!showPeriodMenu) return;
+        const fechar = (evento) => {
+            if (periodMenuRef.current && !periodMenuRef.current.contains(evento.target)) setShowPeriodMenu(false);
+        };
+        document.addEventListener('mousedown', fechar);
+        return () => document.removeEventListener('mousedown', fechar);
+    }, [showPeriodMenu]);
 
     useEffect(() => {
         if (!sheetData) return;
@@ -55,20 +89,69 @@ export default function Cartoes() {
     useEffect(() => () => {
         if (searchTimeout.current) clearTimeout(searchTimeout.current);
     }, []);
+    const normalizarStatus = (status) => String(status || 'pendente')
+        .normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+
+    /* O cartão não tem data de inspeção própria; a referência de período é o
+       created_at, que vem como datetime ISO — daí o corte nos 10 primeiros
+       caracteres para comparar por dia. */
+    const dataDoCartao = (cartao) => normalizeISODate(String(cartao?.created_at || '').slice(0, 10), '');
+
+    /* A API aceita apenas page/limit/search/status e devolve no máximo 100 por
+       página, então período e turno são filtrados no cliente. Percorre todas as
+       páginas para os cards e o Excel considerarem o conjunto inteiro. */
     const loadCartoes = async () => {
+        const requisicao = ++loadRequestRef.current;
         try {
             setLoading(true);
-            const params = {};
-            if (search) params.search = search;
 
-            const response = await cartoesAPI.getAll(params);
-            if (response.data.success) {
-                setCartoes(response.data.data);
+            const intervalo = dateFilter || dateEndFilter
+                ? { start: dateFilter || dateEndFilter, end: dateEndFilter || dateFilter }
+                : monthRangeISO(monthFilter);
+
+            let pagina = 1;
+            let todos = [];
+            while (true) {
+                const resposta = await cartoesAPI.getAll({ page: pagina, limit: 100 });
+                if (!resposta.data?.success) break;
+                const lote = Array.isArray(resposta.data.data) ? resposta.data.data : [];
+                todos = todos.concat(lote);
+                if (lote.length < 100) break;
+                pagina += 1;
+                if (pagina > 100) break; // trava de segurança
             }
+
+            if (requisicao !== loadRequestRef.current) return; // resposta obsoleta
+
+            const noPeriodo = todos.filter((cartao) => {
+                const data = dataDoCartao(cartao);
+                return data && data >= intervalo.start && data <= intervalo.end;
+            });
+
+            const termo = String(search || '').trim().toLowerCase();
+            const turno = normalizarTurno(shiftFilter);
+            const status = normalizarStatus(statusFilter);
+
+            const passaBusca = (cartao) => {
+                if (!termo) return true;
+                return [cartao.codigo_produto, cartao.nome_produto, cartao.origem,
+                    cartao.setor, cartao.responsavel, cartao.descricao, cartao.documento_reprovacao]
+                    .map((valor) => String(valor || '').toLowerCase())
+                    .join(' ')
+                    .includes(termo);
+            };
+            const passaTurno = (cartao) => !shiftFilter || normalizarTurno(cartao.turno) === turno;
+
+            setResumoCartoes(noPeriodo.filter((c) => passaBusca(c) && passaTurno(c)));
+            setCartoes(noPeriodo.filter((cartao) => {
+                if (!passaBusca(cartao) || !passaTurno(cartao)) return false;
+                if (statusFilter && normalizarStatus(cartao.status) !== status) return false;
+                return true;
+            }));
         } catch (error) {
             console.error('Erro ao carregar cartões:', error);
         } finally {
-            setLoading(false);
+            if (requisicao === loadRequestRef.current) setLoading(false);
         }
     };
 
@@ -442,7 +525,125 @@ export default function Cartoes() {
             pendente: 'badge-warning',
             reprovado: 'badge-danger'
         };
-        return classes[status?.toLowerCase()] || 'badge-warning';
+        return classes[normalizarStatus(status)] || 'badge-warning';
+    };
+
+    const getStatusIconClass = (status) => ({
+        aprovado: 'fa-check-circle',
+        pendente: 'fa-clock',
+        reprovado: 'fa-times-circle'
+    }[normalizarStatus(status)] || 'fa-clock');
+
+    const formatarStatus = (status) => String(status || 'pendente').toUpperCase();
+
+    /* KPIs pelos status que o módulo realmente registra. Respeitam período,
+       turno e busca; ignoram o filtro de status para os números não sumirem
+       quando um card está selecionado. */
+    const resumoIndicadores = resumoCartoes.reduce((resumo, cartao) => {
+        const status = normalizarStatus(cartao.status);
+        resumo.total += 1;
+        if (status === 'aprovado') resumo.aprovados += 1;
+        else if (status === 'reprovado') resumo.reprovados += 1;
+        else resumo.pendentes += 1;
+        return resumo;
+    }, { total: 0, aprovados: 0, reprovados: 0, pendentes: 0 });
+
+    const ativarFiltroStatus = (status) => setStatusFilter((atual) => (atual === status ? '' : status));
+    const acionarCardPorTeclado = (evento, status) => {
+        if (evento.key === 'Enter' || evento.key === ' ') {
+            evento.preventDefault();
+            if (status) ativarFiltroStatus(status); else setStatusFilter('');
+        }
+    };
+
+    const periodoLabel = dateFilter && dateEndFilter
+        ? `${formatDateBR(dateFilter)} até ${formatDateBR(dateEndFilter)}`
+        : formatMonthLabel(monthFilter);
+
+    const selecionarMes = (mes) => {
+        setDateFilter(''); setDateEndFilter('');
+        setRangeStartDraft(''); setRangeEndDraft('');
+        setMonthFilter(mes);
+        setShowPeriodMenu(false);
+    };
+
+    const aplicarIntervalo = () => {
+        if (!rangeStartDraft && !rangeEndDraft) return;
+        setDateFilter(rangeStartDraft || rangeEndDraft);
+        setDateEndFilter(rangeEndDraft || rangeStartDraft);
+        setShowPeriodMenu(false);
+    };
+
+    /* Exporta `cartoes`, que já é o conjunto inteiro filtrado — a paginação da
+       API não limita a exportação. */
+    const exportarExcel = async () => {
+        if (!cartoes.length) return;
+
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'Mallory — Qualidade Industrial';
+        const worksheet = workbook.addWorksheet('Cartões de Qualidade', {
+            views: [{ state: 'frozen', ySplit: 1 }]
+        });
+
+        worksheet.columns = [
+            { header: 'Data', key: 'data', width: 13 },
+            { header: 'Código', key: 'codigo', width: 16 },
+            { header: 'Produto', key: 'produto', width: 34 },
+            { header: 'Origem', key: 'origem', width: 16 },
+            { header: 'Setor', key: 'setor', width: 16 },
+            { header: 'Turno', key: 'turno', width: 10 },
+            { header: 'Status', key: 'status', width: 14 },
+            { header: 'Qtd. Conforme', key: 'conforme', width: 15 },
+            { header: 'Qtd. Não Conforme', key: 'naoConforme', width: 18 },
+            { header: 'Doc. Reprovação', key: 'documento', width: 20 },
+            { header: 'Descrição', key: 'descricao', width: 40 },
+            { header: 'Observações', key: 'observacoes', width: 40 },
+            { header: 'Responsável', key: 'responsavel', width: 22 }
+        ];
+
+        const limparTexto = (valor) => String(valor || '').replace(/\r?\n+/g, ' ').trim();
+
+        cartoes.forEach((cartao) => {
+            worksheet.addRow({
+                data: formatDateBR(dataDoCartao(cartao), ''),
+                codigo: cartao.codigo_produto || '',
+                produto: cartao.nome_produto || '',
+                origem: cartao.origem || '',
+                setor: cartao.setor || '',
+                turno: formatarTurno(cartao.turno, ''),
+                status: formatarStatus(cartao.status),
+                conforme: Number(cartao.qtd_conforme) || 0,
+                naoConforme: Number(cartao.qtd_nao_conforme) || 0,
+                documento: cartao.documento_reprovacao || '',
+                descricao: limparTexto(cartao.descricao),
+                observacoes: limparTexto(cartao.observacoes),
+                responsavel: cartao.responsavel || ''
+            });
+        });
+
+        const cabecalho = worksheet.getRow(1);
+        cabecalho.height = 28;
+        cabecalho.eachCell((celula) => {
+            celula.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+            celula.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF97316' } };
+            celula.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        });
+
+        worksheet.autoFilter = { from: 'A1', to: { row: 1, column: worksheet.columns.length } };
+        ['turno', 'status', 'conforme', 'naoConforme'].forEach((key) => {
+            worksheet.getColumn(key).alignment = { horizontal: 'center' };
+        });
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const url = URL.createObjectURL(new Blob([buffer], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        }));
+        const link = document.createElement('a');
+        const sufixo = dateFilter && dateEndFilter ? `${dateFilter}_a_${dateEndFilter}` : monthFilter;
+        link.href = url;
+        link.download = `cartoes-qualidade-${sufixo}.xlsx`;
+        link.click();
+        URL.revokeObjectURL(url);
     };
 
     const sheetCartao = sheetData ? cartoes.find((cartao) => cartao.id === sheetData.id) : null;
@@ -451,25 +652,127 @@ export default function Cartoes() {
         <div className="app-container">
             <Sidebar />
 
-            <main className="main-content">
+            <main className="main-content cartoes-page">
                 <div className="page-header">
                     <div className="page-title">
                         <h1><i className="fas fa-credit-card"></i> Cartões de Qualidade</h1>
-                        <p>Crie, visualize e imprima cartões de qualidade</p>
+                        <p>Acompanhamento de cartões — criação, consulta e impressão</p>
                     </div>
-                    <div className="header-actions">
+                    <div className="header-actions cartoes-filters">
                         <input
                             type="text"
-                            className="form-control search-input"
-                            placeholder="Buscar por código, nome ou descrição..."
+                            className="form-control cartoes-search"
+                            placeholder="Buscar por código, produto, setor, responsável..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
-                        <button className="btn btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
-                            <i className="fas fa-plus"></i> Novo Cartão
+
+                        <div className="period-filter-wrapper" ref={periodMenuRef}>
+                            <button
+                                type="button"
+                                className={showPeriodMenu ? 'period-filter-button active' : 'period-filter-button'}
+                                onClick={() => setShowPeriodMenu((aberto) => !aberto)}
+                                title={'Período: ' + periodoLabel}
+                            >
+                                <i className="fas fa-calendar-alt" aria-hidden="true"></i>
+                                <span className="filter-label">
+                                    <span className="period-filter-title">Período</span>
+                                    <span className="period-filter-value">{periodoLabel}</span>
+                                </span>
+                                <i className="fas fa-chevron-down period-filter-chevron" aria-hidden="true"></i>
+                            </button>
+                            {showPeriodMenu && (
+                                <div className="period-filter-menu" role="dialog" aria-label="Selecionar período">
+                                    <div className="period-filter-quick-actions">
+                                        <button type="button" onClick={() => selecionarMes(currentMonthISO())}>Mês atual</button>
+                                        <button type="button" onClick={() => selecionarMes(previousMonthISO())}>Mês anterior</button>
+                                    </div>
+                                    <label>
+                                        <span>Outro mês</span>
+                                        <input type="month" value={monthFilter} onChange={(e) => selecionarMes(e.target.value)} />
+                                    </label>
+                                    <div className="period-range-fields">
+                                        <label>
+                                            <span>Data inicial</span>
+                                            <input type="date" value={rangeStartDraft} max={rangeEndDraft || undefined}
+                                                onChange={(e) => setRangeStartDraft(e.target.value)} />
+                                        </label>
+                                        <label>
+                                            <span>Data final</span>
+                                            <input type="date" value={rangeEndDraft} min={rangeStartDraft || undefined}
+                                                onChange={(e) => setRangeEndDraft(e.target.value)} />
+                                        </label>
+                                    </div>
+                                    <button type="button" className="period-range-apply" onClick={aplicarIntervalo}>
+                                        Aplicar intervalo
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        <label className={shiftFilter ? 'shift-filter-button active' : 'shift-filter-button'}
+                            title={shiftFilter ? 'Turno: ' + shiftFilter : 'Filtrar por turno'}>
+                            <i className="fas fa-clock" aria-hidden="true"></i>
+                            <span className="filter-label">{shiftFilter ? 'Turno ' + shiftFilter : 'Turno'}</span>
+                            <select value={shiftFilter} onChange={(e) => setShiftFilter(e.target.value)}
+                                aria-label="Filtrar por turno">
+                                <option value="">Todos os turnos</option>
+                                <option value="A">Turno A</option>
+                                <option value="B">Turno B</option>
+                                <option value="C">Turno C</option>
+                            </select>
+                        </label>
+
+                        <button
+                            type="button"
+                            className="btn btn-success btn-sm export-excel-button"
+                            onClick={exportarExcel}
+                            disabled={loading || cartoes.length === 0}
+                            title="Exportar os cartões filtrados para Excel"
+                        >
+                            <i className="fas fa-file-excel" aria-hidden="true"></i>
+                            <span className="filter-label">Exportar Excel</span>
+                        </button>
+
+                        <button className="btn btn-primary btn-sm new-inspection-button"
+                            onClick={() => { resetForm(); setShowModal(true); }}>
+                            <i className="fas fa-plus" aria-hidden="true"></i>
+                            <span className="filter-label">Novo Cartão</span>
                         </button>
                     </div>
                 </div>
+
+                {/* KPIs pelos status registrados no módulo, clicáveis como filtro */}
+                <section className="cartoes-summary" aria-label="Resumo dos cartões de qualidade">
+                    <article className={`cartoes-summary-card filter-card total ${!statusFilter ? 'active' : ''}`}
+                        role="button" tabIndex="0" aria-pressed={!statusFilter}
+                        onClick={() => setStatusFilter('')} onKeyDown={(e) => acionarCardPorTeclado(e, '')}>
+                        <div className="cartoes-summary-heading"><i className="fas fa-credit-card" aria-hidden="true"></i><span>Total de cartões</span></div>
+                        <strong>{loading ? '—' : resumoIndicadores.total}</strong>
+                        <span className="cartoes-summary-line" aria-hidden="true"></span>
+                    </article>
+                    <article className={`cartoes-summary-card filter-card approved ${statusFilter === 'aprovado' ? 'active' : ''}`}
+                        role="button" tabIndex="0" aria-pressed={statusFilter === 'aprovado'}
+                        onClick={() => ativarFiltroStatus('aprovado')} onKeyDown={(e) => acionarCardPorTeclado(e, 'aprovado')}>
+                        <div className="cartoes-summary-heading"><i className="fas fa-check-circle" aria-hidden="true"></i><span>Aprovados</span></div>
+                        <strong>{loading ? '—' : resumoIndicadores.aprovados}</strong>
+                        <span className="cartoes-summary-line" aria-hidden="true"></span>
+                    </article>
+                    <article className={`cartoes-summary-card filter-card rejected ${statusFilter === 'reprovado' ? 'active' : ''}`}
+                        role="button" tabIndex="0" aria-pressed={statusFilter === 'reprovado'}
+                        onClick={() => ativarFiltroStatus('reprovado')} onKeyDown={(e) => acionarCardPorTeclado(e, 'reprovado')}>
+                        <div className="cartoes-summary-heading"><i className="fas fa-times-circle" aria-hidden="true"></i><span>Reprovados</span></div>
+                        <strong>{loading ? '—' : resumoIndicadores.reprovados}</strong>
+                        <span className="cartoes-summary-line" aria-hidden="true"></span>
+                    </article>
+                    <article className={`cartoes-summary-card filter-card pending ${statusFilter === 'pendente' ? 'active' : ''}`}
+                        role="button" tabIndex="0" aria-pressed={statusFilter === 'pendente'}
+                        onClick={() => ativarFiltroStatus('pendente')} onKeyDown={(e) => acionarCardPorTeclado(e, 'pendente')}>
+                        <div className="cartoes-summary-heading"><i className="fas fa-clock" aria-hidden="true"></i><span>Pendentes</span></div>
+                        <strong>{loading ? '—' : resumoIndicadores.pendentes}</strong>
+                        <span className="cartoes-summary-line" aria-hidden="true"></span>
+                    </article>
+                </section>
 
                 {/* Tabela */}
                 <div className="table-card">
@@ -499,7 +802,7 @@ export default function Cartoes() {
                                     </tr>
                                 ) : cartoes.length === 0 ? (
                                     <tr>
-                                        <td colSpan="8" className="text-center">Nenhum cartão encontrado</td>
+                                        <td colSpan="8" className="tabela-vazia">Nenhum cartão encontrado</td>
                                     </tr>
                                 ) : (
                                     cartoes.map(cartao => (
@@ -512,10 +815,13 @@ export default function Cartoes() {
                                             <td><strong>{cartao.nome_produto || 'N/A'}</strong></td>
                                             <td><strong>{cartao.origem || 'N/A'}</strong></td>
                                             <td><span className="badge badge-outline">{cartao.setor || 'N/A'}</span></td>
-                                            <td>{cartao.turno || 'N/A'}</td>
+                                            <td>{formatarTurno(cartao.turno, 'N/A')}</td>
                                             <td>
-                                                <span className={`badge ${getStatusClass(cartao.status)}`}>
-                                                    {cartao.status}
+                                                {/* Ícone + texto no desktop; no celular o CSS reduz ao ícone */}
+                                                <span className={`badge status-badge ${getStatusClass(cartao.status)}`}
+                                                    title={formatarStatus(cartao.status)}>
+                                                    <i className={`fas ${getStatusIconClass(cartao.status)}`} aria-hidden="true"></i>
+                                                    <span className="status-text">{formatarStatus(cartao.status)}</span>
                                                 </span>
                                             </td>
                                             <td>{formatarData(cartao.created_at)}</td>
@@ -650,7 +956,7 @@ export default function Cartoes() {
                                     {/* Controle de Qualidade */}
                                     <div className="form-section">
                                         <h3 className="section-title">Controle de Qualidade</h3>
-                                        <div className="form-row">
+                                        <div className="form-row cartao-qualidade-row">
                                             <div className="form-group">
                                                 <label>Quantidade Conforme *</label>
                                                 <input
@@ -675,7 +981,7 @@ export default function Cartoes() {
                                             </div>
                                         </div>
 
-                                        <div className="form-row">
+                                        <div className="form-row cartao-qualidade-row">
                                             <div className="form-group">
                                                 <label>Status *</label>
                                                 <select

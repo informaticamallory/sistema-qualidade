@@ -150,3 +150,274 @@
 .ficha-scroll::-webkit-scrollbar {
     height: 8px;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   Cards de indicadores e filtros — espelham o comportamento da Inspeção de
+   Injeção. Os estilos de period-filter, fotos, lightbox e do modal de
+   alterações não salvas vêm de InspecaoInjecao.css, importado pela página,
+   em vez de serem recriados aqui.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.recebimento-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.recebimento-summary-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+}
+
+.recebimento-summary-heading {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--text-2);
+    font-size: .86rem;
+    font-weight: 600;
+}
+
+.recebimento-summary-card strong {
+    margin-top: .5rem;
+    font-size: 1.9rem;
+    line-height: 1;
+    color: var(--text);
+}
+
+.recebimento-summary-card small {
+    margin-top: .35rem;
+    color: var(--text-muted);
+    font-size: .74rem;
+}
+
+.recebimento-summary-line {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 12px;
+    height: 3px;
+    border-radius: 3px;
+    background: var(--border);
+}
+
+.recebimento-summary-card.total .recebimento-summary-heading i { color: #f97316; }
+.recebimento-summary-card.total .recebimento-summary-line { background: #f97316; }
+.recebimento-summary-card.approved .recebimento-summary-heading i { color: #22c55e; }
+.recebimento-summary-card.approved .recebimento-summary-line { background: #22c55e; }
+.recebimento-summary-card.rejected .recebimento-summary-heading i { color: #ef4444; }
+.recebimento-summary-card.rejected .recebimento-summary-line { background: #ef4444; }
+.recebimento-summary-card.pending .recebimento-summary-heading i { color: #f59e0b; }
+.recebimento-summary-card.pending .recebimento-summary-line { background: #f59e0b; }
+
+/* Card como filtro clicável */
+.recebimento-summary-card.filter-card {
+    cursor: pointer;
+    outline: none;
+    transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease;
+}
+
+.recebimento-summary-card.filter-card:hover { transform: translateY(-2px); }
+.recebimento-summary-card.filter-card:focus-visible { outline: 2px solid #f97316; outline-offset: 3px; }
+
+.recebimento-summary-card.filter-card.total.active { border-color: rgba(249,115,22,.72); background: linear-gradient(145deg, rgba(249,115,22,.055), var(--surface)); }
+.recebimento-summary-card.filter-card.approved.active { border-color: rgba(34,197,94,.72); background: linear-gradient(145deg, rgba(34,197,94,.055), var(--surface)); }
+.recebimento-summary-card.filter-card.rejected.active { border-color: rgba(239,68,68,.72); background: linear-gradient(145deg, rgba(239,68,68,.055), var(--surface)); }
+.recebimento-summary-card.filter-card.pending.active { border-color: rgba(245,158,11,.72); background: linear-gradient(145deg, rgba(245,158,11,.055), var(--surface)); }
+
+/* Status com ícone: texto completo no desktop */
+.tabela-recebimento .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+/* ── Filtros ── */
+.recebimento-filters { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.recebimento-filters .recebimento-search { flex: 1 1 260px; min-width: 180px; }
+
+/* Em desktop os controles cabem numa linha: os botões não encolhem e a busca
+   cede o espaço, em vez de o último botão quebrar para baixo. */
+@media (min-width: 1025px) {
+    /* stretch alinha todos à altura do maior controle (o de período, que tem
+       duas linhas de texto) sem fixar pixel — sem isso as alturas ficam
+       49/40/32/32 e a barra de filtros fica irregular. */
+    .recebimento-filters { align-items: stretch; }
+    .recebimento-filters .recebimento-search { flex: 1 1 190px; min-width: 150px; }
+    .recebimento-filters .period-filter-wrapper,
+    .recebimento-filters .shift-filter-button,
+    .recebimento-filters .export-excel-button,
+    .recebimento-filters .new-inspection-button { flex: 0 0 auto; }
+    .recebimento-filters .period-filter-button { height: 100%; }
+}
+
+@media (max-width: 1024px) {
+    .recebimento-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .header-actions.recebimento-filters {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .5rem;
+        /* stretch + min-height uniforme: sem isso os controles ficam com
+           46/40/32/32px de altura na mesma fileira e desalinham visualmente. */
+        align-items: stretch;
+    }
+    .recebimento-filters .recebimento-search { grid-column: 1 / -1; width: 100%; }
+    .recebimento-filters .period-filter-button,
+    .recebimento-filters .shift-filter-button,
+    .recebimento-filters .export-excel-button,
+    .recebimento-filters .new-inspection-button {
+        min-height: 42px;
+        height: 100%;
+    }
+}
+
+@media (max-width: 600px) {
+    .recebimento-summary { gap: 10px; }
+    .recebimento-summary-card { padding: 12px 13px; }
+    .recebimento-summary-card strong { margin-top: .45rem; font-size: 1.45rem; }
+    .recebimento-summary-card small { display: none; }
+    .recebimento-summary-heading { font-size: .78rem; }
+
+    /* Filtros empilhados verticalmente, com os controles em largura total */
+    .header-actions.recebimento-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .recebimento-filters .recebimento-search { grid-column: 1 / -1 !important; order: 2; width: 100%; min-width: 0; }
+    .recebimento-filters .filter-label { display: none; }
+    .recebimento-filters .period-filter-wrapper,
+    .recebimento-filters .shift-filter-button,
+    .recebimento-filters .export-excel-button,
+    .recebimento-filters .new-inspection-button {
+        order: 1; grid-column: auto; width: 100%; min-width: 0;
+        min-height: 42px; padding: .55rem; border-radius: 12px;
+    }
+    .recebimento-filters .period-filter-wrapper { padding: 0; }
+    .recebimento-filters .period-filter-button { min-height: 42px; padding: .55rem; border-radius: 12px; }
+    .recebimento-filters .period-filter-menu .filter-label { display: initial; }
+
+    /* Status compacto: só o ícone, sem perder a identificação (title + cor) */
+    .tabela-recebimento .status-badge .status-text { display: none; }
+    .tabela-recebimento .status-badge {
+        justify-content: center;
+        min-width: 34px;
+        padding: 5px 7px;
+    }
+    .tabela-recebimento .status-badge i { font-size: .95rem; }
+}
+
+@media (max-width: 340px) {
+    .recebimento-summary { grid-template-columns: 1fr; }
+}
+
+/* Parecer: Status estreito ao lado da Observação, que é texto corrido e
+   aproveita a largura restante. Empilha no celular. */
+.parecer-row {
+    display: grid;
+    grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+    gap: 15px;
+    margin-bottom: 15px;
+    align-items: start;
+}
+
+.parecer-row > .form-group { min-width: 0; }
+
+@media (max-width: 768px) {
+    .parecer-row { grid-template-columns: 1fr; gap: 10px; }
+}
+
+/* Célula de POSIÇÃO com o marcador de característica especial.
+   O input continua ocupando a célula toda; o triângulo fica ancorado à
+   direita, sem empurrar o texto nem alterar a altura da linha. */
+.posicao-cell {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.posicao-cell input {
+    /* Campo vazio não reserva espaço à direita */
+    padding-right: 5px;
+}
+
+/* Só com o marcador presente o input cede espaço. A classe vem do React em
+   vez de :has(), que ainda falha em navegadores mais antigos — e ali a falha
+   seria o triângulo sobrepondo o texto digitado. */
+.posicao-cell.com-marcador input {
+    padding-right: 20px;
+}
+
+.posicao-marcador {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: var(--text);
+    flex: 0 0 auto;
+}
+
+/* Card "Sob concessão": azul, distinto de aprovado (verde) e reprovado
+   (vermelho), acompanhando o badge-info que o sistema já usa. */
+.recebimento-summary-card.concession .recebimento-summary-heading i { color: #38bdf8; }
+.recebimento-summary-card.concession .recebimento-summary-line { background: #38bdf8; }
+.recebimento-summary-card.filter-card.concession.active {
+    border-color: rgba(56,189,248,.72);
+    background: linear-gradient(145deg, rgba(56,189,248,.055), var(--surface));
+}
+
+/* Status calculado no formulário: mostra o resultado como leitura, deixando
+   claro que não é um controle editável (sem cursor de campo, sem foco). */
+.status-calculado {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: .84rem;
+    letter-spacing: .02em;
+    cursor: default;
+    user-select: none;
+}
+
+.status-calculado i { font-size: 1rem; }
+
+/* Coluna Resultado: substituiu as três colunas numéricas C / SC / NC por um
+   select único. Cor de fundo por classificação para leitura rápida da tabela. */
+.ficha-table th.col-resultado,
+.ficha-table td.col-resultado {
+    min-width: 132px;
+}
+
+.ficha-table .select-resultado {
+    width: 100%;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    padding: 6px 5px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text);
+    cursor: pointer;
+}
+
+.ficha-table .select-resultado.resultado-aprovado { color: var(--success, #16a34a); }
+.ficha-table .select-resultado.resultado-reprovado { color: var(--danger, #dc2626); }
+.ficha-table .select-resultado.resultado-concessao { color: var(--info, #0284c7); }
+
+/* No celular a tabela já rola horizontalmente; o select não deve encolher
+   além do necessário para o rótulo mais longo ("Sob Concessão"). */
+@media (max-width: 768px) {
+    .ficha-table th.col-resultado,
+    .ficha-table td.col-resultado {
+        min-width: 124px;
+    }
+}

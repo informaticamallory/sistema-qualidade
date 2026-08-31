@@ -191,7 +191,9 @@ def handle_registros():
                 operador=dados.get('operador'),
                 causa=dados.get('causa'),
                 correcao=dados.get('correcao'),
-                responsavel_correcao=_responsavel_correcao(dados)
+                responsavel_correcao=_responsavel_correcao(dados),
+                foto_peca=dados.get('foto_peca'),
+                foto_peca_nome=dados.get('foto_peca_nome')
             )
 
             db.session.add(novo_registro)
@@ -278,7 +280,8 @@ def handle_registro_individual(id):
                 'codigo_barras', 'qtd_total', 'qtd_inspecionada', 'qtd_nc', 'qtd_pallet',
                 'rastreabilidade', 'po', 'turno', 'linha_montagem', 'inspetor',
                 'status', 'observacao', 'documento', 'defeito', 'prioridade',
-                'origem_problema', 'posto', 'operador', 'causa', 'correcao'
+                'origem_problema', 'posto', 'operador', 'causa', 'correcao',
+                'foto_peca', 'foto_peca_nome'
             ]
 
             for campo in campos:

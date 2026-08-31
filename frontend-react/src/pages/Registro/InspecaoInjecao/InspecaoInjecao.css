@@ -706,6 +706,11 @@
     color: var(--text);
     color-scheme: dark;
     opacity: 1;
+    cursor: text;
+}
+
+.period-filter-menu input::-webkit-calendar-picker-indicator {
+    cursor: pointer;
 }
 
 .period-range-fields {
@@ -757,9 +762,7 @@
 }
 
 .period-filter-button,
-.shift-filter-button,
-.other-status-filter,
-.quick-status-filter {
+.shift-filter-button {
     position: relative;
     display: inline-flex;
     align-items: center;
@@ -778,8 +781,7 @@
     cursor: pointer;
 }
 
-.shift-filter-button select,
-.other-status-filter select {
+.shift-filter-button select {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -789,36 +791,12 @@
 }
 
 .period-filter-button.active,
-.shift-filter-button.active,
-.other-status-filter.active {
+.shift-filter-button.active {
     color: var(--primary);
     border-color: var(--primary);
     background: var(--primary-soft);
 }
 
-.quick-status-filter.approved {
-    color: var(--success);
-    background: var(--success-soft);
-    border-color: var(--success-soft-strong);
-}
-
-.quick-status-filter.rejected {
-    color: var(--danger);
-    background: var(--danger-soft);
-    border-color: var(--danger-soft-strong);
-}
-
-.quick-status-filter.approved.active {
-    color: #fff;
-    background: var(--success);
-    border-color: var(--success);
-}
-
-.quick-status-filter.rejected.active {
-    color: #fff;
-    background: var(--danger);
-    border-color: var(--danger);
-}
 
 @media (max-width: 1024px) {
     .injecao-page .header-actions.injecao-filters {
@@ -849,8 +827,6 @@
 
     .injecao-page .injecao-filters .period-filter-wrapper,
     .injecao-page .injecao-filters .shift-filter-button,
-    .injecao-page .injecao-filters .other-status-filter,
-    .injecao-page .injecao-filters .quick-status-filter,
     .injecao-page .injecao-filters .export-excel-button,
     .injecao-page .injecao-filters .new-inspection-button {
         order: 1;
@@ -861,8 +837,6 @@
 
     .injecao-page .injecao-filters .period-filter-wrapper,
     .injecao-page .injecao-filters .shift-filter-button,
-    .injecao-page .injecao-filters .other-status-filter,
-    .injecao-page .injecao-filters .quick-status-filter,
     .injecao-page .injecao-filters .export-excel-button,
     .injecao-page .injecao-filters .new-inspection-button {
         grid-column: auto;
@@ -888,8 +862,7 @@
         display: initial;
     }
     .injecao-filters .period-filter-button.active::after,
-    .injecao-filters .shift-filter-button.active::after,
-    .injecao-filters .other-status-filter.active::after {
+    .injecao-filters .shift-filter-button.active::after {
         content: '';
         position: absolute;
         top: 5px;
@@ -946,26 +919,57 @@
     flex-wrap: wrap;
 }
 
-.injecao-photo-preview {
-    display: flex;
-    align-items: center;
+.injecao-photo-actions .btn.disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.injecao-photo-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.75rem;
     margin-top: 0.75rem;
 }
 
+.injecao-photo-preview {
+    position: relative;
+    display: grid;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
 .injecao-photo-preview img {
-    width: 112px;
-    height: 84px;
+    width: 100%;
+    height: 128px;
     object-fit: cover;
     border: 1px solid var(--border);
     border-radius: 10px;
 }
 
-.injecao-photo-preview span,
-.injecao-view-photo span {
+.injecao-photo-preview span {
     color: var(--text-muted);
     font-size: 0.75rem;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.injecao-photo-preview button {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.4rem;
+    display: grid;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--danger) 55%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--surface) 85%, transparent);
+    color: var(--danger);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 18%);
+    cursor: pointer;
 }
 
 .injecao-photo-empty {
@@ -981,15 +985,47 @@
     cursor: pointer;
 }
 
-.injecao-view-photo img {
+.injecao-view-photo-track {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.85rem;
+    margin-top: 0.75rem;
+}
+
+.injecao-view-photo-track a {
+    display: grid;
+    gap: 0.4rem;
+    min-width: 0;
+    color: inherit;
+    text-decoration: none;
+}
+
+.injecao-view-photo-track img {
     display: block;
-    width: min(100%, 420px);
-    max-height: 320px;
-    margin: 0.75rem 0 0.4rem;
+    width: 100%;
+    aspect-ratio: 4 / 3;
     object-fit: contain;
     border: 1px solid var(--border);
     border-radius: 12px;
     background: var(--surface-2);
+}
+
+.injecao-view-photo-track span {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    overflow-wrap: anywhere;
+}
+
+.injecao-photo-swipe-hint {
+    display: none;
+    margin-top: 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    text-align: center;
+}
+
+.injecao-view-observacao {
+    margin-top: 1.25rem;
 }
 
 @media (max-width: 600px) {
@@ -1007,9 +1043,32 @@
         width: 100%;
     }
 
+    .injecao-photo-preview-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .injecao-photo-preview img {
-        width: 96px;
-        height: 72px;
+        height: 104px;
+    }
+
+    .injecao-view-photo-track {
+        grid-template-columns: none;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(82%, 1fr);
+        gap: 0.65rem;
+        padding: 0 9% 0.35rem;
+        margin-inline: -0.5rem;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: thin;
+    }
+
+    .injecao-view-photo-track a {
+        scroll-snap-align: center;
+    }
+
+    .injecao-photo-swipe-hint {
+        display: block;
     }
 }
 
@@ -1197,3 +1256,210 @@
 @keyframes unsavedFade{from{opacity:0}to{opacity:1}}@keyframes unsavedScale{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
 @media(max-width:520px){.unsaved-confirm-dialog{grid-template-columns:44px 1fr;padding:20px}.unsaved-confirm-icon{width:42px;height:42px}.unsaved-confirm-actions{flex-direction:column-reverse}.unsaved-confirm-actions button{width:100%}}
 @media(prefers-reduced-motion:reduce){.unsaved-confirm-overlay,.unsaved-confirm-dialog{animation:none}.injecao-summary-card.filter-card{transition:none}}
+
+/* ── Botão-thumb que substituiu o <a> nas fotos do modal de visualização ── */
+.injecao-view-photo-thumb {
+    display: grid;
+    gap: 0.4rem;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    text-decoration: none;
+    text-align: left;
+    cursor: zoom-in;
+}
+
+.injecao-view-photo-thumb img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: contain;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-2);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.injecao-view-photo-thumb:hover img,
+.injecao-view-photo-thumb:focus-visible img {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25);
+}
+
+.injecao-view-photo-thumb span {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    overflow-wrap: anywhere;
+}
+
+/* ── Lightbox overlay ── */
+.lightbox-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.92);
+    backdrop-filter: blur(6px);
+    animation: lbFadeIn 0.2s ease-out;
+    touch-action: none;
+}
+
+@keyframes lbFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── Barra superior ── */
+.lightbox-controls-top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 12px 16px;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent);
+    z-index: 2;
+}
+
+.lightbox-counter {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.82rem;
+    font-weight: 600;
+    min-width: 50px;
+}
+
+.lightbox-zoom-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+    padding: 4px 8px;
+}
+
+.lightbox-zoom-controls button {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: #fff;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.lightbox-zoom-controls button:hover { background: rgba(255, 255, 255, 0.18); }
+
+.lightbox-zoom-level {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.75rem;
+    font-weight: 700;
+    min-width: 42px;
+    text-align: center;
+}
+
+.lightbox-close {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 1.15rem;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.lightbox-close:hover { background: rgba(255, 255, 255, 0.25); }
+
+/* ── Setas de navegação ── */
+.lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.15s;
+}
+
+.lightbox-nav:hover { background: rgba(255, 255, 255, 0.22); }
+.lightbox-prev { left: 16px; }
+.lightbox-next { right: 16px; }
+
+/* ── Área da imagem ── */
+.lightbox-image-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.lightbox-image {
+    max-width: 90vw;
+    max-height: 82vh;
+    object-fit: contain;
+    border-radius: 6px;
+    will-change: transform;
+}
+
+/* ── Legenda ── */
+.lightbox-caption {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent);
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.8rem;
+    text-align: center;
+    overflow-wrap: anywhere;
+    z-index: 2;
+}
+
+/* ── Responsivo mobile ── */
+@media (max-width: 600px) {
+    .lightbox-nav {
+        width: 38px;
+        height: 38px;
+        font-size: 0.9rem;
+    }
+
+    .lightbox-prev { left: 8px; }
+    .lightbox-next { right: 8px; }
+
+    .lightbox-image { max-width: 98vw; max-height: 78vh; }
+
+    .lightbox-zoom-controls { display: none; }
+
+    .lightbox-controls-top { padding: 8px 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .lightbox-overlay { animation: none; }
+    .lightbox-image { transition: none !important; }
+}

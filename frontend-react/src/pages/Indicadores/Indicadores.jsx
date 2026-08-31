@@ -7,6 +7,9 @@ import { useAuth } from '../../context/auth-context';
 import { useTheme } from '../../context/theme-context';
 import { formatarTurno, normalizarTurno } from '../../utils/turnos';
 import { formatLocalDateISO, parseLocalDate, todayISO } from '../../utils/date';
+/* Mesma regra de parecer usada na página de Recebimento — importada em vez de
+   reescrita, para as duas telas nunca divergirem no cálculo. */
+import { numeroParecer, statusDoLote } from '../../utils/statusRecebimento';
 import './Indicadores.css';
 
 // Registrar componentes do Chart.js
@@ -64,16 +67,38 @@ export default function Indicadores() {
             defeito: reg.defeito
         }));
 
-        const recebimento = fichasRecebimento.map((reg) => ({
-            tipo: 'recebimento',
-            tipoLabel: 'Ficha Recebimento',
-            data: reg.data_inspecao,
-            status: reg.status,
-            qtd_nc: 0,
-            local: reg.setor || reg.fornecedor || 'Recebimento',
-            turno: '',
-            defeito: ''
-        }));
+        /* Recebimento conta por LINHA DE LOTE, não por ficha: cada lote lançado
+           é um evento independente, com a sua própria data de entrada. Assim
+           acrescentar um lote a uma ficha existente soma um novo registro no
+           indicador em vez de sobrescrever o resultado anterior.
+
+           O status de cada linha vem dos pareceres do próprio lote:
+             NC > 0            -> reprovado
+             NC = 0 e SC > 0   -> concessao
+             NC = 0 e SC = 0   -> aprovado
+
+           Ficha sem lote lançado ainda gera uma linha, como pendente, para não
+           desaparecer do indicador. */
+        const recebimento = fichasRecebimento.flatMap((reg) => {
+            const comum = {
+                tipo: 'recebimento',
+                tipoLabel: 'Ficha Recebimento',
+                local: reg.setor || reg.fornecedor || 'Recebimento',
+                turno: '',
+                defeito: reg.defeito || ''
+            };
+            const lotes = Array.isArray(reg.lotes) ? reg.lotes : [];
+            if (!lotes.length) {
+                return [{ ...comum, data: reg.data_inspecao, status: 'pendente', qtd_nc: 0 }];
+            }
+            return lotes.map((lote) => ({
+                ...comum,
+                /* Data de entrada do lote quando houver; a da ficha é o fallback. */
+                data: lote?.data_entrada || reg.data_inspecao,
+                status: statusDoLote(lote),
+                qtd_nc: numeroParecer(lote?.parecer_nc)
+            }));
+        });
 
         const entradaMp = entradasMateriaPrima.map((reg) => ({
             tipo: 'entrada-mp',
@@ -123,9 +148,15 @@ export default function Indicadores() {
         const total = dadosFiltrados.length;
         const aprovados = dadosFiltrados.filter(d => d.status?.toLowerCase() === 'aprovado').length;
         const reprovados = dadosFiltrados.filter(d => d.status?.toLowerCase() === 'reprovado').length;
+        /* Concessão passou a existir com o status calculado dos lotes de
+           recebimento. Sem contá-la aqui ela entraria no total mas em nenhuma
+           categoria, derrubando a taxa de aprovação sem motivo real. */
+        const concessoes = dadosFiltrados.filter(d => d.status?.toLowerCase() === 'concessao').length;
         const totalNC = dadosFiltrados.reduce((acc, d) => acc + (d.qtd_nc || 0), 0);
 
-        const taxaAprovacao = total > 0 ? ((aprovados / total) * 100).toFixed(1) : 0;
+        /* Material sob concessão foi liberado, então entra na taxa de aprovação;
+           segue contabilizado à parte em `concessoes` para acompanhamento. */
+        const taxaAprovacao = total > 0 ? (((aprovados + concessoes) / total) * 100).toFixed(1) : 0;
         const taxaReprovacao = total > 0 ? ((reprovados / total) * 100).toFixed(1) : 0;
         const mediaDiaria = (total / parseInt(filtros.periodo)).toFixed(1);
 
@@ -153,7 +184,12 @@ export default function Indicadores() {
             totalInspecoes: total,
             totalNC,
             mediaDiaria,
-            tendencia
+            tendencia,
+            /* Contagens absolutas por parecer, na granularidade de linha de lote
+               para o recebimento. `concessoes` é a nova métrica pedida. */
+            aprovados,
+            reprovados,
+            concessoes
         });
     }, [filtrarIndicadores, filtros]);
 
@@ -356,7 +392,11 @@ export default function Indicadores() {
                 return dataReg && formatLocalDateISO(dataReg) === formatLocalDateISO(dia);
             });
 
-            aprovados.push(registrosDia.filter(r => r.status?.toLowerCase() === 'aprovado').length);
+            /* Concessão soma na série de aprovados: o gráfico tem três séries
+               fixas e, sem isso, as linhas sob concessão sairiam do gráfico
+               embora contem no total. Mesma decisão aplicada à taxa de
+               aprovação, para os dois números não se contradizerem. */
+            aprovados.push(registrosDia.filter(r => ['aprovado', 'concessao'].includes(r.status?.toLowerCase())).length);
             reprovados.push(registrosDia.filter(r => r.status?.toLowerCase() === 'reprovado').length);
             pendentes.push(registrosDia.filter(r => r.status?.toLowerCase() === 'pendente').length);
         }

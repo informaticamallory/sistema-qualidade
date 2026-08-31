@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import ExcelJS from 'exceljs';
 import Sidebar from '../../components/Sidebar/Sidebar';
 import {
     cartoesAPI,
@@ -22,9 +23,31 @@ const mesPassadoISO = () => {
 
 const normalizarStatus = (status) => (status || 'pendente').toLowerCase();
 
-const csvValue = (value) => {
-    const text = String(value ?? '').replace(/"/g, '""');
-    return /[;"\n\r]/.test(text) ? `"${text}"` : text;
+const formatarQuantidade = (valor) => new Intl.NumberFormat('pt-BR', {
+    maximumFractionDigits: 0
+}).format(Number(valor) || 0);
+
+const buscarTodasPaginas = async (getAll, params = {}) => {
+    const limite = 100;
+    const registros = [];
+    const ids = new Set();
+
+    for (let pagina = 1; pagina <= 100; pagina += 1) {
+        const response = await getAll({ ...params, page: pagina, limit: limite });
+        const itens = response?.data?.success ? response.data.data || [] : [];
+
+        itens.forEach((item) => {
+            const chave = item?.id ?? `${pagina}-${registros.length}`;
+            if (!ids.has(chave)) {
+                ids.add(chave);
+                registros.push(item);
+            }
+        });
+
+        if (itens.length < limite) break;
+    }
+
+    return registros;
 };
 
 export default function Relatorios() {
@@ -57,7 +80,9 @@ export default function Relatorios() {
         aprovados: 0,
         reprovados: 0,
         pendentes: 0,
-        taxaAprovacao: 0
+        taxaAprovacao: 0,
+        quantidadeInspecionada: 0,
+        quantidadeNC: 0
     });
 
     const formatarData = (dataString) => formatDateBR(dataString);
@@ -167,6 +192,8 @@ export default function Relatorios() {
             turno: normalizarTurno(item.turno),
             qtdConforme: item.qtd_conforme || 0,
             qtdNC: item.qtd_nao_conforme || 0,
+            qtdTotal: Number(item.qtd_conforme || 0) + Number(item.qtd_nao_conforme || 0),
+            qtdInspecionada: Number(item.qtd_conforme || 0) + Number(item.qtd_nao_conforme || 0),
             status: normalizarStatus(item.status),
             documento: item.documento_reprovacao || '',
             responsavel: item.responsavel
@@ -228,28 +255,33 @@ export default function Relatorios() {
         const reprovados = data.filter((d) => d.status === 'reprovado').length;
         const pendentes = data.filter((d) => d.status === 'pendente').length;
         const taxaAprovacao = total > 0 ? ((aprovados / total) * 100).toFixed(1) : 0;
+        const quantidadeInspecionada = data.reduce((totalAtual, item) => totalAtual + (Number(item.qtdInspecionada) || 0), 0);
+        const quantidadeNC = data.reduce((totalAtual, item) => totalAtual + (Number(item.qtdNC) || 0), 0);
 
-        setEstatisticas({ total, aprovados, reprovados, pendentes, taxaAprovacao });
+        setEstatisticas({
+            total, aprovados, reprovados, pendentes, taxaAprovacao,
+            quantidadeInspecionada, quantidadeNC
+        });
     };
 
     const buscarDados = useCallback(async () => {
         try {
             setLoading(true);
             const [montagem, injecao, recebimento, entradaMp, cartoes, fichasNC] = await Promise.allSettled([
-                registrosAPI.getAll({ limit: 100 }),
-                injecaoAPI.getAll({ limit: 100 }),
-                recebimentoAPI.getAll({ limit: 100 }),
-                relatorioRecebimentoAPI.getAll({ limit: 100 }),
-                cartoesAPI.getAll({}),
+                buscarTodasPaginas(registrosAPI.getAll),
+                buscarTodasPaginas(injecaoAPI.getAll),
+                buscarTodasPaginas(recebimentoAPI.getAll),
+                buscarTodasPaginas(relatorioRecebimentoAPI.getAll),
+                buscarTodasPaginas(cartoesAPI.getAll),
                 fichasAPI.getAll({ limit: 100 })
             ]);
 
             const novasFontes = {
-                montagem: montagem.status === 'fulfilled' && montagem.value.data.success ? montagem.value.data.data || [] : [],
-                injecao: injecao.status === 'fulfilled' && injecao.value.data.success ? injecao.value.data.data || [] : [],
-                recebimento: recebimento.status === 'fulfilled' && recebimento.value.data.success ? recebimento.value.data.data || [] : [],
-                entradaMp: entradaMp.status === 'fulfilled' && entradaMp.value.data.success ? entradaMp.value.data.data || [] : [],
-                cartoes: cartoes.status === 'fulfilled' && cartoes.value.data.success ? cartoes.value.data.data || [] : [],
+                montagem: montagem.status === 'fulfilled' ? montagem.value : [],
+                injecao: injecao.status === 'fulfilled' ? injecao.value : [],
+                recebimento: recebimento.status === 'fulfilled' ? recebimento.value : [],
+                entradaMp: entradaMp.status === 'fulfilled' ? entradaMp.value : [],
+                cartoes: cartoes.status === 'fulfilled' ? cartoes.value : [],
                 fichasNC: fichasNC.status === 'fulfilled' && fichasNC.value.data.success ? fichasNC.value.data.data || [] : []
             };
 
@@ -282,7 +314,7 @@ export default function Relatorios() {
                 { key: 'turno', label: 'Turno', render: (item) => item.turno || '-' },
                 { key: 'qtdConforme', label: 'Qtd Conforme', render: (item) => item.qtdConforme },
                 { key: 'qtdNC', label: 'Qtd NC', render: (item) => item.qtdNC },
-                { key: 'status', label: 'Status', isStatus: true, render: (item) => item.status },
+                { key: 'status', label: 'Status', isStatus: true, render: (item) => String(item.status || '').toUpperCase() },
                 { key: 'responsavel', label: 'Responsável', render: (item) => item.responsavel || '-' }
             ];
         }
@@ -297,7 +329,7 @@ export default function Relatorios() {
                 { key: 'qtdNC', label: 'Qtd NC', render: (item) => item.qtdNC || 0 },
                 { key: 'defeito', label: 'Defeito', render: (item) => item.defeito || '-' },
                 { key: 'documento', label: 'Documento', render: (item) => item.documento || '-' },
-                { key: 'status', label: 'Status', isStatus: true, render: (item) => item.status },
+                { key: 'status', label: 'Status', isStatus: true, render: (item) => String(item.status || '').toUpperCase() },
                 { key: 'responsavel', label: 'Responsável', render: (item) => item.responsavel || item.inspetor || '-' }
             ];
         }
@@ -312,7 +344,7 @@ export default function Relatorios() {
             { key: 'qtdTotal', label: 'Qtd Total', render: (item) => item.qtdTotal || 0 },
             { key: 'qtdInspecionada', label: 'Qtd Insp.', render: (item) => item.qtdInspecionada || 0 },
             { key: 'qtdNC', label: 'Qtd NC', render: (item) => item.qtdNC || 0 },
-            { key: 'status', label: 'Status', isStatus: true, render: (item) => item.status },
+            { key: 'status', label: 'Status', isStatus: true, render: (item) => String(item.status || '').toUpperCase() },
             { key: 'inspetor', label: 'Inspetor', render: (item) => item.inspetor || '-' }
         ];
     }, [activeTab]);
@@ -336,15 +368,82 @@ export default function Relatorios() {
     const exportarExcel = async () => {
         try {
             setExporting(true);
-            const headers = colunas.map((coluna) => coluna.label);
-            const linhas = dados.map((item) => colunas.map((coluna) => csvValue(coluna.render(item))).join(';'));
-            const csv = [headers.join(';'), ...linhas].join('\n');
-            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+            const workbook = new ExcelJS.Workbook();
+            workbook.creator = 'Sistema Mallory';
+            workbook.created = new Date();
+
+            const worksheet = workbook.addWorksheet('Relatório', {
+                views: [{ state: 'frozen', ySplit: 1 }]
+            });
+            const larguras = {
+                data: 13, tipoLabel: 18, codigo: 17, descricao: 40, local: 25,
+                turno: 10, qtdTotal: 15, qtdInspecionada: 17, qtdNC: 12,
+                status: 16, inspetor: 24, produto: 36, origem: 20, setor: 20,
+                qtdConforme: 16, responsavel: 24, origemNC: 20, defeito: 30,
+                documento: 20
+            };
+
+            worksheet.columns = colunas.map((coluna) => ({
+                header: coluna.label,
+                key: coluna.key,
+                width: larguras[coluna.key] || 18
+            }));
+
+            dados.forEach((item) => {
+                const linha = {};
+                colunas.forEach((coluna) => {
+                    if (coluna.key === 'data') {
+                        const match = String(item.data || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+                        linha[coluna.key] = match
+                            ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+                            : coluna.render(item);
+                    } else {
+                        linha[coluna.key] = coluna.render(item);
+                    }
+                });
+                worksheet.addRow(linha);
+            });
+
+            const header = worksheet.getRow(1);
+            header.height = 28;
+            header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF7A00' } };
+            header.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+
+            worksheet.autoFilter = {
+                from: { row: 1, column: 1 },
+                to: { row: worksheet.rowCount, column: colunas.length }
+            };
+            if (colunas.some(({ key }) => key === 'data')) worksheet.getColumn('data').numFmt = 'dd/mm/yyyy';
+            if (colunas.some(({ key }) => key === 'codigo')) worksheet.getColumn('codigo').numFmt = '@';
+
+            worksheet.eachRow((row, rowNumber) => {
+                if (rowNumber === 1) return;
+                row.height = 24;
+                row.alignment = { vertical: 'middle', wrapText: false };
+                row.eachCell((cell) => {
+                    cell.border = { bottom: { style: 'thin', color: { argb: 'FFD9E1EA' } } };
+                });
+            });
+
+            ['turno', 'qtdTotal', 'qtdInspecionada', 'qtdNC', 'qtdConforme', 'status']
+                .filter((key) => colunas.some((coluna) => coluna.key === key))
+                .forEach((key) => {
+                    worksheet.getColumn(key).alignment = { vertical: 'middle', horizontal: 'center' };
+                });
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `relatorio_${activeTab}_${todayISO()}.csv`;
+            link.href = url;
+            link.download = `relatorio_${activeTab}_${todayISO()}.xlsx`;
+            document.body.appendChild(link);
             link.click();
-            URL.revokeObjectURL(link.href);
+            link.remove();
+            URL.revokeObjectURL(url);
         } catch (error) {
             console.error('Erro ao exportar:', error);
             alert('Erro ao exportar relatório');
@@ -377,7 +476,7 @@ export default function Relatorios() {
     ];
 
     return (
-        <div className="app-container">
+        <div className="app-container relatorios-page">
             <Sidebar />
 
             <main className="main-content">
@@ -466,7 +565,7 @@ export default function Relatorios() {
                                 </select>
                             </div>
                         )}
-                        <div className="form-group">
+                        <div className="form-group filter-local">
                             <label>{activeTab === 'cartoes' ? 'Setor' : 'Linha / Máquina / Local'}</label>
                             <select
                                 className="form-control"
@@ -507,7 +606,7 @@ export default function Relatorios() {
                                 </select>
                             </div>
                         )}
-                        <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '15px' }}>
+                        <div className="form-group filter-search" style={{ display: 'flex', alignItems: 'flex-end', marginBottom: '15px' }}>
                             <button className="btn btn-primary btn-sm" onClick={buscarDados} style={{ width: '100%', minHeight: '42px' }}>
                                 <i className="fas fa-search"></i> Buscar
                             </button>
@@ -515,7 +614,7 @@ export default function Relatorios() {
                     </div>
                 </div>
 
-                <div className="stats-grid">
+                <div className="stats-grid relatorios-stats-grid">
                     <div className="stat-card">
                         <div className="stat-header">
                             <div>
@@ -557,6 +656,25 @@ export default function Relatorios() {
                             </div>
                             <div className="stat-icon warning">
                                 <i className="fas fa-percentage"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="stat-card stat-card-volume">
+                        <div className="stat-header">
+                            <div className="stat-volume-copy">
+                                <div className="stat-volume-metrics">
+                                    <div>
+                                        <strong>{formatarQuantidade(estatisticas.quantidadeInspecionada)}</strong>
+                                        <span>Unidades inspecionadas</span>
+                                    </div>
+                                    <div>
+                                        <strong className="danger">{formatarQuantidade(estatisticas.quantidadeNC)}</strong>
+                                        <span>Peças NC</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="stat-icon info">
+                                <i className="fas fa-boxes-stacked"></i>
                             </div>
                         </div>
                     </div>

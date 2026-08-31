@@ -61,6 +61,10 @@ class RegistroInspecaoSchema(Schema):
     correcao = fields.Str(allow_none=True)
     responsavelCorrecao = fields.Str(attribute='responsavel_correcao', allow_none=True)
 
+    # Evidência fotográfica
+    foto_peca = fields.Str(allow_none=True)
+    foto_peca_nome = fields.Str(validate=validate.Length(max=255), allow_none=True)
+
     # Checklist salvo em tabela filha
     checklist = fields.Method('get_checklist', dump_only=True)
 

@@ -93,6 +93,30 @@ const getWeekFromDate = (value = todayISO()) => {
     return String(Math.ceil((((date - yearStart) / 86400000) + 1) / 7));
 };
 
+const normalizarFotosPeca = (fotosSalvas, nomesSalvos) => {
+    const lerLista = (valor) => {
+        if (Array.isArray(valor)) return valor;
+        if (!valor) return [];
+        try {
+            const parsed = JSON.parse(valor);
+            return Array.isArray(parsed) ? parsed : [valor];
+        } catch {
+            return [valor];
+        }
+    };
+
+    const fotos = lerLista(fotosSalvas);
+    const nomes = lerLista(nomesSalvos);
+
+    return fotos
+        .filter((src) => typeof src === 'string' && src.trim())
+        .slice(0, 3)
+        .map((src, index) => ({
+            src,
+            nome: String(nomes[index] || `Foto ${index + 1}`)
+        }));
+};
+
 const estadoInicial = {
     data: todayISO(),
     semana: getWeekFromDate(),
@@ -119,8 +143,7 @@ const estadoInicial = {
     rebarbas: '',
     funcional: '',
     observacao: '',
-    foto_peca: '',
-    foto_peca_nome: ''
+    fotos_peca: []
 };
 
 export default function InspecaoInjecao() {
@@ -177,6 +200,135 @@ export default function InspecaoInjecao() {
     // Visualização (somente leitura)
     const [showViewModal, setShowViewModal] = useState(false);
     const [viewData, setViewData] = useState(null);
+
+    // Lightbox de fotos com zoom
+    const [lightbox, setLightbox] = useState({ open: false, fotos: [], index: 0 });
+    const [lbZoom, setLbZoom] = useState(1);
+    const [lbPan, setLbPan] = useState({ x: 0, y: 0 });
+    const lbDragging = useRef(false);
+    const lbDragStart = useRef({ x: 0, y: 0 });
+    const lbPanStart = useRef({ x: 0, y: 0 });
+    const lbLastTap = useRef(0);
+    const lbPinchDist = useRef(null);
+    const lbPinchZoom = useRef(1);
+
+    const abrirLightbox = (fotos, index = 0) => {
+        setLightbox({ open: true, fotos, index });
+        setLbZoom(1);
+        setLbPan({ x: 0, y: 0 });
+    };
+
+    const fecharLightbox = () => {
+        setLightbox({ open: false, fotos: [], index: 0 });
+        setLbZoom(1);
+        setLbPan({ x: 0, y: 0 });
+    };
+
+    const lbNavegar = (direcao) => {
+        setLightbox((prev) => ({
+            ...prev,
+            index: (prev.index + direcao + prev.fotos.length) % prev.fotos.length
+        }));
+        setLbZoom(1);
+        setLbPan({ x: 0, y: 0 });
+    };
+
+    const lbToggleZoom = () => {
+        setLbZoom((z) => {
+            const novoZoom = z >= 2.5 ? 1 : z + 1;
+            if (novoZoom === 1) setLbPan({ x: 0, y: 0 });
+            return novoZoom;
+        });
+    };
+
+    const handleLbWheel = (e) => {
+        e.preventDefault();
+        setLbZoom((z) => {
+            const novoZoom = Math.min(5, Math.max(1, z - e.deltaY * 0.002));
+            if (novoZoom <= 1) setLbPan({ x: 0, y: 0 });
+            return novoZoom;
+        });
+    };
+
+    const handleLbPointerDown = (e) => {
+        if (e.pointerType === 'touch') return;
+        if (lbZoom <= 1) return;
+        lbDragging.current = true;
+        lbDragStart.current = { x: e.clientX, y: e.clientY };
+        lbPanStart.current = { ...lbPan };
+        e.currentTarget.setPointerCapture(e.pointerId);
+    };
+
+    const handleLbPointerMove = (e) => {
+        if (!lbDragging.current) return;
+        setLbPan({
+            x: lbPanStart.current.x + (e.clientX - lbDragStart.current.x),
+            y: lbPanStart.current.y + (e.clientY - lbDragStart.current.y)
+        });
+    };
+
+    const handleLbPointerUp = () => { lbDragging.current = false; };
+
+    const handleLbTouchStart = (e) => {
+        if (e.touches.length === 2) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            lbPinchDist.current = Math.hypot(dx, dy);
+            lbPinchZoom.current = lbZoom;
+            return;
+        }
+        if (e.touches.length === 1) {
+            const now = Date.now();
+            if (now - lbLastTap.current < 300) {
+                lbToggleZoom();
+                lbLastTap.current = 0;
+                return;
+            }
+            lbLastTap.current = now;
+            if (lbZoom > 1) {
+                lbDragging.current = true;
+                lbDragStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                lbPanStart.current = { ...lbPan };
+            }
+        }
+    };
+
+    const handleLbTouchMove = (e) => {
+        if (e.touches.length === 2 && lbPinchDist.current !== null) {
+            e.preventDefault();
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const dist = Math.hypot(dx, dy);
+            const novoZoom = Math.min(5, Math.max(1, lbPinchZoom.current * (dist / lbPinchDist.current)));
+            setLbZoom(novoZoom);
+            if (novoZoom <= 1) setLbPan({ x: 0, y: 0 });
+            return;
+        }
+        if (lbDragging.current && e.touches.length === 1) {
+            setLbPan({
+                x: lbPanStart.current.x + (e.touches[0].clientX - lbDragStart.current.x),
+                y: lbPanStart.current.y + (e.touches[0].clientY - lbDragStart.current.y)
+            });
+        }
+    };
+
+    const handleLbTouchEnd = () => {
+        lbDragging.current = false;
+        lbPinchDist.current = null;
+    };
+
+    useEffect(() => {
+        if (!lightbox.open) return;
+        const handleKey = (e) => {
+            if (e.key === 'Escape') fecharLightbox();
+            if (e.key === 'ArrowRight') lbNavegar(1);
+            if (e.key === 'ArrowLeft') lbNavegar(-1);
+            if (e.key === '+' || e.key === '=') setLbZoom((z) => Math.min(5, z + 0.5));
+            if (e.key === '-') setLbZoom((z) => { const n = Math.max(1, z - 0.5); if (n <= 1) setLbPan({ x: 0, y: 0 }); return n; });
+        };
+        window.addEventListener('keydown', handleKey);
+        return () => window.removeEventListener('keydown', handleKey);
+    }, [lightbox.open, lightbox.fotos.length]);
 
     useEffect(() => {
         loadRegistros();
@@ -436,6 +588,11 @@ export default function InspecaoInjecao() {
     };
 
     const handleFotoPecaChange = (event) => {
+        if ((formData.fotos_peca || []).length >= 3) {
+            alert('Você pode registrar no máximo três fotos.');
+            event.target.value = '';
+            return;
+        }
         const file = event.target.files?.[0];
         if (!file) return;
         if (!file.type.startsWith('image/')) {
@@ -460,9 +617,13 @@ export default function InspecaoInjecao() {
                 contexto.drawImage(imagem, 0, 0, canvas.width, canvas.height);
                 setFormData((prev) => ({
                     ...prev,
-                    foto_peca: canvas.toDataURL('image/jpeg', 0.8),
-                    foto_peca_nome: file.name
+                    fotos_peca: [
+                        ...(prev.fotos_peca || []),
+                        { src: canvas.toDataURL('image/jpeg', 0.8), nome: file.name.slice(0, 70) }
+                    ].slice(0, 3)
                 }));
+                setFormDirty(true);
+                if (fotoPecaInputRef.current) fotoPecaInputRef.current.value = '';
             };
             imagem.onerror = () => alert('Não foi possível processar a imagem.');
             imagem.src = String(reader.result || '');
@@ -471,8 +632,11 @@ export default function InspecaoInjecao() {
         reader.readAsDataURL(file);
     };
 
-    const removerFotoPeca = () => {
-        setFormData((prev) => ({ ...prev, foto_peca: '', foto_peca_nome: '' }));
+    const removerFotoPeca = (index) => {
+        setFormData((prev) => ({
+            ...prev,
+            fotos_peca: (prev.fotos_peca || []).filter((_, fotoIndex) => fotoIndex !== index)
+        }));
         setFormDirty(true);
         if (fotoPecaInputRef.current) fotoPecaInputRef.current.value = '';
     };
@@ -530,12 +694,14 @@ export default function InspecaoInjecao() {
 
         try {
             const isReprovado = String(formData.status || '').toLowerCase() === 'reprovado';
+            const fotosPeca = (formData.fotos_peca || []).slice(0, 3);
+            const { fotos_peca: _fotosPeca, ...camposFormulario } = formData;
             const payload = {
-                ...formData,
+                ...camposFormulario,
                 data: normalizarDataISO(formData.data),
                 defeito: isReprovado ? formData.defeito : '',
-                foto_peca: isReprovado ? formData.foto_peca : '',
-                foto_peca_nome: isReprovado ? formData.foto_peca_nome : '',
+                foto_peca: isReprovado && fotosPeca.length ? JSON.stringify(fotosPeca.map(({ src }) => src)) : '',
+                foto_peca_nome: isReprovado && fotosPeca.length ? JSON.stringify(fotosPeca.map(({ nome }) => nome)) : '',
                 status: formData.status?.toUpperCase(),
                 inspetor: user?.nome || formData.inspetor || 'Sistema'
             };
@@ -586,8 +752,7 @@ export default function InspecaoInjecao() {
             rebarbas: ['C', 'NC', 'NA'].includes(registro.rebarbas) ? registro.rebarbas : '',
             funcional: ['C', 'NC', 'NA'].includes(registro.funcional) ? registro.funcional : '',
             observacao: registro.observacao || '',
-            foto_peca: registro.foto_peca || '',
-            foto_peca_nome: registro.foto_peca_nome || ''
+            fotos_peca: normalizarFotosPeca(registro.foto_peca, registro.foto_peca_nome)
         });
         setEditingId(registro.id);
         setFormDirty(false);
@@ -711,7 +876,7 @@ export default function InspecaoInjecao() {
 
     const setCampo = (campo, valor) => setFormData((prev) => {
         if (campo === 'status' && String(valor || '').toLowerCase() !== 'reprovado') {
-            return { ...prev, status: valor, defeito: '', foto_peca: '', foto_peca_nome: '' };
+            return { ...prev, status: valor, defeito: '', fotos_peca: [] };
         }
 
         return { ...prev, [campo]: valor };
@@ -1056,6 +1221,8 @@ export default function InspecaoInjecao() {
             .replace('.', ',')}%`;
     };
 
+    const fotosVisualizacao = normalizarFotosPeca(viewData?.foto_peca, viewData?.foto_peca_nome);
+
     return (
         <div className="app-container injecao-page">
             <Sidebar />
@@ -1152,19 +1319,6 @@ export default function InspecaoInjecao() {
                                 <option value="A">Turno A</option>
                                 <option value="B">Turno B</option>
                                 <option value="C">Turno C</option>
-                            </select>
-                        </label>
-                        <label className={`other-status-filter ${['pendente', 'concessão'].includes(statusFilter) ? 'active' : ''}`} title="Outros status">
-                            <i className="fas fa-filter" aria-hidden="true"></i>
-                            <span className="filter-label">Outros</span>
-                            <select
-                                value={['pendente', 'concessão'].includes(statusFilter) ? statusFilter : ''}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                aria-label="Filtrar por outros status"
-                            >
-                                <option value="">Todos</option>
-                                <option value="pendente">Pendente</option>
-                                <option value="concessão">Concessão</option>
                             </select>
                         </label>
                         <button
@@ -1628,38 +1782,43 @@ export default function InspecaoInjecao() {
                                             <div className="injecao-photo-field">
                                                 <div className="injecao-photo-header">
                                                     <div>
-                                                        <strong><i className="fas fa-camera" aria-hidden="true"></i> Foto da peça reprovada</strong>
-                                                        <small>Registre uma evidência visual do defeito.</small>
+                                                        <strong><i className="fas fa-camera" aria-hidden="true"></i> Fotos da peça reprovada</strong>
+                                                        <small>Registre até três evidências visuais do defeito.</small>
                                                     </div>
                                                     <div className="injecao-photo-actions">
-                                                        <label className="btn btn-primary btn-sm">
+                                                        <label className={`btn btn-primary btn-sm ${(formData.fotos_peca || []).length >= 3 ? 'disabled' : ''}`}>
                                                             <i className="fas fa-camera" aria-hidden="true"></i>
-                                                            {formData.foto_peca ? 'Tirar novamente' : 'Tirar foto'}
+                                                            {(formData.fotos_peca || []).length ? 'Adicionar foto' : 'Tirar foto'} ({(formData.fotos_peca || []).length}/3)
                                                             <input
                                                                 ref={fotoPecaInputRef}
                                                                 type="file"
                                                                 accept="image/*"
                                                                 capture="environment"
                                                                 onChange={handleFotoPecaChange}
+                                                                disabled={(formData.fotos_peca || []).length >= 3}
                                                                 hidden
                                                             />
                                                         </label>
-                                                        {formData.foto_peca && (
-                                                            <button type="button" className="btn btn-secondary btn-sm" onClick={removerFotoPeca}>
-                                                                <i className="fas fa-trash" aria-hidden="true"></i> Remover
-                                                            </button>
-                                                        )}
                                                     </div>
                                                 </div>
-                                                {formData.foto_peca ? (
-                                                    <div className="injecao-photo-preview">
-                                                        <img src={formData.foto_peca} alt="Pré-visualização da peça reprovada" />
-                                                        <span>{formData.foto_peca_nome || 'Foto capturada'}</span>
+                                                {(formData.fotos_peca || []).length ? (
+                                                    <div className="injecao-photo-preview-grid">
+                                                        {formData.fotos_peca.map((foto, index) => (
+                                                            <div className="injecao-photo-preview" key={`${foto.nome}-${index}`}>
+                                                                <img src={foto.src} alt={`Pré-visualização ${index + 1} da peça reprovada`}
+                                                                    onClick={() => abrirLightbox(formData.fotos_peca, index)}
+                                                                    style={{ cursor: 'zoom-in' }} />
+                                                                <span title={foto.nome}>{foto.nome || `Foto ${index + 1}`}</span>
+                                                                <button type="button" onClick={() => removerFotoPeca(index)} aria-label={`Remover foto ${index + 1}`} title="Remover foto">
+                                                                    <i className="fas fa-trash" aria-hidden="true"></i>
+                                                                </button>
+                                                            </div>
+                                                        ))}
                                                     </div>
                                                 ) : (
                                                     <label className="injecao-photo-empty">
                                                         <i className="fas fa-camera" aria-hidden="true"></i>
-                                                        <span>Nenhuma foto registrada</span>
+                                                        <span>Nenhuma foto registrada — toque para adicionar</span>
                                                         <input
                                                             type="file"
                                                             accept="image/*"
@@ -1731,13 +1890,19 @@ export default function InspecaoInjecao() {
                                     )}
                                 </div>
 
-                                {viewData.foto_peca && (
+                                {fotosVisualizacao.length > 0 && (
                                 <div className="view-section injecao-view-photo">
-                                    <h4><i className="fas fa-camera" aria-hidden="true"></i> Foto da peça reprovada</h4>
-                                    <a href={viewData.foto_peca} target="_blank" rel="noreferrer" title="Abrir foto em tamanho completo">
-                                        <img src={viewData.foto_peca} alt="Peça reprovada" />
-                                    </a>
-                                    <span>{viewData.foto_peca_nome || 'Imagem registrada'}</span>
+                                    <h4><i className="fas fa-camera" aria-hidden="true"></i> Fotos da peça reprovada</h4>
+                                    <div className="injecao-view-photo-track">
+                                        {fotosVisualizacao.map((foto, index) => (
+                                            <button type="button" className="injecao-view-photo-thumb" title="Ampliar foto" key={`${foto.nome}-${index}`}
+                                                onClick={() => abrirLightbox(fotosVisualizacao, index)}>
+                                                <img src={foto.src} alt={`Peça reprovada — foto ${index + 1}`} />
+                                                <span>{foto.nome || `Foto ${index + 1}`}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {fotosVisualizacao.length > 1 && <small className="injecao-photo-swipe-hint">Deslize para ver as demais fotos</small>}
                                 </div>
                                 )}
                                 <div className="injecao-view-secondary-grid">
@@ -1765,7 +1930,7 @@ export default function InspecaoInjecao() {
                                 </div>
 
                                 {viewData.observacao && (
-                                    <div className="view-section">
+                                    <div className="view-section injecao-view-observacao">
                                         <h4>Observação:</h4>
                                         <p>{viewData.observacao}</p>
                                     </div>
@@ -1807,6 +1972,64 @@ export default function InspecaoInjecao() {
                     </div>,
                     document.body
                 )}
+                {/* Lightbox de fotos com zoom */}
+                {lightbox.open && lightbox.fotos.length > 0 && typeof document !== 'undefined' && createPortal((
+                    <div className="lightbox-overlay" onClick={fecharLightbox} role="dialog" aria-modal="true" aria-label="Visualizar foto ampliada">
+                        <div className="lightbox-controls-top">
+                            <span className="lightbox-counter">{lightbox.index + 1} / {lightbox.fotos.length}</span>
+                            <div className="lightbox-zoom-controls">
+                                <button type="button" onClick={(e) => { e.stopPropagation(); setLbZoom((z) => { const n = Math.max(1, z - 0.5); if (n <= 1) setLbPan({ x: 0, y: 0 }); return n; }); }} aria-label="Reduzir zoom" title="Reduzir (−)">
+                                    <i className="fas fa-search-minus"></i>
+                                </button>
+                                <span className="lightbox-zoom-level">{Math.round(lbZoom * 100)}%</span>
+                                <button type="button" onClick={(e) => { e.stopPropagation(); setLbZoom((z) => Math.min(5, z + 0.5)); }} aria-label="Aumentar zoom" title="Aumentar (+)">
+                                    <i className="fas fa-search-plus"></i>
+                                </button>
+                            </div>
+                            <button type="button" className="lightbox-close" onClick={fecharLightbox} aria-label="Fechar" title="Fechar (Esc)">
+                                <i className="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        {lightbox.fotos.length > 1 && (
+                            <>
+                                <button type="button" className="lightbox-nav lightbox-prev" onClick={(e) => { e.stopPropagation(); lbNavegar(-1); }} aria-label="Foto anterior" title="Anterior (←)">
+                                    <i className="fas fa-chevron-left"></i>
+                                </button>
+                                <button type="button" className="lightbox-nav lightbox-next" onClick={(e) => { e.stopPropagation(); lbNavegar(1); }} aria-label="Próxima foto" title="Próxima (→)">
+                                    <i className="fas fa-chevron-right"></i>
+                                </button>
+                            </>
+                        )}
+
+                        <div className="lightbox-image-wrapper" onClick={(e) => e.stopPropagation()}
+                            onWheel={handleLbWheel}
+                            onPointerDown={handleLbPointerDown}
+                            onPointerMove={handleLbPointerMove}
+                            onPointerUp={handleLbPointerUp}
+                            onTouchStart={handleLbTouchStart}
+                            onTouchMove={handleLbTouchMove}
+                            onTouchEnd={handleLbTouchEnd}
+                            onDoubleClick={lbToggleZoom}
+                            style={{ cursor: lbZoom > 1 ? 'grab' : 'zoom-in' }}
+                        >
+                            <img
+                                src={lightbox.fotos[lightbox.index]?.src}
+                                alt={lightbox.fotos[lightbox.index]?.nome || `Foto ${lightbox.index + 1}`}
+                                className="lightbox-image"
+                                draggable={false}
+                                style={{
+                                    transform: `scale(${lbZoom}) translate(${lbPan.x / lbZoom}px, ${lbPan.y / lbZoom}px)`,
+                                    transition: lbDragging.current ? 'none' : 'transform 0.2s ease'
+                                }}
+                            />
+                        </div>
+
+                        <div className="lightbox-caption">
+                            {lightbox.fotos[lightbox.index]?.nome || `Foto ${lightbox.index + 1}`}
+                        </div>
+                    </div>
+                ), document.body)}
             </main>
         </div>
     );

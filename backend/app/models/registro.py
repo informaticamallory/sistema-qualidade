@@ -66,6 +66,10 @@ class RegistroInspecao(db.Model):
     correcao = db.Column(db.Text)
     responsavel_correcao = db.Column(db.String(120))
 
+    # Evidência fotográfica da peça reprovada
+    foto_peca = db.Column(db.Text)
+    foto_peca_nome = db.Column(db.String(255))
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -113,6 +117,8 @@ class RegistroInspecao(db.Model):
             'correcao': self.correcao,
             'responsavelCorrecao': self.responsavel_correcao,
             'responsavel_correcao': self.responsavel_correcao,
+            'foto_peca': self.foto_peca,
+            'foto_peca_nome': self.foto_peca_nome,
             'checklist': self.checklist_to_dict(),
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None

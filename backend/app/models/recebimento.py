@@ -1,5 +1,6 @@
 # models/recebimento.py - Modelos de Inspeção e Relatório de Recebimento
 from datetime import datetime
+from sqlalchemy.dialects.mysql import LONGTEXT
 from app.extensions import db
 
 
@@ -33,6 +34,9 @@ class FichaRecebimento(db.Model):
     data_inspecao = db.Column(db.Date)
     inspetor = db.Column(db.String(100))
     status = db.Column(db.String(20), default='pendente', index=True)
+    defeito = db.Column(db.Text)
+    foto_peca = db.Column(db.Text().with_variant(LONGTEXT(), 'mysql'))
+    foto_peca_nome = db.Column(db.Text)
     observacao = db.Column(db.Text)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -56,6 +60,9 @@ class FichaRecebimento(db.Model):
             'data_inspecao': self.data_inspecao.isoformat() if self.data_inspecao else None,
             'inspetor': self.inspetor,
             'status': self.status,
+            'defeito': self.defeito,
+            'foto_peca': self.foto_peca,
+            'foto_peca_nome': self.foto_peca_nome,
             'observacao': self.observacao,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None

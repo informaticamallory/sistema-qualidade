@@ -175,6 +175,34 @@ def garantir_schema_injecao(app):
             db.session.rollback()
             app.logger.error(f"Erro ao atualizar schema de registros_injecao: {str(e)}")
 
+
+def garantir_schema_fichas_recebimento(app):
+    """Garante os campos de evidência de não conformidade das fichas."""
+    from sqlalchemy import inspect
+
+    with app.app_context():
+        try:
+            inspector = inspect(db.engine)
+            if not inspector.has_table('fichas_recebimento'):
+                return
+
+            colunas = {col['name'] for col in inspector.get_columns('fichas_recebimento')}
+            campos = {
+                'defeito': 'TEXT',
+                'foto_peca': 'LONGTEXT',
+                'foto_peca_nome': 'TEXT'
+            }
+            alterou = False
+            for campo, tipo in campos.items():
+                if campo not in colunas:
+                    db.session.execute(db.text(f"ALTER TABLE fichas_recebimento ADD COLUMN {campo} {tipo}"))
+                    alterou = True
+            if alterou:
+                db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Erro ao atualizar schema de fichas_recebimento: {str(e)}")
+
 def garantir_schema_equipamentos(app):
     """Garante campos da lista de calibração em bancos existentes."""
     from sqlalchemy import inspect
@@ -226,7 +254,9 @@ def garantir_schema_registros_inspecao(app):
                 'operador': 'VARCHAR(120)',
                 'causa': 'TEXT',
                 'correcao': 'TEXT',
-                'responsavel_correcao': 'VARCHAR(120)'
+                'responsavel_correcao': 'VARCHAR(120)',
+                'foto_peca': 'LONGTEXT',
+                'foto_peca_nome': 'VARCHAR(255)'
             }
 
             for campo, tipo in campos.items():
@@ -319,6 +349,7 @@ def criar_admin_padrao(app):
 
     garantir_schema_usuarios(app)
     garantir_schema_injecao(app)
+    garantir_schema_fichas_recebimento(app)
     garantir_schema_equipamentos(app)
     garantir_schema_registros_inspecao(app)
     garantir_schema_checklist_testes(app)

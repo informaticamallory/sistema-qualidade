@@ -1078,7 +1078,9 @@ textarea.form-control {
         flex-direction: column;
     }
 
-    .widget-actions,
+    /* .widget-actions saiu daqui: com width 100% incondicional ele voltaria a
+       ocupar espaço no cabeçalho fora do modo de personalização. A largura em
+       modo de edição no celular é definida na media query de 700px. */
     .widget-config {
         width: 100%;
     }
@@ -1225,23 +1227,44 @@ textarea.form-control {
     display: none !important;
 }
 
+/* Sem as ações visíveis não há por que reservar espaço à direita: o título
+   passa a usar a largura toda fora do modo de personalização. O recuo volta
+   pela regra .is-editing .widget-header, mais adiante. */
 .dashboard-widget .widget-header {
-    padding-right: 44px;
+    padding-right: 0;
+    transition: padding-right 0.18s ease;
 }
 
+/* ── Visibilidade das ações do widget ──────────────────────────────────
+   As ações (arrastar, diminuir, aumentar, expandir, remover) aparecem
+   somente no modo de personalização, acionado pelo botão de sliders no topo.
+   Fora dele o widget mostra apenas o conteúdo, mesmo com o mouse em cima.
+
+   Antes isto era controlado por :hover e :focus-within — trocado por
+   .is-editing, que vem do estado global editMode e vale para todos os
+   widgets ao mesmo tempo. */
 .dashboard-widget .widget-actions {
-    width: 38px;
+    width: 0;
     max-width: calc(100% - 24px);
     overflow: hidden;
-    opacity: 0.42;
-    transition: width 0.18s ease, opacity 0.18s ease, box-shadow 0.18s ease;
+    opacity: 0;
+    /* padding e borda zerados senão sobram ~10px de caixa ocupando o
+       cabeçalho mesmo com largura 0 */
+    padding: 0;
+    border-width: 0;
+    pointer-events: none;
+    /* visibility entra na transição para o fade acontecer de verdade ao sair
+       do modo de edição, em vez de sumir de imediato */
+    visibility: hidden;
+    transition: width 0.18s ease, opacity 0.18s ease, visibility 0s linear 0.18s, box-shadow 0.18s ease;
 }
 
-.dashboard-widget:hover .widget-actions,
-.dashboard-widget:focus-within .widget-actions,
-.dashboard-widget.is-dragging .widget-actions {
+.dashboard-widget.is-editing .widget-actions {
     width: 226px;
     opacity: 1;
+    pointer-events: auto;
+    visibility: visible;
+    transition: width 0.18s ease, opacity 0.18s ease, visibility 0s, box-shadow 0.18s ease;
 }
 
 .dashboard-widget .widget-actions .icon-button {
@@ -1251,17 +1274,24 @@ textarea.form-control {
     transition: opacity 0.16s ease, transform 0.16s ease;
 }
 
-.dashboard-widget:hover .widget-actions .icon-button,
-.dashboard-widget:focus-within .widget-actions .icon-button,
-.dashboard-widget.is-dragging .widget-actions .icon-button {
+.dashboard-widget.is-editing .widget-actions .icon-button {
     opacity: 1;
     pointer-events: auto;
     transform: translateX(0);
 }
 
+/* O punho de arrastar tinha opacity 1 fixa e ficava visível fora do modo de
+   edição, mesmo sem hover; agora acompanha o restante das ações. */
 .dashboard-widget .drag-handle {
     flex: 0 0 32px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.16s ease;
+}
+
+.dashboard-widget.is-editing .drag-handle {
     opacity: 1;
+    pointer-events: auto;
 }
 
 .dashboard-widget:hover,
@@ -1270,15 +1300,15 @@ textarea.form-control {
 }
 
 @media (max-width: 700px) {
-    .dashboard-widget .widget-actions,
-    .dashboard-widget:hover .widget-actions,
-    .dashboard-widget:focus-within .widget-actions,
-    .dashboard-widget.is-dragging .widget-actions {
+    /* No celular não existe hover, então aqui as ações ficavam sempre
+       visíveis. Agora seguem o modo de personalização como no desktop —
+       largura total porque o card é estreito. */
+    .dashboard-widget.is-editing .widget-actions {
         width: 100%;
         opacity: 1;
     }
 
-    .dashboard-widget .widget-actions .icon-button {
+    .dashboard-widget.is-editing .widget-actions .icon-button {
         opacity: 1;
         pointer-events: auto;
         transform: none;
@@ -1459,7 +1489,9 @@ textarea.form-control {
     justify-content: center;
 }
 
-.dashboard-widget:hover .widget-bottom-bar {
+/* Botão Expandir/Recolher: era hover, agora só no modo de personalização —
+   é uma das ações de edição listadas. */
+.dashboard-widget.is-editing .widget-bottom-bar {
     opacity: 1;
     pointer-events: all;
     bottom: -22px;
@@ -1501,6 +1533,9 @@ textarea.form-control {
     align-items: center;
     justify-content: center;
     opacity: 0;
+    /* Sem isto o punho continua clicável enquanto invisível, e o card podia
+       ser redimensionado por acidente fora do modo de personalização. */
+    pointer-events: none;
     cursor: se-resize;
     color: var(--text-muted);
     font-size: 0.75rem;
@@ -1509,8 +1544,10 @@ textarea.form-control {
     z-index: 10;
 }
 
-.dashboard-widget:hover .widget-resize-handle {
+/* Punho de redimensionar: era hover, agora só no modo de personalização. */
+.dashboard-widget.is-editing .widget-resize-handle {
     opacity: 1;
+    pointer-events: auto;
 }
 
 .widget-resize-handle:hover {
@@ -1691,6 +1728,120 @@ body.is-resizing-widget {
     }
 
     .dashboard-builder-grid .dashboard-widget.metric-widget:nth-child(3) {
+        grid-column: span 12;
+    }
+}
+/* ══════════════════════════════════════════════════════════════════════
+   Largura fluida do Dashboard
+   ══════════════════════════════════════════════════════════════════════
+   Causa do vazio à direita: ui-kit.css define `.main-content { max-width:
+   1440px }` para todo o sistema. Ao recolher o sidebar a margem cai de 280px
+   para 80px, liberando 200px — mas o teto de 1440px impedia o conteúdo de
+   crescer, e a área liberada virava faixa vazia.
+
+   Escopado em .dashboard-main para não alterar as demais páginas, que
+   dependem do limite de leitura de 1440px.
+   ══════════════════════════════════════════════════════════════════════ */
+/* Largura explícita em vez de depender só de flex: 1 — é o mesmo padrão que a
+   página de Relatórios já usa em produção para o caso idêntico. Com o sidebar
+   em position: fixed, calc(100% - largura do sidebar) garante que a área
+   liberada ao recolher seja de fato ocupada, sem depender de o flex reagir. */
+.main-content.dashboard-main {
+    flex: 0 0 auto;
+    width: calc(100% - var(--ui-sidebar-width, 280px));
+    max-width: none;
+    transition: margin-left var(--transition-normal, 0.25s ease),
+                padding var(--transition-normal, 0.25s ease),
+                width 0.2s ease;
+}
+
+.sidebar.collapsed ~ .main-content.dashboard-main {
+    width: calc(100% - var(--ui-sidebar-collapsed-width, 80px));
+}
+
+/* Abaixo de 1024px o sidebar sai do fluxo (vira menu sobreposto) e a margem
+   zera, então o conteúdo usa a largura inteira. */
+@media (max-width: 1024px) {
+    .main-content.dashboard-main,
+    .sidebar.collapsed ~ .main-content.dashboard-main {
+        width: 100%;
+    }
+}
+
+/* ── Cards de indicadores ──────────────────────────────────────────────
+   Base já é auto-fit; os degraus abaixo elevam a largura mínima conforme
+   sobra espaço, para os cards crescerem em vez de multiplicarem em colunas
+   estreitas demais. */
+
+/* Notebook e monitor padrão: 3–4 colunas */
+@media (min-width: 1024px) {
+    .dashboard-main .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+}
+
+/* Monitor grande: cards maiores, aproveitando a largura extra */
+@media (min-width: 1440px) {
+    .dashboard-main .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 22px;
+    }
+}
+
+@media (min-width: 1920px) {
+    .dashboard-main .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        gap: 24px;
+    }
+}
+
+/* Tablet: duas colunas */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .dashboard-main .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* Mobile: coluna única */
+@media (max-width: 767px) {
+    .dashboard-main .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── Widgets de gráfico ────────────────────────────────────────────────
+   O grid de 12 colunas já é proporcional ao container, então cresce sozinho
+   com o sidebar recolhido. Em telas largas os widgets médios passam a caber
+   três por linha (span 4) em vez de dois, evitando cards excessivamente
+   largos com muito espaço interno vazio. */
+@media (min-width: 1600px) {
+    .dashboard-main .dashboard-builder-grid .widget-md {
+        grid-column: span 4;
+    }
+
+    .dashboard-main .dashboard-builder-grid .widget-lg {
+        grid-column: span 6;
+    }
+}
+
+/* Tablet: cada widget ocupa a linha inteira do grid de 12 colunas */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .dashboard-main .dashboard-builder-grid .widget-sm {
+        grid-column: span 6;
+    }
+
+    .dashboard-main .dashboard-builder-grid .widget-md,
+    .dashboard-main .dashboard-builder-grid .widget-lg,
+    .dashboard-main .dashboard-builder-grid .widget-xl {
+        grid-column: span 12;
+    }
+}
+
+@media (max-width: 767px) {
+    .dashboard-main .dashboard-builder-grid .widget-sm,
+    .dashboard-main .dashboard-builder-grid .widget-md,
+    .dashboard-main .dashboard-builder-grid .widget-lg,
+    .dashboard-main .dashboard-builder-grid .widget-xl {
         grid-column: span 12;
     }
 }

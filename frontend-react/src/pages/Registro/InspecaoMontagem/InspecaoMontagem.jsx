@@ -1,10 +1,12 @@
 ﻿import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import ExcelJS from 'exceljs';
 import Sidebar from '../../../components/Sidebar/Sidebar';
 import { registrosAPI, defeitosAPI, produtosAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
 import { upperFields } from '../../../utils/text';
 import { formatDateBR, normalizeISODate, todayISO } from '../../../utils/date';
+import { formatarTurno, normalizarTurno } from '../../../utils/turnos';
 import './InspecaoMontagem.css';
 
 
@@ -20,6 +22,52 @@ const getWeekFromDate = (value = todayISO()) => {
     return String(Math.ceil((((date - yearStart) / 86400000) + 1) / 7));
 };
 
+const currentMonthISO = () => todayISO().slice(0, 7);
+
+const monthRangeISO = (value = currentMonthISO()) => {
+    const [year, month] = String(value || currentMonthISO()).split('-').map(Number);
+    const safeYear = year || Number(currentMonthISO().slice(0, 4));
+    const safeMonth = month || Number(currentMonthISO().slice(5, 7));
+    const lastDay = new Date(safeYear, safeMonth, 0).getDate();
+    const prefix = `${safeYear}-${String(safeMonth).padStart(2, '0')}`;
+    return { start: `${prefix}-01`, end: `${prefix}-${String(lastDay).padStart(2, '0')}` };
+};
+
+const previousMonthISO = () => {
+    const [year, month] = currentMonthISO().split('-').map(Number);
+    const date = new Date(year, month - 2, 1);
+    return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
+};
+
+const previousMonthFromISO = (value) => {
+    const [year, month] = String(value || currentMonthISO()).split('-').map(Number);
+    const date = new Date(year, month - 2, 1);
+    return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
+};
+
+const formatMonthLabel = (value) => {
+    const [year, month] = String(value || '').split('-').map(Number);
+    if (!year || !month) return 'Mês atual';
+    const label = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' })
+        .format(new Date(year, month - 1, 1));
+    return label.charAt(0).toUpperCase() + label.slice(1);
+};
+
+const normalizarFotosPeca = (fotosSalvas, nomesSalvos) => {
+    const lerLista = (valor) => {
+        if (Array.isArray(valor)) return valor;
+        if (!valor) return [];
+        try { const parsed = JSON.parse(valor); return Array.isArray(parsed) ? parsed : [valor]; }
+        catch { return [valor]; }
+    };
+    const fotos = lerLista(fotosSalvas);
+    const nomes = lerLista(nomesSalvos);
+    return fotos
+        .filter((src) => typeof src === 'string' && src.trim())
+        .slice(0, 3)
+        .map((src, index) => ({ src, nome: String(nomes[index] || `Foto ${index + 1}`) }));
+};
+
 const getProdutoModelo = (produto) => (
     produto?.modelo
     || produto?.cod_modelo
@@ -32,10 +80,22 @@ const getProdutoModelo = (produto) => (
 export default function InspecaoMontagem() {
     const { user } = useAuth();
     const [registros, setRegistros] = useState([]);
+    const [resumoRegistros, setResumoRegistros] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
+    const [dateFilter, setDateFilter] = useState('');
+    const [dateEndFilter, setDateEndFilter] = useState('');
+    const [rangeStartDraft, setRangeStartDraft] = useState('');
+    const [rangeEndDraft, setRangeEndDraft] = useState('');
+    const [monthFilter, setMonthFilter] = useState(currentMonthISO());
+    const [shiftFilter, setShiftFilter] = useState('');
+    const [lineFilter, setLineFilter] = useState('');
+    const [showPeriodMenu, setShowPeriodMenu] = useState(false);
     const [showModal, setShowModal] = useState(false);
+    const [formDirty, setFormDirty] = useState(false);
+    const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
+    const [errosValidacao, setErrosValidacao] = useState([]);
     const [showViewModal, setShowViewModal] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [viewData, setViewData] = useState(null);
@@ -45,14 +105,35 @@ export default function InspecaoMontagem() {
     const [showPrintModal, setShowPrintModal] = useState(false);
     const [printData, setPrintData] = useState(null);
     const [sheetData, setSheetData] = useState(null);
+    const [panoramaRegistro, setPanoramaRegistro] = useState(null);
+    const [panoramaDados, setPanoramaDados] = useState({
+        loading: false, atual: [], anterior: [], mesAtual: '', mesAnterior: ''
+    });
 
     // Autocomplete de produtos (Código SAP)
     const [produtoSugestoes, setProdutoSugestoes] = useState([]);
     const [showSugestoes, setShowSugestoes] = useState(false);
+    const [sugestaoAtivaIndex, setSugestaoAtivaIndex] = useState(-1);
     const searchTimeout = useRef(null);
+    const periodMenuRef = useRef(null);
+    const loadRequestRef = useRef(0);
+    const formModalRef = useRef(null);
+    const viewModalRef = useRef(null);
+    const fotoPecaInputRef = useRef(null);
 
     // Feedback da leitura do código de barras
     const [barcodeStatus, setBarcodeStatus] = useState(null); // { type: 'success' | 'error', message }
+
+    // Lightbox de fotos com zoom
+    const [lightbox, setLightbox] = useState({ open: false, fotos: [], index: 0 });
+    const [lbZoom, setLbZoom] = useState(1);
+    const [lbPan, setLbPan] = useState({ x: 0, y: 0 });
+    const lbDragging = useRef(false);
+    const lbDragStart = useRef({ x: 0, y: 0 });
+    const lbPanStart = useRef({ x: 0, y: 0 });
+    const lbLastTap = useRef(0);
+    const lbPinchDist = useRef(null);
+    const lbPinchZoom = useRef(1);
 
     // Checklist states
     const [checklist, setChecklist] = useState({
@@ -77,10 +158,10 @@ export default function InspecaoMontagem() {
         linha: '',
         descricao_sap: '',
         codigo_barras: '',
-        qtd_total: 0,
-        qtd_inspecionada: 0,
-        qtd_nc: 0,
-        qtd_pallet: 0,
+        qtd_total: '',
+        qtd_inspecionada:  '',
+        qtd_nc: '',
+        qtd_pallet: '',
         rastreabilidade: '',
         po: '',
         turno: '',
@@ -96,13 +177,137 @@ export default function InspecaoMontagem() {
         causa: '',
         correcao: '',
         responsavelCorrecao: '',
-        observacao: ''
+        observacao: '',
+        fotos_peca: []
     });
+
+    // ── Lightbox helpers ──
+    const abrirLightbox = (fotos, index = 0) => {
+        setLightbox({ open: true, fotos, index });
+        setLbZoom(1); setLbPan({ x: 0, y: 0 });
+    };
+    const fecharLightbox = () => {
+        setLightbox({ open: false, fotos: [], index: 0 });
+        setLbZoom(1); setLbPan({ x: 0, y: 0 });
+    };
+    const lbNavegar = (direcao) => {
+        setLightbox((prev) => ({ ...prev, index: (prev.index + direcao + prev.fotos.length) % prev.fotos.length }));
+        setLbZoom(1); setLbPan({ x: 0, y: 0 });
+    };
+    const lbToggleZoom = () => {
+        setLbZoom((z) => { const n = z >= 2.5 ? 1 : z + 1; if (n === 1) setLbPan({ x: 0, y: 0 }); return n; });
+    };
+    const handleLbWheel = (e) => {
+        e.preventDefault();
+        setLbZoom((z) => { const n = Math.min(5, Math.max(1, z - e.deltaY * 0.002)); if (n <= 1) setLbPan({ x: 0, y: 0 }); return n; });
+    };
+    const handleLbPointerDown = (e) => {
+        if (e.pointerType === 'touch' || lbZoom <= 1) return;
+        lbDragging.current = true;
+        lbDragStart.current = { x: e.clientX, y: e.clientY };
+        lbPanStart.current = { ...lbPan };
+        e.currentTarget.setPointerCapture(e.pointerId);
+    };
+    const handleLbPointerMove = (e) => {
+        if (!lbDragging.current) return;
+        setLbPan({ x: lbPanStart.current.x + (e.clientX - lbDragStart.current.x), y: lbPanStart.current.y + (e.clientY - lbDragStart.current.y) });
+    };
+    const handleLbPointerUp = () => { lbDragging.current = false; };
+    const handleLbTouchStart = (e) => {
+        if (e.touches.length === 2) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            lbPinchDist.current = Math.hypot(dx, dy); lbPinchZoom.current = lbZoom; return;
+        }
+        if (e.touches.length === 1) {
+            const now = Date.now();
+            if (now - lbLastTap.current < 300) { lbToggleZoom(); lbLastTap.current = 0; return; }
+            lbLastTap.current = now;
+            if (lbZoom > 1) { lbDragging.current = true; lbDragStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; lbPanStart.current = { ...lbPan }; }
+        }
+    };
+    const handleLbTouchMove = (e) => {
+        if (e.touches.length === 2 && lbPinchDist.current !== null) {
+            e.preventDefault();
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const dist = Math.hypot(dx, dy);
+            const n = Math.min(5, Math.max(1, lbPinchZoom.current * (dist / lbPinchDist.current)));
+            setLbZoom(n); if (n <= 1) setLbPan({ x: 0, y: 0 }); return;
+        }
+        if (lbDragging.current && e.touches.length === 1) {
+            setLbPan({ x: lbPanStart.current.x + (e.touches[0].clientX - lbDragStart.current.x), y: lbPanStart.current.y + (e.touches[0].clientY - lbDragStart.current.y) });
+        }
+    };
+    const handleLbTouchEnd = () => { lbDragging.current = false; lbPinchDist.current = null; };
+
+    // ── Foto helpers ──
+    const handleFotoPecaChange = (event) => {
+        if ((formData.fotos_peca || []).length >= 3) { alert('Você pode registrar no máximo três fotos.'); event.target.value = ''; return; }
+        const file = event.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) { alert('Selecione uma imagem válida.'); return; }
+        if (file.size > 15 * 1024 * 1024) { alert('A imagem deve ter no máximo 15 MB.'); return; }
+        const reader = new FileReader();
+        reader.onload = () => {
+            const imagem = new Image();
+            imagem.onload = () => {
+                const limite = 1600;
+                const escala = Math.min(1, limite / Math.max(imagem.width, imagem.height));
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.round(imagem.width * escala));
+                canvas.height = Math.max(1, Math.round(imagem.height * escala));
+                canvas.getContext('2d').drawImage(imagem, 0, 0, canvas.width, canvas.height);
+                setFormData((prev) => ({ ...prev, fotos_peca: [...(prev.fotos_peca || []), { src: canvas.toDataURL('image/jpeg', 0.8), nome: file.name.slice(0, 70) }].slice(0, 3) }));
+                setFormDirty(true);
+                if (fotoPecaInputRef.current) fotoPecaInputRef.current.value = '';
+            };
+            imagem.onerror = () => alert('Não foi possível processar a imagem.');
+            imagem.src = String(reader.result || '');
+        };
+        reader.onerror = () => alert('Não foi possível ler a imagem.');
+        reader.readAsDataURL(file);
+    };
+    const removerFotoPeca = (index) => {
+        setFormData((prev) => ({ ...prev, fotos_peca: (prev.fotos_peca || []).filter((_, i) => i !== index) }));
+        setFormDirty(true);
+        if (fotoPecaInputRef.current) fotoPecaInputRef.current.value = '';
+    };
+
+    const fecharFormularioSemSalvar = () => { setShowUnsavedConfirm(false); setShowModal(false); resetForm(); };
+    const solicitarFechamentoFormulario = () => { if (formDirty) { setShowUnsavedConfirm(true); return; } fecharFormularioSemSalvar(); };
+
+    useEffect(() => {
+        if (!lightbox.open) return;
+        const handleKey = (e) => {
+            if (e.key === 'Escape') fecharLightbox();
+            if (e.key === 'ArrowRight') lbNavegar(1);
+            if (e.key === 'ArrowLeft') lbNavegar(-1);
+            if (e.key === '+' || e.key === '=') setLbZoom((z) => Math.min(5, z + 0.5));
+            if (e.key === '-') setLbZoom((z) => { const n = Math.max(1, z - 0.5); if (n <= 1) setLbPan({ x: 0, y: 0 }); return n; });
+        };
+        window.addEventListener('keydown', handleKey);
+        return () => window.removeEventListener('keydown', handleKey);
+    }, [lightbox.open, lightbox.fotos.length]);
+
+    useEffect(() => {
+        if (!showModal || !formDirty) return undefined;
+        const proteger = (event) => { event.preventDefault(); event.returnValue = ''; };
+        window.addEventListener('beforeunload', proteger);
+        return () => window.removeEventListener('beforeunload', proteger);
+    }, [showModal, formDirty]);
+
+    useEffect(() => {
+        const modal = showModal ? formModalRef.current : (showViewModal ? viewModalRef.current : null);
+        if (!modal) return;
+        modal.scrollTop = 0;
+        window.requestAnimationFrame(() => { modal.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' }); });
+    }, [showModal, showViewModal]);
 
     useEffect(() => {
         loadRegistros();
         loadDefeitos();
-    }, [search, statusFilter]);
+    }, [search, statusFilter, dateFilter, dateEndFilter, monthFilter, shiftFilter, lineFilter]);
 
     useEffect(() => {
         if (!sheetData) return;
@@ -118,20 +323,65 @@ export default function InspecaoMontagem() {
     }, [sheetData]);
 
     const loadRegistros = async () => {
+        const requestId = ++loadRequestRef.current;
         try {
             setLoading(true);
-            const params = {};
+            const params = { limit: 100 };
             if (search) params.search = search;
-            if (statusFilter) params.status = statusFilter;
 
-            const response = await registrosAPI.getAll(params);
-            if (response.data.success) {
-                setRegistros(response.data.data);
+            // Carrega todas as páginas
+            let todos = [];
+            let page = 1;
+            let temMais = true;
+            while (temMais) {
+                const response = await registrosAPI.getAll({ ...params, page });
+                if (requestId !== loadRequestRef.current) return;
+                if (response.data.success && Array.isArray(response.data.data)) {
+                    todos = todos.concat(response.data.data);
+                    temMais = response.data.data.length >= 100;
+                    page++;
+                } else {
+                    temMais = false;
+                }
             }
+
+            // Filtros client-side
+            const termoBusca = String(search || '').trim().toLowerCase();
+            const statusBusca = String(statusFilter || '').trim().toLowerCase();
+            const turnoBusca = String(shiftFilter || '').trim().toUpperCase();
+            const linhaBusca = String(lineFilter || '').trim();
+
+            const dadosFiltrados = todos.filter((registro) => {
+                const dataRegistro = String(registro.data_inspecao || '').match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '';
+                if (dateFilter && dataRegistro < dateFilter) return false;
+                if (dateEndFilter && dataRegistro > dateEndFilter) return false;
+                if (!dateFilter && !dateEndFilter && monthFilter && !dataRegistro.startsWith(`${monthFilter}-`)) return false;
+                if (statusBusca && String(registro.status || '').trim().toLowerCase() !== statusBusca) return false;
+                if (turnoBusca && normalizarTurno(registro.turno) !== turnoBusca) return false;
+                if (linhaBusca && String(registro.linha_montagem || '') !== linhaBusca) return false;
+                if (termoBusca) {
+                    const conteudo = [registro.cod_sap, registro.modelo, registro.descricao_sap, registro.linha_montagem]
+                        .map((v) => String(v || '').toLowerCase()).join(' ');
+                    if (!conteudo.includes(termoBusca)) return false;
+                }
+                return true;
+            });
+
+            setResumoRegistros(todos.filter((registro) => {
+                const dataRegistro = String(registro.data_inspecao || '').match(/^\d{4}-\d{2}-\d{2}/)?.[0] || '';
+                if (dateFilter && dataRegistro < dateFilter) return false;
+                if (dateEndFilter && dataRegistro > dateEndFilter) return false;
+                if (!dateFilter && !dateEndFilter && monthFilter && !dataRegistro.startsWith(`${monthFilter}-`)) return false;
+                return true;
+            }));
+            setRegistros(dadosFiltrados);
         } catch (error) {
+            if (requestId !== loadRequestRef.current) return;
             console.error('Erro ao carregar registros:', error);
+            setResumoRegistros([]);
+            setRegistros([]);
         } finally {
-            setLoading(false);
+            if (requestId === loadRequestRef.current) setLoading(false);
         }
     };
 
@@ -262,13 +512,80 @@ export default function InspecaoMontagem() {
         }
     };
 
+    /* Campos obrigatórios. A aba é guardada junto para o formulário poder pular
+       direto para onde está a pendência — sem isso o inspetor recebe um erro
+       sobre um campo que não está vendo. */
+    const CAMPOS_OBRIGATORIOS = [
+        { campo: 'data_inspecao', label: 'Data Inspeção', aba: 'dados-gerais' },
+        { campo: 'semana', label: 'Semana', aba: 'dados-gerais' },
+        { campo: 'turno', label: 'Turno', aba: 'dados-gerais' },
+        { campo: 'linha_montagem', label: 'Linha Montagem', aba: 'dados-gerais' },
+        { campo: 'cod_sap', label: 'Código SAP', aba: 'dados-gerais' },
+        { campo: 'qtd_total', label: 'Qtd. Total', aba: 'dados-gerais' },
+        { campo: 'qtd_inspecionada', label: 'Qtd. Inspecionada', aba: 'dados-gerais' },
+        { campo: 'qtd_nc', label: 'Qtd. NC', aba: 'dados-gerais' },
+        { campo: 'qtd_pallet', label: 'Num. Paletes', aba: 'dados-gerais' },
+        { campo: 'rastreabilidade', label: 'Rastreabilidade', aba: 'dados-gerais' }
+        /* Código de Barras e P.O. ficaram fora de propósito: há produto sem EAN
+           cadastrado e lote sem P.O., e exigi-los travaria registro legítimo. */
+    ];
+
+    /* Só cobrados quando o status é Reprovado, que é quando o bloco aparece. */
+    const CAMPOS_REPROVADO = [
+        { campo: 'posto', label: 'Posto', aba: 'status-tab' },
+        { campo: 'operador', label: 'Operador', aba: 'status-tab' },
+        { campo: 'causa', label: 'Causa', aba: 'status-tab' },
+        { campo: 'correcao', label: 'Correção', aba: 'status-tab' },
+        { campo: 'responsavelCorrecao', label: 'Responsável pela Correção', aba: 'status-tab' }
+    ];
+
+    const validarFormulario = () => {
+        /* Zero é valor legítimo nas quantidades, então a checagem é por vazio e
+           não por falsy — `!0` classificaria um lote com 0 NC como pendente. */
+        const vazio = (valor) => valor === null || valor === undefined || String(valor).trim() === '';
+        const faltando = [];
+
+        CAMPOS_OBRIGATORIOS.forEach((item) => {
+            if (vazio(formData[item.campo])) faltando.push(item);
+        });
+
+        checklistItems.forEach((secao) => secao.items.forEach((item) => {
+            if (checklist[item.id]?.conforme !== true && checklist[item.id]?.conforme !== false) {
+                faltando.push({ campo: item.id, label: `Critérios de Inspeção — ${item.label}`, aba: 'checklist-tab' });
+            }
+        }));
+
+        if (String(formData.status || '').toLowerCase() === 'reprovado') {
+            CAMPOS_REPROVADO.forEach((item) => {
+                if (vazio(formData[item.campo])) faltando.push(item);
+            });
+        }
+
+        return faltando;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        const pendencias = validarFormulario();
+        if (pendencias.length > 0) {
+            setErrosValidacao(pendencias);
+            /* No modo Abas, leva o inspetor até a aba da primeira pendência. */
+            if (formViewMode === 'tabs') setActiveTab(pendencias[0].aba);
+            formModalRef.current?.querySelector('.modal-body')?.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+        setErrosValidacao([]);
+
         try {
-            const sanitizedFormData = formData.status === 'reprovado'
-                ? formData
+            const isReprovado = String(formData.status || '').toLowerCase() === 'reprovado';
+            const fotosPeca = (formData.fotos_peca || []).slice(0, 3);
+            const { fotos_peca: _fotosPeca, ...camposFormulario } = formData;
+
+            const sanitizedFormData = isReprovado
+                ? camposFormulario
                 : {
-                    ...formData,
+                    ...camposFormulario,
                     documento: '',
                     prioridade: '',
                     defeito: '',
@@ -283,7 +600,10 @@ export default function InspecaoMontagem() {
             const dados = upperFields({
                 ...sanitizedFormData,
                 inspetor: user?.nome || formData.inspetor,
-                checklist: checklist
+                checklist: checklist,
+                foto_peca: isReprovado && fotosPeca.length ? JSON.stringify(fotosPeca.map(({ src }) => src)) : '',
+                foto_peca_nome: isReprovado && fotosPeca.length ? JSON.stringify(fotosPeca.map(({ nome }) => nome)) : '',
+                status: formData.status?.toUpperCase()
             }, [
                 'semana', 'cod_sap', 'modelo', 'familia', 'linha', 'descricao_sap',
                 'codigo_barras', 'rastreabilidade', 'po', 'defeito', 'documento', 'origem_problema',
@@ -335,7 +655,8 @@ export default function InspecaoMontagem() {
             causa: registro.causa || '',
             correcao: registro.correcao || '',
             responsavelCorrecao: registro.responsavelCorrecao || '',
-            observacao: registro.observacao || ''
+            observacao: registro.observacao || '',
+            fotos_peca: normalizarFotosPeca(registro.foto_peca, registro.foto_peca_nome)
         });
 
         const checklistSalvo = registro.checklist || {};
@@ -353,6 +674,8 @@ export default function InspecaoMontagem() {
         });
 
         setEditingId(registro.id);
+        setFormDirty(false);
+        setErrosValidacao([]);
         setActiveTab('dados-gerais');
         setFormViewMode('tabs');
         setShowModal(true);
@@ -363,17 +686,22 @@ export default function InspecaoMontagem() {
         setShowViewModal(true);
     };
 
-    const handleDelete = async (id) => {
-        if (window.confirm('Tem certeza que deseja excluir este registro?')) {
-            try {
-                await registrosAPI.delete(id);
-                loadRegistros();
-            } catch (error) {
-                console.error('Erro ao excluir registro:', error);
-                alert('Erro ao excluir registro');
-            }
+    const [deleteConfirm, setDeleteConfirm] = useState(null);
+    const confirmarExclusao = (id) => setDeleteConfirm(id);
+    const executarExclusao = async () => {
+        if (!deleteConfirm) return;
+        try {
+            await registrosAPI.delete(deleteConfirm);
+            loadRegistros();
+        } catch (error) {
+            console.error('Erro ao excluir registro:', error);
+            const mensagem = error.response?.data?.message || 'Erro ao excluir registro';
+            alert(mensagem);
+        } finally {
+            setDeleteConfirm(null);
         }
     };
+    const handleDelete = (id) => confirmarExclusao(id);
 
     const handlePrintCard = (registro) => {
         // Prepara dados e abre modal de pré-visualização
@@ -469,6 +797,13 @@ export default function InspecaoMontagem() {
                             <div class="section-content">${printData.observacao}</div>
                         </div>
                         ` : ''}
+
+                        ${resumirNaoConformidades(printData) ? `
+                        <div class="section">
+                            <div class="section-title">⚠️ NC dos Critérios de Inspeção</div>
+                            <div class="section-content">${resumirNaoConformidades(printData)}</div>
+                        </div>
+                        ` : ''}
                     </div>
                     <div class="footer">
                         Emitido em: ${dataEmissao}
@@ -496,10 +831,12 @@ export default function InspecaoMontagem() {
             linha: '',
             descricao_sap: '',
             codigo_barras: '',
-            qtd_total: 0,
-            qtd_inspecionada: 0,
-            qtd_nc: 0,
-            qtd_pallet: 0,
+            /* Vazio, não 0: agora são obrigatórios, e um zero pré-preenchido
+               passaria a validação sem o inspetor ter conferido a quantidade. */
+            qtd_total: '',
+            qtd_inspecionada: '',
+            qtd_nc: '',
+            qtd_pallet: '',
             rastreabilidade: '',
             po: '',
             turno: '',
@@ -515,7 +852,8 @@ export default function InspecaoMontagem() {
             causa: '',
             correcao: '',
             responsavelCorrecao: '',
-            observacao: ''
+            observacao: '',
+            fotos_peca: []
         });
         setChecklist({
             corrente: { valor: '', conforme: null, obs: '' },
@@ -533,6 +871,8 @@ export default function InspecaoMontagem() {
         setActiveTab('dados-gerais');
         setFormViewMode('tabs');
         setBarcodeStatus(null);
+        setFormDirty(false);
+        setErrosValidacao([]);
     };
 
     const formatarData = (dataString) => {
@@ -546,13 +886,32 @@ export default function InspecaoMontagem() {
         }
     };
 
+    const normalizarStatus = (status) => String(status || 'pendente').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
     const getStatusClass = (status) => {
-        const classes = {
-            'aprovado': 'badge-success',
-            'pendente': 'badge-warning',
-            'reprovado': 'badge-danger'
-        };
-        return classes[status?.toLowerCase()] || 'badge-warning';
+        const classes = { aprovado: 'badge-success', pendente: 'badge-warning', reprovado: 'badge-danger', concessao: 'badge-info' };
+        return classes[normalizarStatus(status)] || 'badge-warning';
+    };
+
+    const getStatusIconClass = (status) => {
+        const icons = { aprovado: 'fa-check', pendente: 'fa-clock', reprovado: 'fa-times', concessao: 'fa-handshake' };
+        return icons[normalizarStatus(status)] || 'fa-clock';
+    };
+
+    const formatarStatus = (status) => String(status || 'pendente').toUpperCase();
+
+    /* Campos de quantidade seguem o padrão da Injeção: type="text" com
+       inputMode numérico, sem as setinhas do type="number" e permitindo campo
+       vazio — o `|| 0` anterior devolvia 0 assim que o inspetor apagava o
+       conteúdo, impedindo limpar o campo.
+
+       A Injeção usa Number(e.target.value) direto, o que grava NaN se algo não
+       numérico entrar; aqui descarto os não dígitos antes, então letra
+       simplesmente não entra. Vazio vira 0 no backend, via _to_int. */
+    const setCampoNumerico = (campo, valor) => {
+        const digitos = String(valor).replace(/\D/g, '');
+        setFormData((prev) => ({ ...prev, [campo]: digitos === '' ? '' : Number(digitos) }));
+        setFormDirty(true);
     };
 
     const updateChecklist = (item, field, value) => {
@@ -560,11 +919,20 @@ export default function InspecaoMontagem() {
             ...prev,
             [item]: { ...prev[item], [field]: value }
         }));
+
+        /* Marcar NC reprova a inspeção automaticamente. Não faz o caminho de
+           volta: se o inspetor desmarcar o último NC, o status continua
+           Reprovado para não apagar uma decisão que ele tomou de propósito
+           (reprovar por defeito que não está no checklist, por exemplo). */
+        if (field === 'conforme' && value === false) {
+            setFormData(prev => (prev.status === 'reprovado' ? prev : { ...prev, status: 'reprovado' }));
+        }
+        setFormDirty(true);
     };
 
     const tabs = [
         { id: 'dados-gerais', icon: 'fa-info-circle', label: 'Dados Gerais' },
-        { id: 'checklist-tab', icon: 'fa-tasks', label: 'Checklist' },
+        { id: 'checklist-tab', icon: 'fa-tasks', label: 'Critérios de Inspeção' },
         { id: 'status-tab', icon: 'fa-clipboard-check', label: 'Status' }
     ];
 
@@ -593,93 +961,358 @@ export default function InspecaoMontagem() {
         }
     ];
 
+    /* Itens marcados como NC, achatados na ordem das seções. Alimenta o bloco
+       único de descrição abaixo do grid, mantendo a obs vinculada a cada item. */
+    const itensNaoConformes = checklistItems.flatMap((section) =>
+        section.items
+            .filter((item) => checklist[item.id]?.conforme === false)
+            .map((item) => ({ ...item, section: section.section, icon: section.icon, color: section.color }))
+    );
+
+    /* Resume as NC do checklist de um registro já salvo (usa o payload do
+       backend, não o formulário). Alimenta o Excel e o cartão impresso, que
+       antes não mostravam nada do checklist. */
+    const resumirNaoConformidades = (registro) => {
+        const cl = registro?.checklist;
+        if (!cl || typeof cl !== 'object') return '';
+        return checklistItems
+            .flatMap((secao) => secao.items)
+            .filter((item) => cl[item.id]?.conforme === false)
+            .map((item) => {
+                const obs = String(cl[item.id]?.obs || '').replace(/\r?\n+/g, ' ').trim();
+                return obs ? `${item.label}: ${obs}` : item.label;
+            })
+            .join(' | ');
+    };
+
     const sheetRegistro = sheetData ? registros.find((registro) => registro.id === sheetData.id) : null;
 
+    const resumoInspecoes = resumoRegistros.reduce((resumo, registro) => {
+        const status = normalizarStatus(registro.status);
+        resumo.total += 1;
+        if (status === 'aprovado') resumo.aprovadas += 1;
+        else if (status === 'reprovado') resumo.reprovadas += 1;
+        else resumo.pendentes += 1;
+        return resumo;
+    }, { total: 0, aprovadas: 0, reprovadas: 0, pendentes: 0 });
+
+    const resumirPanorama = (lista) => lista.reduce((r, reg) => {
+        const s = normalizarStatus(reg.status); r.total += 1;
+        if (s === 'aprovado') r.aprovadas += 1; if (s === 'reprovado') r.reprovadas += 1; return r;
+    }, { total: 0, aprovadas: 0, reprovadas: 0 });
+    const panoramaAtualResumo = resumirPanorama(panoramaDados.atual);
+    const panoramaAnteriorResumo = resumirPanorama(panoramaDados.anterior);
+    const panoramaMaiorValor = Math.max(panoramaAtualResumo.aprovadas, panoramaAtualResumo.reprovadas, panoramaAnteriorResumo.aprovadas, panoramaAnteriorResumo.reprovadas, 1);
+    const panoramaDefeitos = (() => {
+        const mapa = panoramaDados.atual.reduce((m, reg) => {
+            if (normalizarStatus(reg.status) !== 'reprovado') return m;
+            const d = String(reg.defeito || '').trim();
+            if (d) m.set(d, (m.get(d) || 0) + 1);
+            return m;
+        }, new Map());
+        return [...mapa.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+    })();
+    const maiorDefeito = Math.max(...panoramaDefeitos.map(([, q]) => q), 1);
+    const panoramaLinhas = [...new Set(panoramaDados.atual.map((i) => i.linha_montagem).filter(Boolean))];
+
+    const ativarFiltroStatus = (status) => setStatusFilter((atual) => atual === status ? '' : status);
+    const acionarCardPorTeclado = (event, status) => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); if (status) ativarFiltroStatus(status); else setStatusFilter(''); }
+    };
+
+    const periodoLabel = dateFilter && dateEndFilter
+        ? `${formatarData(dateFilter)} até ${formatarData(dateEndFilter)}`
+        : formatMonthLabel(monthFilter);
+
+    const selecionarMes = (mes) => {
+        setRegistros([]); setDateFilter(''); setDateEndFilter('');
+        setRangeStartDraft(''); setRangeEndDraft('');
+        setMonthFilter(mes || currentMonthISO()); setShowPeriodMenu(false);
+    };
+    const selecionarInicioIntervalo = (d) => { setRangeStartDraft(d); if (d && rangeEndDraft && d > rangeEndDraft) setRangeEndDraft(d); };
+    const selecionarFimIntervalo = (d) => { setRangeEndDraft(d); if (d && rangeStartDraft && d < rangeStartDraft) setRangeStartDraft(d); };
+    const aplicarIntervalo = () => {
+        if (!rangeStartDraft || !rangeEndDraft) { alert('Selecione a data inicial e a data final.'); return; }
+        setRegistros([]); setDateFilter(rangeStartDraft); setDateEndFilter(rangeEndDraft);
+        setMonthFilter(''); setShowPeriodMenu(false);
+    };
+
+    const carregarPanorama = async (registro) => {
+        setPanoramaRegistro(registro);
+        const mesBase = monthFilter || String(dateFilter || registro.data_inspecao || currentMonthISO()).slice(0, 7);
+        const mesAnterior = previousMonthFromISO(mesBase);
+        const termo = String(registro.cod_sap || registro.modelo || '').trim();
+        setPanoramaDados({ loading: true, atual: [], anterior: [], mesAtual: mesBase, mesAnterior });
+        try {
+            const [resAtual, resAnterior] = await Promise.all([
+                registrosAPI.getAll({ search: termo, limit: 100 }),
+                registrosAPI.getAll({ search: termo, limit: 100 })
+            ]);
+            const filtrar = (res, mes) => {
+                const lista = res?.data?.success && Array.isArray(res.data.data) ? res.data.data : [];
+                return lista.filter((item) => {
+                    const dataItem = String(item.data_inspecao || '').slice(0, 7);
+                    if (dataItem !== mes) return false;
+                    return registro.cod_sap
+                        ? String(item.cod_sap || '').trim() === String(registro.cod_sap).trim()
+                        : String(item.modelo || '').trim() === String(registro.modelo || '').trim();
+                });
+            };
+            setPanoramaDados({ loading: false, atual: filtrar(resAtual, mesBase), anterior: filtrar(resAnterior, mesAnterior), mesAtual: mesBase, mesAnterior });
+        } catch (error) {
+            console.error('Erro ao carregar panorama:', error);
+            setPanoramaDados({ loading: false, atual: [], anterior: [], mesAtual: mesBase, mesAnterior });
+        }
+    };
+
+    const handleRowClick = (registro) => {
+        if (typeof window !== 'undefined' && window.innerWidth >= 1600) { carregarPanorama(registro); return; }
+        openMobileActions(registro);
+    };
+
+    const fotosVisualizacao = normalizarFotosPeca(viewData?.foto_peca, viewData?.foto_peca_nome);
+
+    const exportarExcel = async () => {
+        if (loading) return;
+        const dadosExportacao = registros;
+        if (dadosExportacao.length === 0) { alert('Nenhum registro encontrado no período selecionado.'); return; }
+
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'Sistema Mallory';
+        workbook.created = new Date();
+        const worksheet = workbook.addWorksheet('Inspeções de Montagem', { views: [{ state: 'frozen', ySplit: 1 }] });
+
+        worksheet.columns = [
+            { header: 'Data', key: 'data', width: 13 },
+            { header: 'Semana', key: 'semana', width: 10 },
+            { header: 'Turno', key: 'turno', width: 10 },
+            { header: 'Linha', key: 'linha', width: 10 },
+            { header: 'Código SAP', key: 'cod_sap', width: 16 },
+            { header: 'Descrição', key: 'descricao', width: 38 },
+            { header: 'Qtd Total', key: 'qtd_total', width: 12 },
+            { header: 'Qtd Inspecionada', key: 'qtd_insp', width: 18 },
+            { header: 'Qtd NC', key: 'qtd_nc', width: 10 },
+            { header: 'Pallet', key: 'pallet', width: 10 },
+            { header: 'Status', key: 'status', width: 15 },
+            { header: 'Defeito', key: 'defeito', width: 24 },
+            { header: 'Observação', key: 'observacao', width: 42 },
+            { header: 'NC dos Critérios de Inspeção', key: 'nc_checklist', width: 46 },
+            { header: 'Inspetor', key: 'inspetor', width: 24 }
+        ];
+
+        dadosExportacao.forEach((reg) => {
+            const dataISO = String(reg.data_inspecao || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+            const dataExcel = dataISO ? new Date(Number(dataISO[1]), Number(dataISO[2]) - 1, Number(dataISO[3])) : null;
+            worksheet.addRow({
+                data: dataExcel, semana: reg.semana || '', turno: normalizarTurno(reg.turno),
+                linha: reg.linha_montagem || '', cod_sap: reg.cod_sap || '',
+                descricao: reg.modelo || reg.descricao_sap || '',
+                qtd_total: Number(reg.qtd_total) || 0, qtd_insp: Number(reg.qtd_inspecionada) || 0,
+                qtd_nc: Number(reg.qtd_nc) || 0, pallet: Number(reg.qtd_pallet) || 0,
+                status: formatarStatus(reg.status), defeito: reg.defeito || '',
+                observacao: String(reg.observacao || '').replace(/\r?\n+/g, ' ').trim(),
+                nc_checklist: resumirNaoConformidades(reg),
+                inspetor: reg.inspetor || ''
+            });
+        });
+
+        const header = worksheet.getRow(1);
+        header.height = 28;
+        header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF7A00' } };
+        header.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        worksheet.autoFilter = { from: 'A1', to: `N${worksheet.rowCount}` };
+        worksheet.getColumn('data').numFmt = 'dd/mm/yyyy';
+        worksheet.getColumn('cod_sap').numFmt = '@';
+
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) return;
+            row.height = 24;
+            row.alignment = { vertical: 'middle', wrapText: false };
+            row.eachCell((cell) => { cell.border = { bottom: { style: 'thin', color: { argb: 'FFD9E1EA' } } }; });
+        });
+        ['semana', 'turno', 'linha', 'qtd_total', 'qtd_insp', 'qtd_nc', 'pallet', 'status'].forEach((key) => {
+            worksheet.getColumn(key).alignment = { vertical: 'middle', horizontal: 'center', wrapText: false };
+        });
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const sufixo = dateFilter && dateEndFilter ? `${dateFilter}_a_${dateEndFilter}` : monthFilter || currentMonthISO();
+        link.href = url; link.download = `inspecoes_montagem_${sufixo}.xlsx`;
+        document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+    };
+
     return (
-        <div className="app-container">
+        <div className="app-container montagem-page">
             <Sidebar />
 
             <main className="main-content">
                 <div className="page-header">
                     <div className="page-title">
                         <h1><i className="fas fa-list-check"></i> Inspeção de Montagem</h1>
-                        <p>Visualize e gerencie todas as inspeções de montagem</p>
+                        <p>Acompanhamento de inspeção — Montagem</p>
                     </div>
-                    <div className="header-actions">
+                    <div className="header-actions montagem-filters">
                         <input
-                            type="text"
-                            className="form-control"
-                            placeholder="Buscar por código, modelo..."
+                            type="search"
+                            className="form-control montagem-search"
+                            placeholder="Buscar por código, modelo, linha..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
-                        <select
-                            className="form-control"
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
+                        <div className="period-filter-wrapper" ref={periodMenuRef}>
+                            <button
+                                type="button"
+                                className={showPeriodMenu ? 'period-filter-button active' : 'period-filter-button'}
+                                onClick={() => setShowPeriodMenu((c) => !c)}
+                                aria-expanded={showPeriodMenu}
+                                aria-haspopup="dialog"
+                                title={'Período: ' + periodoLabel}
+                            >
+                                <i className="fas fa-calendar-alt" aria-hidden="true"></i>
+                                <span className="filter-label">
+                                    <span className="period-filter-title">Período</span>
+                                    <span className="period-filter-value">{periodoLabel}</span>
+                                </span>
+                                <i className="fas fa-chevron-down period-filter-chevron" aria-hidden="true"></i>
+                            </button>
+                            {showPeriodMenu && (
+                                <div className="period-filter-menu" role="dialog" aria-label="Selecionar período">
+                                    <div className="period-filter-quick-actions">
+                                        <button type="button" onClick={() => selecionarMes(currentMonthISO())}>Mês atual</button>
+                                        <button type="button" onClick={() => selecionarMes(previousMonthISO())}>Mês anterior</button>
+                                    </div>
+                                    <label><span>Outro mês</span><input type="month" value={monthFilter} onChange={(e) => selecionarMes(e.target.value)} /></label>
+                                    <div className="period-range-fields">
+                                        <label><span>Data inicial</span><input type="date" value={rangeStartDraft} max={rangeEndDraft || undefined} onChange={(e) => selecionarInicioIntervalo(e.target.value)} /></label>
+                                        <label><span>Data final</span><input type="date" value={rangeEndDraft} min={rangeStartDraft || undefined} onChange={(e) => selecionarFimIntervalo(e.target.value)} /></label>
+                                    </div>
+                                    <button type="button" className="period-range-apply" onClick={aplicarIntervalo}>Aplicar intervalo</button>
+                                </div>
+                            )}
+                        </div>
+                        <label className={shiftFilter ? 'shift-filter-button active' : 'shift-filter-button'} title={shiftFilter ? 'Turno: ' + shiftFilter : 'Filtrar por turno'}>
+                            <i className="fas fa-clock" aria-hidden="true"></i>
+                            <span className="filter-label">{shiftFilter ? 'Turno ' + shiftFilter : 'Turno'}</span>
+                            <select value={shiftFilter} onChange={(e) => setShiftFilter(e.target.value)} aria-label="Filtrar por turno">
+                                <option value="">Todos os turnos</option>
+                                <option value="A">Turno A</option>
+                                <option value="B">Turno B</option>
+                                <option value="C">Turno C</option>
+                            </select>
+                        </label>
+                        <label className={lineFilter ? 'shift-filter-button active' : 'shift-filter-button'} title={lineFilter ? 'Linha: ' + lineFilter : 'Filtrar por linha'}>
+                            <i className="fas fa-industry" aria-hidden="true"></i>
+                            <span className="filter-label">{lineFilter || 'Linha'}</span>
+                            <select value={lineFilter} onChange={(e) => setLineFilter(e.target.value)} aria-label="Filtrar por linha">
+                                <option value="">Todas as linhas</option>
+                                <option value="LM-01">LM-01</option>
+                                <option value="LM-02">LM-02</option>
+                                <option value="LM-03">LM-03</option>
+                                <option value="LM-04">LM-04</option>
+                                <option value="LM-05">LM-05</option>
+                                <option value="LM-06">LM-06</option>
+                                <option value="LM-07">LM-07</option>
+                            </select>
+                        </label>
+                        <button
+                            type="button"
+                            className="btn btn-success btn-sm export-excel-button"
+                            onClick={exportarExcel}
+                            disabled={loading || registros.length === 0}
+                            title="Exportar registros filtrados para Excel"
                         >
-                            <option value="">Todos os Status</option>
-                            <option value="pendente">Pendente</option>
-                            <option value="aprovado">Aprovado</option>
-                            <option value="reprovado">Reprovado</option>
-                        </select>
-                        <button className="btn btn-primary btn-sm" onClick={() => { resetForm(); setShowModal(true); }}>
-                            <i className="fas fa-plus"></i> Novo Registro
+                            <i className="fas fa-file-excel" aria-hidden="true"></i>
+                            <span className="filter-label">Exportar Excel</span>
+                        </button>
+                        <button className="btn btn-primary btn-sm new-inspection-button" onClick={() => { resetForm(); setShowModal(true); }} title="Nova Inspeção">
+                            <i className="fas fa-plus" aria-hidden="true"></i>
+                            <span className="filter-label">Nova Inspeção</span>
                         </button>
                     </div>
                 </div>
 
-                {/* Tabela */}
+                <section className="montagem-summary" aria-label="Resumo e filtros das inspeções">
+                    <article className={`montagem-summary-card filter-card total ${!statusFilter ? 'active' : ''}`}
+                        role="button" tabIndex="0" aria-pressed={!statusFilter}
+                        onClick={() => setStatusFilter('')} onKeyDown={(e) => acionarCardPorTeclado(e, '')}>
+                        <div className="montagem-summary-heading"><i className="fas fa-clipboard-list" aria-hidden="true"></i><span>Total de inspeções</span></div>
+                        <strong>{loading ? '—' : resumoInspecoes.total}</strong><small>Todos os status</small>
+                        <span className="montagem-summary-line" aria-hidden="true"></span>
+                    </article>
+                    <article className={`montagem-summary-card filter-card approved ${statusFilter === 'aprovado' ? 'active' : ''}`}
+                        role="button" tabIndex="0" aria-pressed={statusFilter === 'aprovado'}
+                        onClick={() => ativarFiltroStatus('aprovado')} onKeyDown={(e) => acionarCardPorTeclado(e, 'aprovado')}>
+                        <div className="montagem-summary-heading"><i className="fas fa-check-circle" aria-hidden="true"></i><span>Aprovadas</span></div>
+                        <strong>{loading ? '—' : resumoInspecoes.aprovadas}</strong><small>Inspeções aprovadas</small>
+                        <span className="montagem-summary-line" aria-hidden="true"></span>
+                    </article>
+                    <article className={`montagem-summary-card filter-card rejected ${statusFilter === 'reprovado' ? 'active' : ''}`}
+                        role="button" tabIndex="0" aria-pressed={statusFilter === 'reprovado'}
+                        onClick={() => ativarFiltroStatus('reprovado')} onKeyDown={(e) => acionarCardPorTeclado(e, 'reprovado')}>
+                        <div className="montagem-summary-heading"><i className="fas fa-times-circle" aria-hidden="true"></i><span>Reprovadas</span></div>
+                        <strong>{loading ? '—' : resumoInspecoes.reprovadas}</strong><small>Inspeções reprovadas</small>
+                        <span className="montagem-summary-line" aria-hidden="true"></span>
+                    </article>
+                    <article className={`montagem-summary-card filter-card pending ${statusFilter === 'pendente' ? 'active' : ''}`}
+                        role="button" tabIndex="0" aria-pressed={statusFilter === 'pendente'}
+                        onClick={() => ativarFiltroStatus('pendente')} onKeyDown={(e) => acionarCardPorTeclado(e, 'pendente')}>
+                        <div className="montagem-summary-heading"><i className="fas fa-clock" aria-hidden="true"></i><span>Pendentes</span></div>
+                        <strong>{loading ? '—' : resumoInspecoes.pendentes}</strong><small>Pendentes ou em concessão</small>
+                        <span className="montagem-summary-line" aria-hidden="true"></span>
+                    </article>
+                </section>
+
+                <div className="montagem-content-layout">
+                    <div className="montagem-table-column">
                 <div className="table-card">
                     <div className="table-container">
                         <table className="table">
                             <thead>
                                 <tr>
                                     <th>Data</th>
+                                    <th className="col-semana">Sem.</th>
+                                    <th>Turno</th>
                                     <th>Código SAP</th>
                                     <th>Descrição</th>
                                     <th>Linha</th>
-                                    <th>Qtd Total</th>
-                                    <th>Qtd Insp.</th>
+                                    <th className="col-hide">Qtd Total</th>
+                                    <th className="col-hide">Qtd Insp.</th>
                                     <th>Qtd NC</th>
-                                    <th style={{ textAlign: 'center' }}>Status</th>
-                                    <th className="actions-column" style={{ textAlign: 'center' }}>Ações</th>
+                                    <th>STATUS</th>
+                                    <th className="actions-column col-acoes">Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {loading ? (
-                                    <tr>
-                                        <td colSpan="9">
-                                            <div className="loading">
-                                                <div className="loading-spinner"></div>
-                                                <p>Carregando...</p>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                    <tr><td colSpan="11" style={{ textAlign: 'center' }}>Carregando...</td></tr>
                                 ) : registros.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="9" className="text-center">Nenhum registro encontrado</td>
-                                    </tr>
+                                    <tr><td colSpan="11" style={{ textAlign: 'center' }}>Nenhum registro encontrado</td></tr>
                                 ) : (
                                     registros.map(reg => (
                                         <tr
                                             key={reg.id}
-                                            className={`mobile-clickable-row ${sheetData?.id === reg.id ? 'mobile-row-active' : ''}`}
-                                            onClick={() => openMobileActions(reg)}
+                                            className={`mobile-clickable-row ${sheetData?.id === reg.id ? 'mobile-row-active' : ''} ${panoramaRegistro?.id === reg.id ? 'panorama-row-active' : ''}`}
+                                            onClick={() => handleRowClick(reg)}
                                         >
                                             <td>{formatarData(reg.data_inspecao)}</td>
+                                            <td className="col-semana">{reg.semana || '-'}</td>
+                                            <td>{normalizarTurno(reg.turno) || '-'}</td>
                                             <td><strong>{reg.cod_sap}</strong></td>
                                             <td>{reg.modelo || reg.descricao_sap || 'N/A'}</td>
                                             <td>{reg.linha_montagem || '--'}</td>
-                                            <td>{reg.qtd_total}</td>
-                                            <td>{reg.qtd_inspecionada}</td>
+                                            <td className="col-hide">{reg.qtd_total}</td>
+                                            <td className="col-hide">{reg.qtd_inspecionada}</td>
                                             <td>{reg.qtd_nc}</td>
-                                            <td style={{ textAlign: 'center' }}>
-                                                <span className={`badge ${getStatusClass(reg.status)}`}>
-                                                    {reg.status}
+                                            <td className="col-status">
+                                                <span className={`badge responsive-status ${getStatusClass(reg.status)}`} title={formatarStatus(reg.status)} aria-label={formatarStatus(reg.status)}>
+                                                    <span className="status-text">{formatarStatus(reg.status)}</span>
+                                                    <i className={`status-icon fas ${getStatusIconClass(reg.status)}`} aria-hidden="true"></i>
                                                 </span>
                                             </td>
-                                            <td className="actions-column">
+                                            <td className="actions-column col-acoes">
                                                 <div className="action-buttons">
                                                     <button className="btn-icon btn-view" onClick={(e) => { e.stopPropagation(); handleView(reg); }} title="Visualizar">
                                                         <i className="fas fa-eye"></i>
@@ -702,14 +1335,51 @@ export default function InspecaoMontagem() {
                         </table>
                     </div>
                 </div>
+                    </div>
+                    <aside className="piece-panorama" aria-live="polite">
+                        {!panoramaRegistro ? (
+                            <div className="piece-panorama-empty"><i className="fas fa-chart-column"></i>
+                                <h3>Panorama do produto</h3><p>Clique em uma linha da tabela para ver o histórico do produto.</p></div>
+                        ) : panoramaDados.loading ? (
+                            <div className="piece-panorama-empty"><i className="fas fa-spinner fa-spin"></i><p>Carregando panorama...</p></div>
+                        ) : (
+                            <>
+                                <div className="piece-panorama-header"><span>Panorama do produto</span>
+                                    <button type="button" onClick={() => setPanoramaRegistro(null)} aria-label="Fechar panorama"><i className="fas fa-times"></i></button></div>
+                                <h3>{panoramaRegistro.modelo || panoramaRegistro.descricao_sap || 'Produto sem descrição'}</h3>
+                                <p className="piece-panorama-code">Código {panoramaRegistro.cod_sap || '—'}</p>
+                                <div className="piece-panorama-kpis">
+                                    <div><strong>{panoramaAtualResumo.total}</strong><span>inspeções</span></div>
+                                    <div className="positive"><strong>{panoramaAtualResumo.aprovadas}</strong><span>aprovadas</span></div>
+                                    <div className="negative"><strong>{panoramaAtualResumo.reprovadas}</strong><span>reprovadas</span></div>
+                                    <div><strong>{panoramaAtualResumo.total ? ((panoramaAtualResumo.aprovadas / panoramaAtualResumo.total) * 100).toFixed(1) : '0,0'}%</strong><span>aprovação</span></div>
+                                </div>
+                                <section className="panorama-block"><h4>Mês atual × mês anterior</h4>
+                                    {[[panoramaDados.mesAnterior, panoramaAnteriorResumo], [panoramaDados.mesAtual, panoramaAtualResumo]].map(([mes, resumo]) => (
+                                        <div className="panorama-month-row" key={mes}><span>{formatMonthLabel(mes)}</span><div className="panorama-bars">
+                                            <i className="approved-bar" style={{ width: `${(resumo.aprovadas / panoramaMaiorValor) * 100}%` }}></i><b>{resumo.aprovadas}</b>
+                                            <i className="rejected-bar" style={{ width: `${(resumo.reprovadas / panoramaMaiorValor) * 100}%` }}></i><b>{resumo.reprovadas}</b>
+                                        </div></div>))}
+                                    <div className="panorama-legend"><span><i className="approved-dot"></i>Aprovadas</span><span><i className="rejected-dot"></i>Reprovadas</span></div>
+                                </section>
+                                <section className="panorama-block"><h4>Defeitos mais frequentes</h4>
+                                    {panoramaDefeitos.length ? panoramaDefeitos.map(([nome, quantidade]) => (
+                                        <div className="defect-row" key={nome}><span>{nome}</span><i><b style={{ width: `${(quantidade / maiorDefeito) * 100}%` }}></b></i><strong>{quantidade}</strong></div>
+                                    )) : <p className="panorama-no-data">Nenhum defeito registrado no período.</p>}
+                                </section>
+                                <section className="panorama-meta"><div><span>Linhas</span><strong>{panoramaLinhas.join(', ') || '—'}</strong></div></section>
+                            </>
+                        )}
+                    </aside>
+                </div>
 
                 {/* Modal de Criação/Edição */}
-                {showModal && (
-                    <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                        <div className="modal-content modal-large inspection-modal" onClick={(e) => e.stopPropagation()}>
+                {showModal && typeof document !== 'undefined' && createPortal((
+                    <div className="modal-overlay" onClick={solicitarFechamentoFormulario}>
+                        <div ref={formModalRef} className="modal-content modal-large inspection-modal" onClick={(e) => e.stopPropagation()}>
                             <div className="modal-header">
                                 <h2>{editingId ? 'Editar Registro de Inspeção' : 'Novo Registro de Inspeção'}</h2>
-                                <button className="modal-close" onClick={() => setShowModal(false)}>
+                                <button type="button" className="modal-close" onClick={solicitarFechamentoFormulario}>
                                     <i className="fas fa-times"></i>
                                 </button>
                             </div>
@@ -749,14 +1419,42 @@ export default function InspecaoMontagem() {
                                 </div>
                             )}
 
-                            <form onSubmit={handleSubmit}>
+                            {/* noValidate: a validação nativa do HTML não consegue focar campo
+                                em aba oculta e aborta o submit sem mensagem. Toda a checagem
+                                fica em validarFormulario(). */}
+                            <form onSubmit={handleSubmit} onChange={() => setFormDirty(true)} noValidate>
                                 <div className="modal-body">
+                                    {errosValidacao.length > 0 && (
+                                        <div className="validacao-alerta" role="alert">
+                                            <div className="validacao-alerta-topo">
+                                                <i className="fas fa-exclamation-circle" aria-hidden="true"></i>
+                                                <strong>
+                                                    {errosValidacao.length === 1
+                                                        ? 'Falta preencher 1 campo antes de salvar'
+                                                        : `Faltam preencher ${errosValidacao.length} campos antes de salvar`}
+                                                </strong>
+                                                <button type="button" onClick={() => setErrosValidacao([])} aria-label="Fechar aviso">
+                                                    <i className="fas fa-times" aria-hidden="true"></i>
+                                                </button>
+                                            </div>
+                                            <ul>
+                                                {errosValidacao.map((item) => (
+                                                    <li key={item.campo}>
+                                                        {formViewMode === 'tabs' ? (
+                                                            <button type="button" onClick={() => setActiveTab(item.aba)}>{item.label}</button>
+                                                        ) : item.label}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+
                                     {/* Tab: Dados Gerais */}
                                     {(formViewMode === 'geral' || activeTab === 'dados-gerais') && (
                                         <div className="tab-content active">
                                             <div className="form-section">
                                                 <h3 className="section-title">Dados de Inspeção</h3>
-                                                <div className="form-row">
+                                                <div className="dados-inspecao-row">
                                                     <div className="form-group">
                                                         <label>Data Inspeção *</label>
                                                         <input
@@ -775,7 +1473,7 @@ export default function InspecaoMontagem() {
                                                         />
                                                     </div>
                                                     <div className="form-group">
-                                                        <label>Semana</label>
+                                                        <label>Semana *</label>
                                                         <input
                                                             type="text"
                                                             className="form-control field-upper"
@@ -785,18 +1483,35 @@ export default function InspecaoMontagem() {
                                                     </div>
 
                                                     <div className="form-group">
-                                                        <label>Família</label>
-                                                        <input
-                                                            type="text"
-                                                            className="form-control field-upper"
-                                                            value={formData.familia}
-                                                            readOnly
-                                                            style={{ backgroundColor: 'var(--surface-3)' }}
-                                                        />
+                                                        <label>Turno *</label>
+                                                        <select
+                                                            className="form-control"
+                                                            value={formData.turno}
+                                                            onChange={(e) => setFormData({ ...formData, turno: e.target.value })}
+                                                        >
+                                                            <option value="">Selecione</option>
+                                                            <option value="A">Turno A</option>
+                                                            <option value="B">Turno B</option>
+                                                            <option value="C">Turno C</option>
+                                                        </select>
                                                     </div>
-                                                </div>
-
-                                                <div className="sap-description-row">
+                                                    <div className="form-group">
+                                                        <label>Linha Montagem *</label>
+                                                        <select
+                                                            className="form-control"
+                                                            value={formData.linha_montagem}
+                                                            onChange={(e) => setFormData({ ...formData, linha_montagem: e.target.value })}
+                                                        >
+                                                            <option value="">Selecione</option>
+                                                            <option value="LM-01">Linha 01</option>
+                                                            <option value="LM-02">Linha 02</option>
+                                                            <option value="LM-03">Linha 03</option>
+                                                            <option value="LM-04">Linha 04</option>
+                                                            <option value="LM-05">Linha 05</option>
+                                                            <option value="LM-06">Linha 06</option>
+                                                            <option value="LM-07">Linha 07</option>
+                                                        </select>
+                                                    </div>
                                                     <div className="form-group" style={{ position: 'relative' }}>
                                                         <label>Código SAP *</label>
                                                         <input
@@ -829,7 +1544,32 @@ export default function InspecaoMontagem() {
                                                             </ul>
                                                         )}
                                                     </div>
-                                                    <div className="form-group">
+                                                </div>
+
+                                                <div className="produto-row">
+                                                    <div className="form-group familia-group">
+                                                        <label>Linha do Produto</label>
+                                                        <input
+                                                            type="text"
+                                                            className="form-control field-upper"
+                                                            value={formData.linha}
+                                                            readOnly
+                                                            title={formData.linha || 'Preenchido automaticamente pelo Código SAP'}
+                                                            style={{ backgroundColor: 'var(--surface-3)' }}
+                                                        />
+                                                    </div>
+                                                    <div className="form-group familia-group">
+                                                        <label>Família</label>
+                                                        <input
+                                                            type="text"
+                                                            className="form-control field-upper"
+                                                            value={formData.familia}
+                                                            readOnly
+                                                            title={formData.familia || 'Preenchido automaticamente pelo Código SAP'}
+                                                            style={{ backgroundColor: 'var(--surface-3)' }}
+                                                        />
+                                                    </div>
+                                                    <div className="form-group sap-descricao-group">
                                                         <label>Descrição SAP</label>
                                                         <textarea
                                                             className="form-control field-upper"
@@ -839,33 +1579,32 @@ export default function InspecaoMontagem() {
                                                             rows="2"
                                                         ></textarea>
                                                     </div>
-                                                </div>
-
-                                                <div className="form-group">
-                                                    <label><i className="fas fa-barcode"></i> Código de Barras do Produto</label>
-                                                    <input
-                                                        type="text"
-                                                        className="form-control field-upper"
-                                                        value={formData.codigo_barras}
-                                                        onChange={(e) => {
-                                                            setFormData({ ...formData, codigo_barras: e.target.value });
-                                                            if (barcodeStatus) setBarcodeStatus(null);
-                                                        }}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter') {
-                                                                e.preventDefault();
-                                                                buscarPorCodigoBarras(e.target.value);
-                                                            }
-                                                        }}
-                                                        onBlur={(e) => buscarPorCodigoBarras(e.target.value)}
-                                                        placeholder="Escaneie ou digite o código de barras"
-                                                    />
-                                                    {barcodeStatus && (
-                                                        <span className={`barcode-status barcode-status-${barcodeStatus.type}`}>
-                                                            <i className={`fas ${barcodeStatus.type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}`}></i>
-                                                            {barcodeStatus.message}
-                                                        </span>
-                                                    )}
+                                                    <div className="form-group sap-barcode-group">
+                                                        <label><i className="fas fa-barcode"></i> Código de Barras do Produto</label>
+                                                        <input
+                                                            type="text"
+                                                            className="form-control field-upper"
+                                                            value={formData.codigo_barras}
+                                                            onChange={(e) => {
+                                                                setFormData({ ...formData, codigo_barras: e.target.value });
+                                                                if (barcodeStatus) setBarcodeStatus(null);
+                                                            }}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    e.preventDefault();
+                                                                    buscarPorCodigoBarras(e.target.value);
+                                                                }
+                                                            }}
+                                                            onBlur={(e) => buscarPorCodigoBarras(e.target.value)}
+                                                            placeholder="Escaneie ou digite o código de barras"
+                                                        />
+                                                        {barcodeStatus && (
+                                                            <span className={`barcode-status barcode-status-${barcodeStatus.type}`}>
+                                                                <i className={`fas ${barcodeStatus.type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}`}></i>
+                                                                {barcodeStatus.message}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -873,51 +1612,53 @@ export default function InspecaoMontagem() {
 
                                             <div className="form-section">
                                                 <h3 className="section-title">Quantidades</h3>
-                                                <div className="form-row">
+                                                <div className="qty-row">
                                                     <div className="form-group">
-                                                        <label>Qtd. Total</label>
+                                                        <label>Qtd. Total *</label>
                                                         <input
-                                                            type="number"
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            pattern="[0-9]*"
                                                             className="form-control"
                                                             value={formData.qtd_total}
-                                                            onChange={(e) => setFormData({ ...formData, qtd_total: parseInt(e.target.value) || 0 })}
-                                                            min="0"
+                                                            onChange={(e) => setCampoNumerico('qtd_total', e.target.value)}
                                                         />
                                                     </div>
                                                     <div className="form-group">
-                                                        <label>Qtd. Inspecionada</label>
+                                                        <label>Qtd. Inspecionada *</label>
                                                         <input
-                                                            type="number"
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            pattern="[0-9]*"
                                                             className="form-control"
                                                             value={formData.qtd_inspecionada}
-                                                            onChange={(e) => setFormData({ ...formData, qtd_inspecionada: parseInt(e.target.value) || 0 })}
-                                                            min="0"
+                                                            onChange={(e) => setCampoNumerico('qtd_inspecionada', e.target.value)}
                                                         />
                                                     </div>
                                                     <div className="form-group">
-                                                        <label>Qtd. NC</label>
+                                                        <label>Qtd. NC *</label>
                                                         <input
-                                                            type="number"
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            pattern="[0-9]*"
                                                             className="form-control"
                                                             value={formData.qtd_nc}
-                                                            onChange={(e) => setFormData({ ...formData, qtd_nc: parseInt(e.target.value) || 0 })}
-                                                            min="0"
+                                                            onChange={(e) => setCampoNumerico('qtd_nc', e.target.value)}
                                                         />
                                                     </div>
                                                     <div className="form-group">
-                                                        <label>Num. Pallet</label>
+                                                        <label>Num. Paletes *</label>
                                                         <input
-                                                            type="number"
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            pattern="[0-9]*"
                                                             className="form-control"
                                                             value={formData.qtd_pallet}
-                                                            onChange={(e) => setFormData({ ...formData, qtd_pallet: parseInt(e.target.value) || 0 })}
-                                                            min="0"
+                                                            onChange={(e) => setCampoNumerico('qtd_pallet', e.target.value)}
                                                         />
                                                     </div>
-                                                </div>
-                                                <div className="form-row">
-                                                    <div className="form-group">
-                                                        <label>Rastreabilidade</label>
+                                                    <div className="form-group qty-wide">
+                                                        <label>Rastreabilidade *</label>
                                                         <input
                                                             type="text"
                                                             className="form-control field-upper"
@@ -925,7 +1666,7 @@ export default function InspecaoMontagem() {
                                                             onChange={(e) => setFormData({ ...formData, rastreabilidade: e.target.value.toUpperCase() })}
                                                         />
                                                     </div>
-                                                    <div className="form-group">
+                                                    <div className="form-group qty-wide">
                                                         <label>P.O.</label>
                                                         <input
                                                             type="text"
@@ -937,56 +1678,22 @@ export default function InspecaoMontagem() {
                                                 </div>
                                             </div>
 
-                                            <div className="divider"></div>
-
-                                            <div className="form-section">
-                                                <h3 className="section-title">Operação</h3>
-                                                <div className="form-row">
-                                                    <div className="form-group">
-                                                        <label>Turno</label>
-                                                        <select
-                                                            className="form-control"
-                                                            value={formData.turno}
-                                                            onChange={(e) => setFormData({ ...formData, turno: e.target.value })}
-                                                        >
-                                                            <option value="">Selecione</option>
-                                                            <option value="A">Turno A</option>
-                                                            <option value="B">Turno B</option>
-                                                            <option value="C">Turno C</option>
-                                                        </select>
-                                                    </div>
-                                                    <div className="form-group">
-                                                        <label>Linha Montagem</label>
-                                                        <select
-                                                            className="form-control"
-                                                            value={formData.linha_montagem}
-                                                            onChange={(e) => setFormData({ ...formData, linha_montagem: e.target.value })}
-                                                        >
-                                                            <option value="">Selecione</option>
-                                                            <option value="LM-01">Linha 01</option>
-                                                            <option value="LM-02">Linha 02</option>
-                                                            <option value="LM-03">Linha 03</option>
-                                                            <option value="LM-04">Linha 04</option>
-                                                            <option value="LM-05">Linha 05</option>
-                                                            <option value="LM-06">Linha 06</option>
-                                                            <option value="LM-07">Linha 07</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                            </div>
                                         </div>
                                     )}
 
                                     {/* Tab: Checklist */}
                                     {(formViewMode === 'geral' || activeTab === 'checklist-tab') && (
                                         <div className="tab-content active">
-                                            {checklistItems.map(section => (
+                                            {checklistItems.map(section => {
+                                            const ncDaSecao = section.items.filter((i) => checklist[i.id]?.conforme === false);
+                                            return (
                                                 <div key={section.section} className="checklist-section">
                                                     <h4 className="checklist-title" style={{ color: section.color }}>
                                                         <i className={`fas ${section.icon}`}></i> {section.section}
                                                     </h4>
+                                                    <div className={section.items.some((i) => i.hasValue) ? 'checklist-grid checklist-grid-wide' : 'checklist-grid'}>
                                                     {section.items.map(item => (
-                                                        <div key={item.id} className="checklist-item">
+                                                        <div key={item.id} className={checklist[item.id].conforme === false ? 'checklist-item is-nc' : 'checklist-item'}>
                                                             <div className="checklist-label">
                                                                 <i className={`fas ${section.icon}`}></i>
                                                                 <span>{item.label}</span>
@@ -1026,9 +1733,22 @@ export default function InspecaoMontagem() {
                                                                     </label>
                                                                 </div>
                                                             </div>
-                                                            {checklist[item.id].conforme === false && (
-                                                                <div className="checklist-obs">
-                                                                    <label><i className="fas fa-exclamation-triangle"></i> Descreva o problema:</label>
+                                                        </div>
+                                                    ))}
+                                                    </div>
+
+                                                    {ncDaSecao.length > 0 && (
+                                                        <div className="checklist-nc-block">
+                                                            <h4 className="checklist-nc-title">
+                                                                <i className="fas fa-exclamation-triangle"></i>
+                                                                Descreva {ncDaSecao.length > 1 ? 'os problemas' : 'o problema'} ({ncDaSecao.length})
+                                                            </h4>
+                                                            {ncDaSecao.map(item => (
+                                                                <div key={item.id} className="checklist-nc-field">
+                                                                    <label>
+                                                                        <i className={`fas ${section.icon}`} style={{ color: section.color }}></i>
+                                                                        <span>{item.label}</span>
+                                                                    </label>
                                                                     <textarea
                                                                         className="form-control"
                                                                         value={checklist[item.id].obs}
@@ -1036,13 +1756,12 @@ export default function InspecaoMontagem() {
                                                                         placeholder="Descreva o problema encontrado..."
                                                                     ></textarea>
                                                                 </div>
-                                                            )}
+                                                            ))}
                                                         </div>
-                                                    ))}
+                                                    )}
                                                 </div>
-                                            ))}
-
-                                            
+                                            );
+                                            })}
                                         </div>
                                     )}
 
@@ -1087,6 +1806,24 @@ export default function InspecaoMontagem() {
                                                         rows="3"
                                                     ></textarea>
                                                 </div>
+
+                                                {itensNaoConformes.length > 0 && (
+                                                    <div className="nc-resumo">
+                                                        <h4 className="nc-resumo-title">
+                                                            <i className="fas fa-exclamation-triangle"></i>
+                                                            Não conformidades do checklist ({itensNaoConformes.length})
+                                                        </h4>
+                                                        <ul className="nc-resumo-list">
+                                                            {itensNaoConformes.map(item => (
+                                                                <li key={item.id}>
+                                                                    <strong>{item.label}</strong>
+                                                                    <span>{checklist[item.id].obs?.trim() || 'Sem descrição informada'}</span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                        <small>Espelha os critérios de inspeção automaticamente. Para alterar, edite na aba Critérios de Inspeção.</small>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {formData.status === 'reprovado' && (
@@ -1118,31 +1855,33 @@ export default function InspecaoMontagem() {
                                                                 </select>
                                                             </div>
                                                         </div>
-                                                        <div className="form-group">
-                                                            <label>Defeito</label>
-                                                            <select
-                                                                className="form-control"
-                                                                value={formData.defeito}
-                                                                onChange={(e) => setFormData({ ...formData, defeito: e.target.value })}
-                                                            >
-                                                                <option value="">Selecione ou digite...</option>
-                                                                {defeitos.map(d => (
-                                                                    <option key={d.id} value={d.defeito}>{d.defeito}</option>
-                                                                ))}
-                                                            </select>
-                                                        </div>
-                                                        <div className="form-group">
-                                                            <label>Origem do Problema</label>
-                                                            <select
-                                                                className="form-control"
-                                                                value={formData.origem_problema}
-                                                                onChange={(e) => setFormData({ ...formData, origem_problema: e.target.value })}
-                                                            >
-                                                                <option value="">Selecione</option>
-                                                                <option value="Injeção">Injeção</option>
-                                                                <option value="Montagem">Montagem</option>
-                                                                <option value="Logística">Logística</option>
-                                                            </select>
+                                                        <div className="form-row">
+                                                            <div className="form-group">
+                                                                <label>Defeito</label>
+                                                                <select
+                                                                    className="form-control"
+                                                                    value={formData.defeito}
+                                                                    onChange={(e) => setFormData({ ...formData, defeito: e.target.value })}
+                                                                >
+                                                                    <option value="">Selecione ou digite...</option>
+                                                                    {defeitos.map(d => (
+                                                                        <option key={d.id} value={d.defeito}>{d.defeito}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                            <div className="form-group">
+                                                                <label>Origem do Problema</label>
+                                                                <select
+                                                                    className="form-control"
+                                                                    value={formData.origem_problema}
+                                                                    onChange={(e) => setFormData({ ...formData, origem_problema: e.target.value })}
+                                                                >
+                                                                    <option value="">Selecione</option>
+                                                                    <option value="Injeção">Injeção</option>
+                                                                    <option value="Montagem">Montagem</option>
+                                                                    <option value="Logística">Logística</option>
+                                                                </select>
+                                                            </div>
                                                         </div>
                                                     </div>
 
@@ -1154,7 +1893,7 @@ export default function InspecaoMontagem() {
 
                                                         <div className="checklist-ocorrencia-row">
                                                             <div className="form-group">
-                                                                <label htmlFor="posto">Posto</label>
+                                                                <label htmlFor="posto">Posto *</label>
                                                                 <input
                                                                     id="posto"
                                                                     type="text"
@@ -1165,7 +1904,7 @@ export default function InspecaoMontagem() {
                                                                 />
                                                             </div>
                                                             <div className="form-group">
-                                                                <label htmlFor="operador">Operador</label>
+                                                                <label htmlFor="operador">Operador *</label>
                                                                 <input
                                                                     id="operador"
                                                                     type="text"
@@ -1177,41 +1916,81 @@ export default function InspecaoMontagem() {
                                                             </div>
                                                         </div>
 
-                                                        <div className="form-group">
-                                                            <label htmlFor="causa">Causa</label>
-                                                            <textarea
-                                                                id="causa"
-                                                                className="form-control field-upper"
-                                                                rows={3}
-                                                                placeholder="Descreva a causa do problema encontrado..."
-                                                                value={formData.causa}
-                                                                onChange={(e) => setFormData((prev) => ({ ...prev, causa: e.target.value }))}
-                                                            />
+                                                        <div className="checklist-ocorrencia-row ocorrencia-textareas">
+                                                            <div className="form-group">
+                                                                <label htmlFor="causa">Causa *</label>
+                                                                <textarea
+                                                                    id="causa"
+                                                                    className="form-control field-upper"
+                                                                    rows={3}
+                                                                    placeholder="Descreva a causa do problema encontrado..."
+                                                                    value={formData.causa}
+                                                                    onChange={(e) => setFormData((prev) => ({ ...prev, causa: e.target.value }))}
+                                                                />
+                                                            </div>
+                                                            <div className="form-group">
+                                                                <label htmlFor="correcao">Correção *</label>
+                                                                <textarea
+                                                                    id="correcao"
+                                                                    className="form-control field-upper"
+                                                                    rows={3}
+                                                                    placeholder="Descreva a correção aplicada..."
+                                                                    value={formData.correcao}
+                                                                    onChange={(e) => setFormData((prev) => ({ ...prev, correcao: e.target.value }))}
+                                                                />
+                                                            </div>
                                                         </div>
 
-                                                        <div className="form-group">
-                                                            <label htmlFor="correcao">Correção</label>
-                                                            <textarea
-                                                                id="correcao"
-                                                                className="form-control field-upper"
-                                                                rows={3}
-                                                                placeholder="Descreva a correção aplicada..."
-                                                                value={formData.correcao}
-                                                                onChange={(e) => setFormData((prev) => ({ ...prev, correcao: e.target.value }))}
-                                                            />
+                                                        <div className="checklist-ocorrencia-row">
+                                                            <div className="form-group">
+                                                                <label htmlFor="responsavelCorrecao">Responsável pela Correção *</label>
+                                                                <input
+                                                                    id="responsavelCorrecao"
+                                                                    type="text"
+                                                                    className="form-control field-upper"
+                                                                    placeholder="Nome do responsável"
+                                                                    value={formData.responsavelCorrecao}
+                                                                    onChange={(e) => setFormData((prev) => ({ ...prev, responsavelCorrecao: e.target.value }))}
+                                                                />
+                                                            </div>
                                                         </div>
+                                                    </div>
 
-                                                        <div className="form-group">
-                                                            <label htmlFor="responsavelCorrecao">Responsável pela Correção</label>
-                                                            <input
-                                                                id="responsavelCorrecao"
-                                                                type="text"
-                                                                className="form-control field-upper"
-                                                                placeholder="Nome do responsável"
-                                                                value={formData.responsavelCorrecao}
-                                                                onChange={(e) => setFormData((prev) => ({ ...prev, responsavelCorrecao: e.target.value }))}
-                                                            />
+                                                    <div className="injecao-photo-field" style={{ gridColumn: '1 / -1' }}>
+                                                        <div className="injecao-photo-header">
+                                                            <div>
+                                                                <strong><i className="fas fa-camera" aria-hidden="true"></i> Fotos da peça reprovada</strong>
+                                                                <small>Registre até três evidências visuais do defeito.</small>
+                                                            </div>
+                                                            <div className="injecao-photo-actions">
+                                                                <label className={`btn btn-primary btn-sm ${(formData.fotos_peca || []).length >= 3 ? 'disabled' : ''}`}>
+                                                                    <i className="fas fa-camera" aria-hidden="true"></i>
+                                                                    {(formData.fotos_peca || []).length ? 'Adicionar foto' : 'Tirar foto'} ({(formData.fotos_peca || []).length}/3)
+                                                                    <input ref={fotoPecaInputRef} type="file" accept="image/*" capture="environment"
+                                                                        onChange={handleFotoPecaChange} disabled={(formData.fotos_peca || []).length >= 3} hidden />
+                                                                </label>
+                                                            </div>
                                                         </div>
+                                                        {(formData.fotos_peca || []).length ? (
+                                                            <div className="injecao-photo-preview-grid">
+                                                                {formData.fotos_peca.map((foto, index) => (
+                                                                    <div className="injecao-photo-preview" key={`${foto.nome}-${index}`}>
+                                                                        <img src={foto.src} alt={`Pré-visualização ${index + 1}`}
+                                                                            onClick={() => abrirLightbox(formData.fotos_peca, index)} style={{ cursor: 'zoom-in' }} />
+                                                                        <span title={foto.nome}>{foto.nome || `Foto ${index + 1}`}</span>
+                                                                        <button type="button" onClick={() => removerFotoPeca(index)} aria-label={`Remover foto ${index + 1}`} title="Remover foto">
+                                                                            <i className="fas fa-trash" aria-hidden="true"></i>
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <label className="injecao-photo-empty">
+                                                                <i className="fas fa-camera" aria-hidden="true"></i>
+                                                                <span>Nenhuma foto registrada — toque para adicionar</span>
+                                                                <input type="file" accept="image/*" capture="environment" onChange={handleFotoPecaChange} hidden />
+                                                            </label>
+                                                        )}
                                                     </div>
                                                 </>
                                             )}
@@ -1220,89 +1999,106 @@ export default function InspecaoMontagem() {
                                 </div>
 
                                 <div className="modal-footer">
-                                    <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
+                                    <button type="button" className="btn btn-secondary" onClick={solicitarFechamentoFormulario}>
                                         Cancelar
                                     </button>
                                     <button type="submit" className="btn btn-primary">
-                                        <i className="fas fa-save"></i> Salvar Registro
+                                        <i className="fas fa-save"></i> {editingId ? 'Atualizar' : 'Salvar'}
                                     </button>
                                 </div>
                             </form>
                         </div>
                     </div>
-                )}
+                ), document.body)}
+
+                {/* Modal de confirmação unsaved */}
+                {showUnsavedConfirm && typeof document !== 'undefined' && createPortal((
+                    <div className="unsaved-confirm-overlay" onClick={() => setShowUnsavedConfirm(false)}>
+                        <div className="unsaved-confirm-dialog" role="alertdialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+                            <div className="unsaved-confirm-icon"><i className="fas fa-exclamation-triangle"></i></div>
+                            <div className="unsaved-confirm-copy"><h2>Alterações não salvas</h2>
+                                <p>Você tem alterações que ainda não foram salvas. Deseja realmente sair sem salvar?</p></div>
+                            <div className="unsaved-confirm-actions"><button type="button" className="btn-confirm-cancel" onClick={() => setShowUnsavedConfirm(false)}>Cancelar</button>
+                                <button type="button" className="btn-confirm-leave" onClick={fecharFormularioSemSalvar}>Sair sem salvar</button></div>
+                        </div>
+                    </div>
+                ), document.body)}
+
+                {/* Modal de confirmação de exclusão */}
+                {deleteConfirm && typeof document !== 'undefined' && createPortal((
+                    <div className="unsaved-confirm-overlay" onClick={() => setDeleteConfirm(null)}>
+                        <div className="unsaved-confirm-dialog" role="alertdialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+                            <div className="unsaved-confirm-icon" style={{ color: '#ef4444', background: 'rgba(239,68,68,.14)', borderColor: 'rgba(239,68,68,.35)' }}>
+                                <i className="fas fa-trash"></i></div>
+                            <div className="unsaved-confirm-copy"><h2>Excluir registro</h2>
+                                <p>Tem certeza que deseja excluir este registro? Esta ação não pode ser desfeita.</p></div>
+                            <div className="unsaved-confirm-actions"><button type="button" className="btn-confirm-cancel" onClick={() => setDeleteConfirm(null)}>Cancelar</button>
+                                <button type="button" className="btn-confirm-leave" onClick={executarExclusao}>Excluir</button></div>
+                        </div>
+                    </div>
+                ), document.body)}
 
                 {/* Modal de Visualização */}
-                {showViewModal && viewData && (
+                {showViewModal && viewData && typeof document !== 'undefined' && createPortal((
                     <div className="modal-overlay" onClick={() => setShowViewModal(false)}>
-                        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                        <div ref={viewModalRef} className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
                             <div className="modal-header">
-                                <h2>Detalhes do Registro</h2>
+                                <h2>Detalhes da Inspeção de Montagem</h2>
                                 <button className="modal-close" onClick={() => setShowViewModal(false)}>
                                     <i className="fas fa-times"></i>
                                 </button>
                             </div>
                             <div className="modal-body">
                                 <div className="view-grid">
-                                    <div className="view-item">
-                                        <span className="view-label">Data Inspeção:</span>
-                                        <span className="view-value">{formatarData(viewData.data_inspecao)}</span>
-                                    </div>
-                                    <div className="view-item">
-                                        <span className="view-label">Código SAP:</span>
-                                        <span className="view-value">{viewData.cod_sap}</span>
-                                    </div>
-                                    <div className="view-item">
-                                        <span className="view-label">Modelo:</span>
-                                        <span className="view-value">{viewData.modelo || 'N/A'}</span>
-                                    </div>
-                                    <div className="view-item">
-                                        <span className="view-label">Linha:</span>
-                                        <span className="view-value">{viewData.linha_montagem || 'N/A'}</span>
-                                    </div>
-                                    <div className="view-item">
-                                        <span className="view-label">Turno:</span>
-                                        <span className="view-value">{viewData.turno || 'N/A'}</span>
-                                    </div>
-                                    <div className="view-item">
-                                        <span className="view-label">Status:</span>
-                                        <span className={`badge ${getStatusClass(viewData.status)}`}>{viewData.status}</span>
-                                    </div>
-                                    <div className="view-item">
-                                        <span className="view-label">Qtd. Total:</span>
-                                        <span className="view-value">{viewData.qtd_total}</span>
-                                    </div>
-                                    <div className="view-item">
-                                        <span className="view-label">Qtd. Inspecionada:</span>
-                                        <span className="view-value">{viewData.qtd_inspecionada}</span>
-                                    </div>
-                                    <div className="view-item">
-                                        <span className="view-label">Qtd. NC:</span>
-                                        <span className="view-value">{viewData.qtd_nc}</span>
-                                    </div>
-                                    <div className="view-item">
-                                        <span className="view-label">Inspetor:</span>
-                                        <span className="view-value">{viewData.inspetor || 'N/A'}</span>
-                                    </div>
+                                    <div className="view-item"><span className="view-label">Data:</span><span className="view-value">{formatarData(viewData.data_inspecao)}</span></div>
+                                    <div className="view-item"><span className="view-label">Semana:</span><span className="view-value">{viewData.semana || 'N/A'}</span></div>
+                                    <div className="view-item"><span className="view-label">Turno:</span><span className="view-value">{formatarTurno(viewData.turno, 'N/A')}</span></div>
+                                    <div className="view-item"><span className="view-label">Linha:</span><span className="view-value">{viewData.linha_montagem || 'N/A'}</span></div>
+                                    <div className="view-item"><span className="view-label">Código SAP:</span><span className="view-value">{viewData.cod_sap}</span></div>
+                                    <div className="view-item"><span className="view-label">Modelo:</span><span className="view-value">{viewData.modelo || 'N/A'}</span></div>
+                                    <div className="view-item"><span className="view-label">Qtd. Total:</span><span className="view-value">{viewData.qtd_total}</span></div>
+                                    <div className="view-item"><span className="view-label">Qtd. Inspecionada:</span><span className="view-value">{viewData.qtd_inspecionada}</span></div>
+                                    <div className="view-item"><span className="view-label">Qtd. NC:</span><span className="view-value">{viewData.qtd_nc}</span></div>
+                                    <div className="view-item"><span className="view-label">Pallet:</span><span className="view-value">{viewData.qtd_pallet || 0}</span></div>
+                                    <div className="view-item"><span className="view-label">Inspetor:</span><span className="view-value">{viewData.inspetor || 'N/A'}</span></div>
+                                    <div className="view-item"><span className="view-label">Status:</span><span className={`badge ${getStatusClass(viewData.status)}`}>{formatarStatus(viewData.status)}</span></div>
+                                    {normalizarStatus(viewData.status) === 'reprovado' && viewData.defeito && (
+                                        <div className="view-item"><span className="view-label">Defeito:</span><span className="view-value">{viewData.defeito}</span></div>
+                                    )}
                                 </div>
+
+                                {fotosVisualizacao.length > 0 && (
+                                <div className="view-section injecao-view-photo">
+                                    <h4><i className="fas fa-camera" aria-hidden="true"></i> Fotos da peça reprovada</h4>
+                                    <div className="injecao-view-photo-track">
+                                        {fotosVisualizacao.map((foto, index) => (
+                                            <button type="button" className="injecao-view-photo-thumb" title="Ampliar foto" key={`${foto.nome}-${index}`}
+                                                onClick={() => abrirLightbox(fotosVisualizacao, index)}>
+                                                <img src={foto.src} alt={`Peça reprovada — foto ${index + 1}`} />
+                                                <span>{foto.nome || `Foto ${index + 1}`}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {fotosVisualizacao.length > 1 && <small className="injecao-photo-swipe-hint">Deslize para ver as demais fotos</small>}
+                                </div>
+                                )}
+
                                 {viewData.observacao && (
-                                    <div className="view-section">
+                                    <div className="view-section injecao-view-observacao">
                                         <h4>Observação:</h4>
                                         <p>{viewData.observacao}</p>
                                     </div>
                                 )}
                             </div>
                             <div className="modal-footer">
-                                <button className="btn btn-secondary" onClick={() => setShowViewModal(false)}>
-                                    Fechar
-                                </button>
+                                <button className="btn btn-secondary" onClick={() => setShowViewModal(false)}>Fechar</button>
                                 <button className="btn btn-primary" onClick={() => { setShowViewModal(false); handleEdit(viewData); }}>
                                     <i className="fas fa-edit"></i> Editar
                                 </button>
                             </div>
                         </div>
                     </div>
-                )}
+                ), document.body)}
 
                 {/* Modal de Impressão */}
                 {showPrintModal && printData && (
@@ -1367,6 +2163,13 @@ export default function InspecaoMontagem() {
                                             <div className="print-section-content">{printData.observacao}</div>
                                         </div>
                                     )}
+
+                                    {resumirNaoConformidades(printData) && (
+                                        <div className="print-section">
+                                            <div className="print-section-title">⚠️ NC dos Critérios de Inspeção</div>
+                                            <div className="print-section-content">{resumirNaoConformidades(printData)}</div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <div className="modal-footer">
@@ -1411,6 +2214,33 @@ export default function InspecaoMontagem() {
                     </div>,
                     document.body
                 )}
+                {/* Lightbox de fotos com zoom */}
+                {lightbox.open && lightbox.fotos.length > 0 && typeof document !== 'undefined' && createPortal((
+                    <div className="lightbox-overlay" onClick={fecharLightbox} role="dialog" aria-modal="true" aria-label="Visualizar foto ampliada">
+                        <div className="lightbox-controls-top">
+                            <span className="lightbox-counter">{lightbox.index + 1} / {lightbox.fotos.length}</span>
+                            <div className="lightbox-zoom-controls">
+                                <button type="button" onClick={(e) => { e.stopPropagation(); setLbZoom((z) => { const n = Math.max(1, z - 0.5); if (n <= 1) setLbPan({ x: 0, y: 0 }); return n; }); }} aria-label="Reduzir zoom" title="Reduzir (−)"><i className="fas fa-search-minus"></i></button>
+                                <span className="lightbox-zoom-level">{Math.round(lbZoom * 100)}%</span>
+                                <button type="button" onClick={(e) => { e.stopPropagation(); setLbZoom((z) => Math.min(5, z + 0.5)); }} aria-label="Aumentar zoom" title="Aumentar (+)"><i className="fas fa-search-plus"></i></button>
+                            </div>
+                            <button type="button" className="lightbox-close" onClick={fecharLightbox} aria-label="Fechar" title="Fechar (Esc)"><i className="fas fa-times"></i></button>
+                        </div>
+                        {lightbox.fotos.length > 1 && (<>
+                            <button type="button" className="lightbox-nav lightbox-prev" onClick={(e) => { e.stopPropagation(); lbNavegar(-1); }} aria-label="Foto anterior"><i className="fas fa-chevron-left"></i></button>
+                            <button type="button" className="lightbox-nav lightbox-next" onClick={(e) => { e.stopPropagation(); lbNavegar(1); }} aria-label="Próxima foto"><i className="fas fa-chevron-right"></i></button>
+                        </>)}
+                        <div className="lightbox-image-wrapper" onClick={(e) => e.stopPropagation()}
+                            onWheel={handleLbWheel} onPointerDown={handleLbPointerDown} onPointerMove={handleLbPointerMove} onPointerUp={handleLbPointerUp}
+                            onTouchStart={handleLbTouchStart} onTouchMove={handleLbTouchMove} onTouchEnd={handleLbTouchEnd}
+                            onDoubleClick={lbToggleZoom} style={{ cursor: lbZoom > 1 ? 'grab' : 'zoom-in' }}>
+                            <img src={lightbox.fotos[lightbox.index]?.src} alt={lightbox.fotos[lightbox.index]?.nome || `Foto ${lightbox.index + 1}`}
+                                className="lightbox-image" draggable={false}
+                                style={{ transform: `scale(${lbZoom}) translate(${lbPan.x / lbZoom}px, ${lbPan.y / lbZoom}px)`, transition: lbDragging.current ? 'none' : 'transform 0.2s ease' }} />
+                        </div>
+                        <div className="lightbox-caption">{lightbox.fotos[lightbox.index]?.nome || `Foto ${lightbox.index + 1}`}</div>
+                    </div>
+                ), document.body)}
             </main>
         </div>
     );

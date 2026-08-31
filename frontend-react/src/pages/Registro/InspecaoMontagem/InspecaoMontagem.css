@@ -410,12 +410,53 @@
     margin-bottom: 15px;
 }
 
+/* Quantidades numa linha só: os 4 campos numéricos ficam estreitos e
+   Rastreabilidade / P.O. recebem a folga extra por serem texto livre.
+
+   Não usa a classe .form-row de propósito: src/responsive.css força
+   `.form-row { grid-template-columns: 1fr !important }` em ≤480px para todo o
+   sistema, o que impediria as duas colunas no celular. Mesma solução adotada
+   em .dados-inspecao-row e .produto-row, e que a Injeção já usava. */
+.qty-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 0.85fr)) repeat(2, minmax(0, 1.3fr));
+    gap: 15px;
+    margin-bottom: 15px;
+    align-items: start;
+}
+
+.qty-row .form-group {
+    min-width: 0;
+}
+
+.qty-row .form-control {
+    width: 100%;
+    min-width: 0;
+}
+
 .sap-description-row {
     display: grid;
     grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
     gap: 15px;
     align-items: start;
     margin-bottom: 15px;
+}
+
+/* Linha tripla: Código SAP | Código de Barras | Descrição SAP.
+   Mantém os três campos lado a lado para economizar espaço vertical. */
+.sap-description-row.sap-triple-row {
+    grid-template-columns: minmax(150px, 190px) minmax(190px, 250px) minmax(0, 1fr);
+}
+
+.sap-triple-row .sap-barcode-group,
+.sap-triple-row .sap-descricao-group {
+    min-width: 0;
+}
+
+/* O textarea acompanha a altura do input ao lado, sem sobrar espaço morto. */
+.sap-triple-row .sap-descricao-group textarea {
+    min-height: 0;
+    resize: vertical;
 }
 
 .form-group {
@@ -499,12 +540,39 @@
     gap: 1rem;
     margin-bottom: 1rem;
 }
+
+/* Causa e Correção empilham mais cedo que os campos curtos da mesma seção:
+   a 340px um textarea de descrição fica inutilizável, enquanto Posto e
+   Operador continuam confortáveis lado a lado nessa faixa. */
+@media (max-width: 768px) {
+    .checklist-ocorrencia-row.ocorrencia-textareas {
+        grid-template-columns: 1fr;
+    }
+}
+/* Itens do checklist lado a lado. Como a descrição do problema saiu do card
+   para o bloco único abaixo, todos os cards têm a mesma altura. */
+.checklist-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    align-items: start;
+}
+
+/* Seções com campo Valor + unidade precisam de mais largura. */
+.checklist-grid.checklist-grid-wide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .checklist-item {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 15px;
-    margin-bottom: 10px;
+    min-width: 0;
+}
+
+.checklist-item.is-nc {
+    border-color: color-mix(in srgb, var(--danger) 45%, transparent);
 }
 
 .checklist-label {
@@ -579,21 +647,114 @@
     color: var(--danger);
 }
 
-.checklist-obs {
-    margin-top: 15px;
-    padding: 15px;
+/* Bloco único com a descrição dos itens marcados como NC. Cada textarea segue
+   ligada ao seu item (updateChecklist -> coluna *_obs), só a posição mudou. */
+.checklist-nc-block {
+    padding: 16px;
+    margin-top: 14px;
     background: var(--warning-soft);
-    border-radius: 8px;
     border: 1px solid var(--warning);
+    border-radius: 10px;
 }
 
-.checklist-obs label {
+.checklist-nc-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 14px;
+    color: var(--warning-text);
+    font-size: 0.95rem;
+}
+
+.checklist-nc-field + .checklist-nc-field {
+    margin-top: 14px;
+}
+
+.checklist-nc-field label {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--warning-text);
+    margin-bottom: 8px;
+    color: var(--text);
     font-weight: 600;
-    margin-bottom: 10px;
+    font-size: 0.86rem;
+}
+
+.checklist-nc-field label small {
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 0.72rem;
+}
+
+.checklist-nc-field textarea {
+    min-height: 62px;
+    resize: vertical;
+}
+
+/* Resumo somente-leitura das NC, abaixo do campo Observação na aba Status.
+   Espelha o checklist; a edição continua sendo feita na aba Checklist. */
+.nc-resumo {
+    padding: 14px 16px;
+    margin-top: 14px;
+    background: var(--warning-soft);
+    border: 1px solid var(--warning);
+    border-radius: 10px;
+}
+
+.nc-resumo-title {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0 0 10px;
+    color: var(--warning-text);
+    font-size: 0.88rem;
+}
+
+.nc-resumo-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 8px;
+}
+
+.nc-resumo-list li {
+    display: grid;
+    grid-template-columns: minmax(110px, 170px) minmax(0, 1fr);
+    gap: 10px;
+    align-items: baseline;
+    padding-bottom: 8px;
+    border-bottom: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+    font-size: 0.82rem;
+}
+
+.nc-resumo-list li:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.nc-resumo-list strong {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.nc-resumo-list span {
+    color: var(--text-2);
+    overflow-wrap: anywhere;
+}
+
+.nc-resumo > small {
+    display: block;
+    margin-top: 10px;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+}
+
+@media (max-width: 600px) {
+    .nc-resumo-list li {
+        grid-template-columns: 1fr;
+        gap: 3px;
+    }
 }
 
 /* View Grid */
@@ -818,6 +979,16 @@
         grid-template-columns: 1fr;
     }
 
+    /* Celular e tablet pequeno: duas colunas em vez de seis. Fica
+         Qtd. Total | Qtd. Inspecionada
+         Qtd. NC    | Num. Pallet
+         Rastreab.  | P.O.
+       Três fileiras no lugar de seis. Os quatro primeiros guardam números e a
+       Rastreabilidade e o P.O. são códigos curtos, então cabem de sobra. */
+    .qty-row {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
     .modal-content {
         max-width: 100%;
         margin: 10px;
@@ -830,6 +1001,38 @@
     .checklist-options {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    /* Checklist em 2 colunas no celular e tablet pequeno. Seletor duplo para
+       vencer a regra base de 3 e 2 colunas. */
+    .checklist-grid,
+    .checklist-grid.checklist-grid-wide {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    /* Conforme e NC precisam caber lado a lado dentro do card estreito. Sem
+       isso o radio-group quebra em duas linhas, o card cresce de 84 para 131px
+       e o ganho das duas colunas praticamente desaparece — medido. */
+    .checklist-options .radio-group {
+        flex-wrap: nowrap;
+        gap: 5px;
+    }
+
+    /* O card precisa ceder 5px de padding para o radio-group de 130px caber
+       nos 152px de coluna que sobram num iPhone. */
+    .inspection-modal .checklist-item {
+        padding: 10px;
+    }
+}
+
+/* Piso das duas colunas: o card precisa de 150px (radio-group 130 + padding 20)
+   e com o gap isso exige ~340px de viewport. Abaixo disso o Conforme/NC
+   transbordava o card — medido em 320px. Volta a uma coluna. */
+@media (max-width: 359px) {
+    .checklist-grid,
+    .checklist-grid.checklist-grid-wide {
+        grid-template-columns: 1fr;
     }
 
     .tabs {
@@ -1049,6 +1252,22 @@
     .checklist-ocorrencia-row {
         grid-template-columns: 1fr;
     }
+
+    /* No smartphone os três campos voltam a empilhar. */
+    .sap-description-row.sap-triple-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Tablet retrato: SAP e Barras dividem a linha, Descrição ocupa a largura toda. */
+@media (min-width: 601px) and (max-width: 768px) {
+    .sap-description-row.sap-triple-row {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .sap-triple-row .sap-descricao-group {
+        grid-column: 1 / -1;
+    }
 }
 @media (min-width: 769px) and (max-width: 1180px) {
     .inspection-modal .modal-body {
@@ -1070,10 +1289,20 @@
         margin-bottom: 10px;
     }
 
+    /* Tablet paisagem mantém as 6 colunas, um pouco mais justas. */
+    .inspection-modal .qty-row {
+        grid-template-columns: repeat(4, minmax(0, 0.8fr)) repeat(2, minmax(0, 1.25fr));
+    }
+
     .inspection-modal .sap-description-row {
         grid-template-columns: minmax(150px, 190px) minmax(0, 1fr);
         gap: 10px;
         margin-bottom: 10px;
+    }
+
+    /* Especificidade extra para vencer a regra base da linha tripla. */
+    .inspection-modal .sap-description-row.sap-triple-row {
+        grid-template-columns: minmax(120px, 150px) minmax(150px, 200px) minmax(0, 1fr);
     }
 
     .inspection-modal .form-group {
@@ -1119,5 +1348,967 @@
 
     .inspection-modal textarea.form-control {
         min-height: 64px !important;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Montagem — Cards, filtros, panorama e responsivo
+   (reutiliza classes do InjecaoInjecao.css para foto/lightbox/unsaved)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Status CAPSLOCK + ícone compacto mobile */
+.montagem-page .badge,
+.montagem-page .status-badge { text-transform: uppercase; }
+
+.montagem-page .responsive-status .status-icon { display: none; }
+@media (max-width: 600px) {
+    .montagem-page .col-status { width: 42px; min-width: 42px; max-width: 42px; padding-left: .3rem; padding-right: .3rem; text-align: center; }
+    .montagem-page .responsive-status { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border-radius: 50%; }
+    .montagem-page .responsive-status .status-text { display: none; }
+    .montagem-page .responsive-status .status-icon { display: inline-block; font-size: .8rem; }
+}
+
+/* ── Cards de resumo ── */
+.montagem-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+.montagem-summary-card { min-width: 0; padding: 1rem 1.1rem; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); }
+.montagem-summary-heading { display: flex; align-items: center; gap: .55rem; min-width: 0; font-size: .9rem; font-weight: 700; }
+.montagem-summary-heading i { color: var(--primary); }
+.montagem-summary-card.approved .montagem-summary-heading i { color: var(--success); }
+.montagem-summary-card.rejected .montagem-summary-heading i { color: var(--danger); }
+.montagem-summary-card.pending .montagem-summary-heading i { color: var(--warning); }
+.montagem-summary-card strong { display: block; margin-top: .8rem; font-size: clamp(1.65rem, 3vw, 2.2rem); line-height: 1; }
+.montagem-summary-card small { display: block; margin-top: .35rem; color: var(--text-muted); font-size: .76rem; }
+.montagem-summary-line { display: block; width: 100%; height: 3px; margin-top: .75rem; border-radius: 999px; background: var(--primary); }
+.montagem-summary-card.approved .montagem-summary-line { background: var(--success); }
+.montagem-summary-card.rejected .montagem-summary-line { background: var(--danger); }
+.montagem-summary-card.pending .montagem-summary-line { background: var(--warning); }
+
+/* Cards como filtros */
+.montagem-summary-card.filter-card { cursor: pointer; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease; outline: none; }
+.montagem-summary-card.filter-card:hover { transform: translateY(-2px); }
+.montagem-summary-card.filter-card:focus-visible { outline: 2px solid #f97316; outline-offset: 3px; }
+.montagem-summary-card.filter-card.total.active { border-color: rgba(249,115,22,.72); box-shadow: 0 0 0 1px rgba(249,115,22,.14), 0 0 10px rgba(249,115,22,.12); background: linear-gradient(145deg, rgba(249,115,22,.055), var(--surface)); }
+.montagem-summary-card.filter-card.approved.active { border-color: rgba(34,197,94,.72); box-shadow: 0 0 0 1px rgba(34,197,94,.14), 0 0 10px rgba(34,197,94,.12); background: linear-gradient(145deg, rgba(34,197,94,.055), var(--surface)); }
+.montagem-summary-card.filter-card.rejected.active { border-color: rgba(239,68,68,.72); box-shadow: 0 0 0 1px rgba(239,68,68,.14), 0 0 10px rgba(239,68,68,.12); background: linear-gradient(145deg, rgba(239,68,68,.055), var(--surface)); }
+.montagem-summary-card.filter-card.pending.active { border-color: rgba(245,158,11,.72); box-shadow: 0 0 0 1px rgba(245,158,11,.14), 0 0 10px rgba(245,158,11,.12); background: linear-gradient(145deg, rgba(245,158,11,.055), var(--surface)); }
+
+@media (max-width: 600px) {
+    .montagem-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; margin-bottom: .75rem; }
+    .montagem-summary-card { padding: .7rem .55rem; border-radius: 12px; text-align: center; }
+    .montagem-summary-heading { justify-content: center; gap: .3rem; font-size: .68rem; }
+    .montagem-summary-card strong { margin-top: .55rem; font-size: 1.45rem; }
+    .montagem-summary-card small { display: none; }
+    .montagem-summary-line { margin-top: .55rem; }
+}
+
+/* ── Filtros (reutiliza classes de InjecaoInjecao.css) ── */
+.montagem-filters { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.montagem-filters .montagem-search { flex: 1 1 260px; min-width: 180px; }
+
+/* "Nova Inspeção" quebrava para a segunda linha porque o flex resolve as
+   linhas pelo flex-basis antes de distribuir a sobra: com basis 260px a soma
+   passava do container e o botão descia, deixando a busca esticada em ~400px.
+   Reduzir o basis faz os seis caberem numa linha e a busca recebe o que sobra.
+   Mantém flex-wrap para degradar quebrando, nunca vazando para fora. */
+@media (min-width: 1025px) {
+    .montagem-page .montagem-filters .montagem-search {
+        flex: 1 1 170px;
+        min-width: 130px;
+    }
+
+    .montagem-page .montagem-filters .period-filter-wrapper,
+    .montagem-page .montagem-filters .shift-filter-button,
+    .montagem-page .montagem-filters .export-excel-button,
+    .montagem-page .montagem-filters .new-inspection-button {
+        flex: 0 0 auto;
+    }
+}
+
+@media (max-width: 1024px) {
+    .montagem-page .header-actions.montagem-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; }
+    .montagem-page .montagem-filters .montagem-search { grid-column: 1 / -1; width: 100%; }
+    .montagem-page .table th.col-hide, .montagem-page .table td.col-hide { display: none; }
+    .montagem-page .table th.col-acoes, .montagem-page .table td.col-acoes,
+    .montagem-page .table th.actions-column, .montagem-page .table td.actions-column { display: none; }
+    .montagem-page .table th.col-semana, .montagem-page .table td.col-semana { width: 35px; min-width: 35px; max-width: 35px; text-align: center; }
+}
+
+@media (max-width: 600px) {
+    .montagem-page .header-actions.montagem-filters { grid-template-columns: repeat(4, minmax(0, 1fr)); padding-left: 0; padding-right: 0; }
+    .montagem-page .montagem-filters .montagem-search { grid-column: 1 / -1 !important; order: 2; width: 100%; min-width: 0; }
+    .montagem-page .montagem-filters .period-filter-wrapper,
+    .montagem-page .montagem-filters .shift-filter-button,
+    .montagem-page .montagem-filters .export-excel-button,
+    .montagem-page .montagem-filters .new-inspection-button { order: 1; }
+    .montagem-filters .filter-label { display: none; }
+    .montagem-page .montagem-filters .period-filter-wrapper,
+    .montagem-page .montagem-filters .shift-filter-button,
+    .montagem-page .montagem-filters .export-excel-button,
+    .montagem-page .montagem-filters .new-inspection-button { grid-column: auto; width: 100%; min-width: 0; min-height: 42px; padding: .55rem; border-radius: 12px; }
+    .montagem-page .montagem-filters .period-filter-wrapper { padding: 0; }
+    .montagem-page .montagem-filters .period-filter-button { min-height: 42px; padding: .55rem; border-radius: 12px; }
+    .montagem-page .period-filter-menu .filter-label { display: initial; }
+    .montagem-filters .period-filter-button.active::after,
+    .montagem-filters .shift-filter-button.active::after { content: ''; position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+}
+
+/* ── Layout tabela + panorama ── */
+.montagem-content-layout { display: block; }
+.montagem-table-column { min-width: 0; }
+.montagem-page .piece-panorama { display: none; }
+.montagem-page .table tbody tr.panorama-row-active { box-shadow: inset 3px 0 #f97316; background: rgba(249,115,22,.08); }
+
+@media (min-width: 1600px) {
+    .montagem-page .main-content { width: auto; max-width: none; }
+    .montagem-content-layout { display: grid; grid-template-columns: minmax(0, 1fr) clamp(350px, 21vw, 390px); gap: 16px; align-items: start; width: 100%; transition: grid-template-columns .25s ease, gap .25s ease; }
+    .montagem-page .sidebar:not(.collapsed) ~ .main-content .montagem-content-layout { grid-template-columns: minmax(0, 1fr) clamp(300px, 17vw, 320px); gap: 12px; }
+    .montagem-table-column, .montagem-table-column .table-card, .montagem-table-column .table-container { width: 100%; min-width: 0; }
+    .montagem-page .piece-panorama { display: block; position: sticky; top: 16px; min-height: 480px; padding: 18px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--card-shadow); }
+    .montagem-page .mobile-clickable-row { cursor: pointer; }
+    .montagem-page .montagem-table-column .table th.col-acoes,
+    .montagem-page .montagem-table-column .table td.col-acoes { display: table-cell; position: sticky; right: 0; width: 140px; min-width: 140px; z-index: 3; background: var(--surface); box-shadow: -8px 0 14px -13px color-mix(in srgb, var(--text) 28%, transparent); }
+    .montagem-page .montagem-table-column .table th.col-acoes { z-index: 4; background: var(--bg-2); }
+    .montagem-page .montagem-table-column .table tr.panorama-row-active td.col-acoes { background: color-mix(in srgb, var(--surface) 92%, var(--primary)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .montagem-summary-card.filter-card { transition: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Classes compartilhadas (period-filter, shift-filter, photo, lightbox,
+   unsaved-confirm, panorama internos) — originais de InjecaoInjecao.css
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Period Filter ── */
+.period-filter-wrapper {
+    position: relative;
+    min-width: 0;
+}
+
+.period-filter-button {
+    width: 100%;
+}
+
+.period-filter-title,
+.period-filter-value {
+    display: block;
+    text-align: left;
+    line-height: 1.15;
+}
+
+.period-filter-title {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+}
+
+.period-filter-value {
+    margin-top: 0.12rem;
+}
+
+.period-filter-chevron {
+    margin-left: 0.2rem;
+    font-size: 0.68rem;
+}
+
+.period-filter-menu {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    z-index: 1200;
+    width: min(380px, calc(100vw - 2rem));
+    padding: 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: var(--shadow-lg);
+}
+
+.period-filter-quick-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.period-filter-quick-actions button {
+    min-height: 36px;
+    padding: 0.45rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+.period-filter-menu > label {
+    display: grid;
+    gap: 0.3rem;
+    margin-top: 0.65rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.period-filter-menu input {
+    position: static;
+    width: 100%;
+    min-height: 38px;
+    padding: 0.45rem 0.55rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--text);
+    color-scheme: dark;
+    opacity: 1;
+    cursor: text;
+}
+
+.period-filter-menu input::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+}
+
+.period-range-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+    margin-top: 0.65rem;
+}
+
+.period-range-fields label {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.period-range-apply {
+    width: 100%;
+    min-height: 38px;
+    margin-top: 0.75rem;
+    border: 1px solid var(--primary);
+    border-radius: 8px;
+    background: var(--primary);
+    color: #fff;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+@media (max-width: 420px) {
+    .period-range-fields {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── Shared Filter Buttons ── */
+.period-filter-button,
+.shift-filter-button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 40px;
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.shift-filter-button select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.period-filter-button.active,
+.shift-filter-button.active {
+    color: var(--primary);
+    border-color: var(--primary);
+    background: var(--primary-soft);
+}
+
+/* ── Fotos da peça (formulário) ── */
+.injecao-photo-field {
+    grid-column: 2;
+    min-width: 0;
+    padding: 0.85rem;
+    border: 1px dashed var(--border-strong);
+    border-radius: 12px;
+    background: var(--surface-2);
+}
+
+.injecao-photo-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.injecao-photo-header strong,
+.injecao-photo-header small {
+    display: block;
+}
+
+.injecao-photo-header strong {
+    color: var(--text);
+    font-size: 0.86rem;
+}
+
+.injecao-photo-header strong i {
+    margin-right: 0.35rem;
+    color: var(--primary);
+}
+
+.injecao-photo-header small {
+    margin-top: 0.2rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+}
+
+.injecao-photo-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.injecao-photo-actions .btn.disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.injecao-photo-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+.injecao-photo-preview {
+    position: relative;
+    display: grid;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.injecao-photo-preview img {
+    width: 100%;
+    height: 128px;
+    object-fit: cover;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.injecao-photo-preview span {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.injecao-photo-preview button {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.4rem;
+    display: grid;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--danger) 55%, transparent);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--surface) 85%, transparent);
+    color: var(--danger);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 18%);
+    cursor: pointer;
+}
+
+.injecao-photo-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    min-height: 72px;
+    margin-top: 0.75rem;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+/* ── Fotos da peça (visualização) ── */
+.injecao-view-photo-track {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.85rem;
+    margin-top: 0.75rem;
+}
+
+.injecao-view-photo-track a {
+    display: grid;
+    gap: 0.4rem;
+    min-width: 0;
+    color: inherit;
+    text-decoration: none;
+}
+
+.injecao-view-photo-track img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: contain;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-2);
+}
+
+.injecao-view-photo-track span {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    overflow-wrap: anywhere;
+}
+
+.injecao-photo-swipe-hint {
+    display: none;
+    margin-top: 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    text-align: center;
+}
+
+@media (max-width: 600px) {
+    .injecao-photo-field {
+        grid-column: 1;
+    }
+
+    .injecao-photo-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .injecao-photo-actions,
+    .injecao-photo-actions .btn {
+        width: 100%;
+    }
+
+    .injecao-photo-preview-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .injecao-photo-preview img {
+        height: 104px;
+    }
+
+    .injecao-view-photo-track {
+        grid-template-columns: none;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(82%, 1fr);
+        gap: 0.65rem;
+        padding: 0 9% 0.35rem;
+        margin-inline: -0.5rem;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: thin;
+    }
+
+    .injecao-view-photo-track a {
+        scroll-snap-align: center;
+    }
+
+    .injecao-photo-swipe-hint {
+        display: block;
+    }
+}
+
+/* ── Botão-thumb (fotos no modal de visualização) ── */
+.injecao-view-photo-thumb {
+    display: grid;
+    gap: 0.4rem;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    text-decoration: none;
+    text-align: left;
+    cursor: zoom-in;
+}
+
+.injecao-view-photo-thumb img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: contain;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-2);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.injecao-view-photo-thumb:hover img,
+.injecao-view-photo-thumb:focus-visible img {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25);
+}
+
+.injecao-view-photo-thumb span {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    overflow-wrap: anywhere;
+}
+
+/* ── Unsaved Confirm & Delete Confirm Modals ── */
+.unsaved-confirm-overlay { position:fixed; inset:0; z-index:6000; display:grid; place-items:center; padding:20px; background:rgba(2,6,12,.76); backdrop-filter:blur(5px); animation:unsavedFade .18s ease-out; }
+.unsaved-confirm-dialog { width:min(460px,100%); padding:26px; display:grid; grid-template-columns:54px 1fr; gap:16px; color:#e5e7eb; background:linear-gradient(150deg,#1c2735,#111923); border:1px solid #3a4656; border-radius:18px; box-shadow:0 26px 70px rgba(0,0,0,.52),0 0 30px rgba(249,115,22,.08); animation:unsavedScale .2s ease-out; }
+.unsaved-confirm-icon { width:52px;height:52px;display:grid;place-items:center;border-radius:14px;color:#fb923c;background:rgba(249,115,22,.14);border:1px solid rgba(249,115,22,.35);font-size:1.35rem; }
+.unsaved-confirm-copy h2 { margin:2px 0 8px;font-size:1.2rem;color:var(--text); }.unsaved-confirm-copy p{margin:0;color:#aeb9c8;line-height:1.55;font-size:.9rem}.unsaved-confirm-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:10px;margin-top:8px}.unsaved-confirm-actions button{border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer}.btn-confirm-cancel{color:#e2e8f0;background:#1e293b;border:1px solid #475569}.btn-confirm-leave{color:#fff;background:#dc2626;border:1px solid #ef4444;box-shadow:0 8px 20px rgba(220,38,38,.24)}
+@keyframes unsavedFade{from{opacity:0}to{opacity:1}}@keyframes unsavedScale{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@media(max-width:520px){.unsaved-confirm-dialog{grid-template-columns:44px 1fr;padding:20px}.unsaved-confirm-icon{width:42px;height:42px}.unsaved-confirm-actions{flex-direction:column-reverse}.unsaved-confirm-actions button{width:100%}}
+@media(prefers-reduced-motion:reduce){.unsaved-confirm-overlay,.unsaved-confirm-dialog{animation:none}}
+
+/* ── Panorama (classes internas compartilhadas) ── */
+.piece-panorama-empty { min-height: 440px; display: grid; place-content: center; text-align: center; color: var(--text-muted); padding: 30px; }
+.piece-panorama-empty i { color: #f97316; font-size: 2rem; margin-bottom: 12px; }
+.piece-panorama-empty h3 { color: var(--text); margin: 0 0 8px; }
+.piece-panorama-header { display:flex; align-items:center; justify-content:space-between; color:var(--text-2); font-weight:700; }
+.piece-panorama-header button { border:0; background:transparent; color:var(--text-muted); cursor:pointer; padding:6px; }
+.piece-panorama > h3 { margin:16px 0 4px; font-size:1rem; color:var(--text); }
+.piece-panorama-code { margin:0 0 16px; color:var(--text-muted); font-size:.8rem; }
+.piece-panorama-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; }
+.piece-panorama-kpis div { padding:10px 5px; text-align:center; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); }
+.piece-panorama-kpis strong,.piece-panorama-kpis span { display:block; }
+.piece-panorama-kpis strong { font-size:1.15rem; }
+.piece-panorama-kpis span { margin-top:3px; font-size:.62rem; color:var(--text-muted); }
+.piece-panorama-kpis .positive strong { color:#4ade80; }.piece-panorama-kpis .negative strong { color:#f87171; }
+.panorama-block { margin-top:14px; padding:14px; background:var(--surface-2); border:1px solid var(--border); border-radius:12px; }
+.panorama-block h4 { margin:0 0 12px; font-size:.82rem; color:var(--text); }
+.panorama-month-row { display:grid; grid-template-columns:92px 1fr; gap:8px; align-items:center; margin:9px 0; font-size:.68rem; color:var(--text-muted); }
+.panorama-bars { display:grid; grid-template-columns:minmax(2px,1fr) 20px; gap:3px 5px; align-items:center; }
+.panorama-bars i { display:block; height:7px; border-radius:9px; min-width:2px; }.panorama-bars b { font-size:.65rem; font-weight:600; color:var(--text-2); }
+.approved-bar { background:#22c55e; box-shadow:0 0 8px rgba(34,197,94,.35); }.rejected-bar { background:#ef4444; box-shadow:0 0 8px rgba(239,68,68,.3); }
+.panorama-legend { display:flex; gap:14px; justify-content:flex-end; margin-top:10px; font-size:.64rem; color:var(--text-muted); }.panorama-legend span{display:flex;align-items:center;gap:5px}.panorama-legend i{width:7px;height:7px;border-radius:50%}.approved-dot{background:#22c55e}.rejected-dot{background:#ef4444}
+.defect-row { display:grid; grid-template-columns:86px 1fr 22px; gap:7px; align-items:center; margin:10px 0; font-size:.7rem; }.defect-row>i{height:7px;background:var(--surface-3);border-radius:8px;overflow:hidden}.defect-row>i b{display:block;height:100%;background:#f97316;border-radius:8px}.defect-row>strong{text-align:right}.panorama-no-data{font-size:.72rem;color:var(--text-muted)}
+.panorama-meta { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }.panorama-meta div{padding:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px}.panorama-meta span,.panorama-meta strong{display:block}.panorama-meta span{font-size:.65rem;color:var(--text-muted);margin-bottom:5px}.panorama-meta strong{font-size:.75rem;color:var(--text)}
+
+/* ── Lightbox overlay ── */
+.lightbox-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.92);
+    backdrop-filter: blur(6px);
+    animation: lbFadeIn 0.2s ease-out;
+    touch-action: none;
+}
+
+@keyframes lbFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.lightbox-controls-top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 12px 16px;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent);
+    z-index: 2;
+}
+
+.lightbox-counter {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.82rem;
+    font-weight: 600;
+    min-width: 50px;
+}
+
+.lightbox-zoom-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+    padding: 4px 8px;
+}
+
+.lightbox-zoom-controls button {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: #fff;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.lightbox-zoom-controls button:hover { background: rgba(255, 255, 255, 0.18); }
+
+.lightbox-zoom-level {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.75rem;
+    font-weight: 700;
+    min-width: 42px;
+    text-align: center;
+}
+
+.lightbox-close {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 1.15rem;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.lightbox-close:hover { background: rgba(255, 255, 255, 0.25); }
+
+.lightbox-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.15s;
+}
+
+.lightbox-nav:hover { background: rgba(255, 255, 255, 0.22); }
+.lightbox-prev { left: 16px; }
+.lightbox-next { right: 16px; }
+
+.lightbox-image-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.lightbox-image {
+    max-width: 90vw;
+    max-height: 82vh;
+    object-fit: contain;
+    border-radius: 6px;
+    will-change: transform;
+}
+
+.lightbox-caption {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent);
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.8rem;
+    text-align: center;
+    overflow-wrap: anywhere;
+    z-index: 2;
+}
+
+@media (max-width: 600px) {
+    .lightbox-nav {
+        width: 38px;
+        height: 38px;
+        font-size: 0.9rem;
+    }
+
+    .lightbox-prev { left: 8px; }
+    .lightbox-next { right: 8px; }
+
+    .lightbox-image { max-width: 98vw; max-height: 78vh; }
+
+    .lightbox-zoom-controls { display: none; }
+
+    .lightbox-controls-top { padding: 8px 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .lightbox-overlay { animation: none; }
+    .lightbox-image { transition: none !important; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Data Inspeção / Semana / Família — espelha o comportamento já usado em
+   .form-row-injecao-row1 na página de Inspeção de Injeção, para as duas
+   páginas ficarem iguais.
+
+   Deliberadamente NÃO usa a classe .form-row: src/responsive.css força
+   `.form-row { grid-template-columns: 1fr !important }` em ≤480px para todo
+   o sistema. Com classe própria o seletor global não casa e dispensa o
+   !important — é assim que a página de Injeção escapa do mesmo problema.
+   ══════════════════════════════════════════════════════════════════════ */
+/* Seis campos num grid só, nesta ordem: Data, Semana, Turno, Linha, Cód. SAP,
+   Família. Com 3 colunas o fluxo natural do grid produz
+       Data | Semana | Turno
+       Linha | Cód. SAP | Família
+   e com 2 colunas produz
+       Data | Semana
+       Turno | Linha
+       Cód. SAP | Família
+   Em ambos os casos a Família cai imediatamente após o Cód. SAP, que é o
+   ponto: ela é a confirmação visual de que o código digitado está certo.
+   Um único container é o que garante isso — campos em containers separados
+   não se reorganizam entre linhas quando as colunas mudam. */
+/* Duas fileiras de quatro em desktop:
+     dados-inspecao-row  = Data | Semana | Turno | Linha Montagem
+     produto-row         = Cód. SAP | Família | Descrição SAP | Cód. de Barras
+
+   Cada coluna atende um único campo aqui, então as larguras são sob medida —
+   a Semana pode ser estreita de verdade. Em telas menores as colunas caem para
+   duas e a coluna volta a atender dois campos; aí o dimensionamento passa a ser
+   um compromisso e está comentado em cada breakpoint. */
+.dados-inspecao-row,
+.produto-row {
+    display: grid;
+    gap: 15px;
+    margin-bottom: 15px;
+    align-items: start;
+}
+
+.dados-inspecao-row > .form-group,
+.produto-row > .form-group {
+    min-width: 0;
+}
+
+.dados-inspecao-row .form-control,
+.produto-row .form-control {
+    width: 100%;
+    min-width: 0;
+}
+
+/* Fileira 1 — o que o inspetor informa:
+   Data | Semana | Turno | Linha Montagem | Código SAP
+   Data pede 149px medidos; Semana exibe duas casas e não precisa de mais. */
+.dados-inspecao-row {
+    grid-template-columns: 170px 90px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.1fr);
+}
+
+/* Fileira 2 — o que o Código SAP preenche, mais o barras por último:
+   Linha | Família | Descrição SAP | Código de Barras
+   A Descrição é a única com texto corrido e leva o maior peso. */
+.produto-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.9fr) minmax(0, 1.1fr);
+}
+
+/* A Família é readonly e pode ter nome longo ("LIQUIDIFICADORES" pede 164px):
+   reticências em vez de corte seco, com o valor inteiro no title. */
+.familia-group .form-control {
+    text-overflow: ellipsis;
+}
+
+/* ── Enxuga a altura do formulário para dispensar rolagem ──────────────
+   Escopado em .inspection-modal, que só a Montagem usa — a Injeção e o modal
+   de visualização não são afetados.
+
+   O maior desperdício medido era o textarea da Descrição: 80px contra 40px de
+   um input, o que deixava 44px de vazio sob Cód. SAP, Família e Barras, já que
+   a fileira do grid adota a altura do campo mais alto. Com altura de input o
+   vazio desaparece; segue redimensionável se o inspetor quiser ver mais. */
+.inspection-modal .produto-row .sap-descricao-group textarea {
+    min-height: 44px;
+    height: 44px;
+    resize: vertical;
+}
+
+.inspection-modal .form-section {
+    margin-bottom: 14px;
+}
+
+.inspection-modal .section-title {
+    margin-bottom: 10px;
+}
+
+.inspection-modal .divider {
+    margin: 14px 0;
+}
+
+.inspection-modal .dados-inspecao-row,
+.inspection-modal .produto-row,
+.inspection-modal .qty-row,
+.inspection-modal .form-row {
+    margin-bottom: 10px;
+    gap: 12px;
+}
+
+/* Tablet: os quatro campos curtos seguem numa fileira; os de produto caem para
+   duas colunas, com Descrição e Barras ocupando a fileira inteira cada um. */
+@media (min-width: 601px) and (max-width: 768px) {
+    /* 5 campos em ~668px dariam ~120px cada e a Data precisa de 149px medidos.
+       Vão para 3 colunas: Data | Semana | Turno, depois Linha Mont. | Cód. SAP.
+       A coluna do meio não pode encolher para o tamanho da Semana: ela também
+       recebe o Cód. SAP, que é digitado e tem autocomplete. */
+    .dados-inspecao-row {
+        grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr) minmax(0, 1fr);
+        gap: 0.6rem;
+    }
+
+    .produto-row {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+        gap: 0.6rem;
+    }
+
+    .produto-row > .sap-descricao-group,
+    .produto-row > .sap-barcode-group {
+        grid-column: 1 / -1;
+    }
+}
+
+/* Celular: duas colunas nos dois grids. Em dados-inspecao-row a coluna 1 recebe
+   Data e Turno, a coluna 2 recebe Semana e Linha. Em produto-row a fileira 1 é
+   Cód. SAP | Família — mantendo a Família colada no código, que é o ponto — e
+   Descrição e Barras ocupam a largura toda: o Barras é escaneado, mostra 13
+   dígitos e ainda exibe a mensagem de status abaixo. */
+@media (max-width: 600px) {
+    .dados-inspecao-row {
+        grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+        gap: 0.5rem;
+    }
+
+    .produto-row {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+        gap: 0.5rem;
+    }
+
+    .produto-row > .sap-descricao-group,
+    .produto-row > .sap-barcode-group {
+        grid-column: 1 / -1;
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Aviso de campos obrigatórios pendentes.
+   Substitui a validação nativa do HTML, que não consegue focar um campo em
+   aba oculta e aborta o submit sem mostrar nada. Cada pendência é um botão
+   que leva à aba onde o campo está.
+   ══════════════════════════════════════════════════════════════════════ */
+.validacao-alerta {
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    background: var(--danger-soft);
+    border: 1px solid var(--danger);
+    border-radius: 10px;
+}
+
+.validacao-alerta-topo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--danger);
+    font-size: 0.92rem;
+}
+
+.validacao-alerta-topo strong {
+    flex: 1;
+    min-width: 0;
+}
+
+.validacao-alerta-topo > i {
+    font-size: 1.05rem;
+}
+
+.validacao-alerta-topo button {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--danger);
+    cursor: pointer;
+}
+
+.validacao-alerta-topo button:hover {
+    background: color-mix(in srgb, var(--danger) 16%, transparent);
+}
+
+.validacao-alerta ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.validacao-alerta li {
+    min-width: 0;
+}
+
+/* Cada pendência vira atalho para a aba correspondente. */
+.validacao-alerta li button {
+    padding: 5px 11px;
+    border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--danger) 12%, transparent);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.78rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.validacao-alerta li button:hover {
+    border-color: var(--danger);
+}
+
+@media (max-width: 600px) {
+    .validacao-alerta {
+        padding: 12px;
+    }
+
+    .validacao-alerta ul {
+        flex-direction: column;
+    }
+
+    .validacao-alerta li button {
+        width: 100%;
     }
 }

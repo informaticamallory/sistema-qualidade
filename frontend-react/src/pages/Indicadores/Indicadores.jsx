@@ -1,7 +1,7 @@
 ﻿import { useCallback, useEffect, useState } from 'react';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Filler } from 'chart.js';
 import { Doughnut, Bar, Line } from 'react-chartjs-2';
-import Sidebar from '../../components/Sidebar/Sidebar';
+import AppLayout from '../../components/Layout/AppLayout';
 import { injecaoAPI, recebimentoAPI, registrosAPI, relatorioRecebimentoAPI } from '../../services/api';
 import { useAuth } from '../../context/auth-context';
 import { useTheme } from '../../context/theme-context';
@@ -713,10 +713,8 @@ export default function Indicadores() {
     };
 
     return (
-        <div className="app-container">
-            <Sidebar />
-
-            <main className="main-content">
+        <AppLayout breadcrumb={[{ label: 'Qualidade' }, { label: 'Indicadores' }]}>
+            <div>
                 <div className="page-header">
                     <div className="page-title">
                         <h1><i className="fas fa-chart-line"></i> Indicadores de Qualidade</h1>
@@ -1220,7 +1218,7 @@ export default function Indicadores() {
                         </table>
                     </div>
                 </div>
-            </main>
-        </div>
+            </div>
+        </AppLayout>
     );
 }

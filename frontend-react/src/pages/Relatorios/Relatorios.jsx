@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ExcelJS from 'exceljs';
-import Sidebar from '../../components/Sidebar/Sidebar';
+import AppLayout from '../../components/Layout/AppLayout';
 import {
     cartoesAPI,
     fichasAPI,
@@ -476,10 +476,11 @@ export default function Relatorios() {
     ];
 
     return (
-        <div className="app-container relatorios-page">
-            <Sidebar />
-
-            <main className="main-content">
+        <AppLayout
+            breadcrumb={[{ label: 'Qualidade' }, { label: 'Relatórios' }]}
+            containerClassName="relatorios-page"
+        >
+            <div>
                 <div className="page-header">
                     <div className="page-title">
                         <h1><i className="fas fa-chart-bar"></i> Relatórios</h1>
@@ -735,7 +736,7 @@ export default function Relatorios() {
                         </table>
                     </div>
                 </div>
-            </main>
-        </div>
+            </div>
+        </AppLayout>
     );
 }

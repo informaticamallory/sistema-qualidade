@@ -18,12 +18,15 @@ import './AppLayout.css';
      breadcrumb  [{ label, to? }]  caminho exibido na topbar
      actions      nós à direita da topbar, antes do tema
      density      'compact' | 'comfortable' | 'spacious' — respiro da página
-     mainClassName classe extra no <main>, para o CSS específico da página */
+     mainClassName classe extra no <main>, para o CSS específico da página
+     containerClassName classe extra no container, para as páginas cujo CSS
+                  já escopa regras pelo container (ex.: .relatorios-page) */
 export default function AppLayout({
     breadcrumb = [],
     actions = null,
     density = null,
     mainClassName = '',
+    containerClassName = '',
     children
 }) {
     /* O estado sobe para cá porque o botão que o alterna agora vive na topbar,
@@ -43,7 +46,7 @@ export default function AppLayout({
     }, []);
 
     return (
-        <div className="app-container" data-density={density || undefined}>
+        <div className={`app-container ${containerClassName}`.trim()} data-density={density || undefined}>
             <Sidebar collapsed={collapsed} onToggleCollapsed={alternarSidebar} />
 
             <main className={`main-content app-shell-main ${mainClassName}`.trim()}>

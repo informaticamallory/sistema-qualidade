@@ -8,7 +8,9 @@ import {
     RadialLinearScale
 } from 'chart.js';
 import { Bar, Bubble, Doughnut, Line, Pie, Radar, PolarArea } from 'react-chartjs-2';
-import Sidebar from '../../components/Sidebar/Sidebar';
+/* AppLayout substitui o par Sidebar + main-content que a página montava
+   à mão; ele próprio renderiza a Sidebar. */
+import AppLayout from '../../components/Layout/AppLayout';
 import { dashboardAPI } from '../../services/api';
 import { useTheme } from '../../context/theme-context';
 import { formatDateBR } from '../../utils/date';
@@ -742,10 +744,15 @@ export default function Dashboard() {
     const draftChartTypes = chartTypesFor(selectedDraftDataset);
     const canAdd = draft.type === 'metric' ? Boolean(draft.metricId) : Boolean(draft.datasetId && draft.chartType);
     return (
-        <div className="app-container">
-            <Sidebar />
-
-            <main className="main-content dashboard-main">
+        /* Primeira tela a usar o AppLayout: barra superior com o botão de
+           recolher, o caminho de navegação e o seletor de tema, e densidade
+           'spacious' para o respiro maior que a tela de leitura pede. */
+        <AppLayout
+            breadcrumb={[{ label: 'Qualidade' }, { label: 'Dashboard' }]}
+            density="spacious"
+            mainClassName="dashboard-main"
+        >
+            <div>
                 <div className="page-header dashboard-page-header">
                     <div className="page-title">
                         <h1><i className="fas fa-chart-line"></i> Dashboard de Qualidade</h1>
@@ -1070,7 +1077,7 @@ export default function Dashboard() {
                         </table>
                     </div>
                 </div>
-            </main>
-        </div>
+            </div>
+        </AppLayout>
     );
 }

@@ -1,0 +1,131 @@
+/* Barra superior do AppLayout.
+
+   Só tokens, sem cor literal — acompanha tema e densidade sozinha. */
+
+.app-shell-main {
+    /* O padding vai para a topbar e para o conteúdo separadamente, senão a
+       barra não encosta nas bordas da área útil. */
+    padding: 0 !important;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.app-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 900;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-6);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    /* Fundo translúcido com desfoque: a barra fica legível sobre conteúdo
+       que rola por baixo, sem precisar de sombra pesada. */
+    backdrop-filter: blur(8px);
+}
+
+.app-topbar-left,
+.app-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+}
+
+.app-topbar-toggle {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 auto;
+    border: 1px solid transparent;
+    border-radius: var(--r-md);
+    background: transparent;
+    color: var(--fg-muted);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: var(--transition-base);
+}
+
+.app-topbar-toggle:hover {
+    background: var(--bg-2);
+    color: var(--fg);
+}
+
+.app-topbar-toggle:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+/* ── Caminho de navegação ── */
+.app-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--fg-muted);
+    overflow: hidden;
+}
+
+.app-breadcrumb-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    white-space: nowrap;
+}
+
+.app-breadcrumb-sep {
+    color: var(--fg-subtle);
+}
+
+.app-breadcrumb .is-current {
+    color: var(--fg);
+    font-weight: var(--fw-semibold);
+}
+
+/* ── Conteúdo ──
+   O respiro vem de --pad, que muda com data-density: é isso que permite uma
+   página pedir mais ar sem alterar nenhum componente. */
+.app-shell-content {
+    flex: 1;
+    min-width: 0;
+    padding: var(--pad) var(--space-6) var(--space-8);
+}
+
+/* Em telas onde a sidebar vira menu sobreposto, a topbar precisa abrir espaço
+   para o botão flutuante do menu, que fica na esquerda. */
+@media (max-width: 1024px) {
+    .app-topbar {
+        padding: var(--space-3) var(--space-4);
+        padding-left: 64px;
+    }
+
+    .app-shell-content {
+        padding: var(--space-4);
+    }
+
+    /* O botão da topbar duplicaria o de abrir menu do mobile */
+    .app-topbar-toggle {
+        display: none;
+    }
+}
+
+@media (max-width: 600px) {
+    .app-topbar {
+        gap: var(--space-2);
+    }
+
+    /* Caminho longo encurta pelo começo, preservando a página atual */
+    .app-breadcrumb {
+        font-size: var(--text-xs);
+    }
+
+    .app-breadcrumb-item:not(:last-child) {
+        display: none;
+    }
+}

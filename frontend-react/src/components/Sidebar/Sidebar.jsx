@@ -5,10 +5,22 @@ import { canAccess } from '../../config/permissions';
 import ThemeToggle from '../ThemeToggle/ThemeToggle';
 import './Sidebar.css';
 
-export default function Sidebar() {
-    const [collapsed, setCollapsed] = useState(
+/* Aceita ser controlado por fora sem deixar de funcionar sozinho.
+
+   Quando `collapsed` e `onToggleCollapsed` são passados (caso do Layout, que
+   põe o botão de recolher na barra superior), o estado vem do pai. Quando não
+   são, o componente segue com o estado próprio e o localStorage, exatamente
+   como antes — é o que mantém as páginas que ainda não usam o Layout
+   funcionando sem nenhuma alteração. */
+export default function Sidebar({ collapsed: collapsedProp, onToggleCollapsed }) {
+    const controlado = collapsedProp !== undefined;
+
+    const [collapsedInterno, setCollapsedInterno] = useState(
         () => localStorage.getItem('sidebarCollapsed') === 'true'
     );
+
+    const collapsed = controlado ? collapsedProp : collapsedInterno;
+    const setCollapsed = controlado ? () => {} : setCollapsedInterno;
     const [mobileOpen, setMobileOpen] = useState(false);
     const location = useLocation();
     const { user, logout, getRoleLabel, can } = useAuth();
@@ -68,6 +80,8 @@ export default function Sidebar() {
     const [openGroups, setOpenGroups] = useState({});
 
     const toggleSidebar = () => {
+        /* Controlado: quem decide é o pai, que também persiste. */
+        if (controlado) { onToggleCollapsed?.(); return; }
         const newState = !collapsed;
         setCollapsed(newState);
         localStorage.setItem('sidebarCollapsed', newState.toString());
@@ -136,22 +150,27 @@ export default function Sidebar() {
                         <h2>MALLORY</h2>
                         <p>Qualidade Industrial</p>
                     </div>
-                    <div className="sidebar-header-actions">
-                        <ThemeToggle variant="sidebar" />
-                        <button
-                            type="button"
-                            className="sidebar-header-toggle"
-                            onClick={toggleSidebar}
-                            title={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
-                            aria-label={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
-                        >
-                            <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <rect x="3" y="3" width="18" height="18" rx="3"></rect>
-                                <path className="sidebar-toggle-divider" d="M9 3v18"></path>
-                                {collapsed ? <path d="m13 9 3 3-3 3"></path> : <path d="m15 9-3 3 3 3"></path>}
-                            </svg>
-                        </button>
-                    </div>
+                    {/* Controlado, quem oferece tema e recolher é a barra superior:
+                        repetir os dois aqui deixaria dois controles idênticos na
+                        tela ao mesmo tempo. Sem controle externo nada muda. */}
+                    {!controlado && (
+                        <div className="sidebar-header-actions">
+                            <ThemeToggle variant="sidebar" />
+                            <button
+                                type="button"
+                                className="sidebar-header-toggle"
+                                onClick={toggleSidebar}
+                                title={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
+                                aria-label={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
+                            >
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <rect x="3" y="3" width="18" height="18" rx="3"></rect>
+                                    <path className="sidebar-toggle-divider" d="M9 3v18"></path>
+                                    {collapsed ? <path d="m13 9 3 3-3 3"></path> : <path d="m15 9-3 3 3 3"></path>}
+                                </svg>
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="sidebar-menu">

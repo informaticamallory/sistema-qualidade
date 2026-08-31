@@ -8,8 +8,21 @@
     <title>System Tech - Sistema de Inspeção</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"> -->
-    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@100..800&display=swap" rel="stylesheet">
+    <!--
+      Mallory UI Kit — tipografia.
+      Sora (títulos e KPIs), Inter (corpo, rótulos e botões) e IBM Plex Mono
+      (números, códigos e datas). Os três stacks já estavam declarados em
+      styles/tokens.css, mas só a Sora era carregada: Inter estava comentada e
+      a IBM Plex Mono ausente, então o sistema caía nos fallbacks Segoe UI e
+      Consolas.
+
+      Pesos escolhidos pelo uso real do projeto (400, 500, 600, 700 e 800) —
+      carregar de menos faria o navegador sintetizar os faltantes, o que
+      engorda e distorce o traço. Uma única requisição para as três famílias.
+    -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet">
   </head>
   <body>
     <div id="root"></div>

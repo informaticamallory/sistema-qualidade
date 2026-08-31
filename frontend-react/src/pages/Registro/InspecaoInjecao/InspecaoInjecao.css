@@ -1118,12 +1118,8 @@
 .table tbody tr.panorama-row-active { box-shadow: inset 3px 0 #f97316; background: rgba(249,115,22,.08); }
 
 @media (min-width: 1600px) {
-  /* A página de injeção usa toda a área disponível do monitor. O limite global
-     de 1440px deixava uma faixa vazia à direita e comprimida a tabela. */
-  .injecao-page .main-content {
-    width: auto;
-    max-width: none;
-  }
+  /* A largura fluida saiu daqui: virou o comportamento padrão de
+     .main-content em ui/theme/ui-kit.css. */
 
   .injecao-content-layout {
     transition: grid-template-columns .25s ease, gap .25s ease;

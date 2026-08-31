@@ -2,22 +2,8 @@
 @import '../Dashboard/Dashboard.css';
 @import '../Registro/InspecaoMontagem/InspecaoMontagem.css';
 
-/* A página de relatórios aproveita toda a largura disponível em monitores grandes. */
-.relatorios-page .main-content {
-    flex: 0 0 auto;
-    width: calc(100% - var(--ui-sidebar-width));
-    max-width: none;
-}
-
-.relatorios-page .sidebar.collapsed ~ .main-content {
-    width: calc(100% - var(--ui-sidebar-collapsed-width));
-}
-
-@media (max-width: 1024px) {
-    .relatorios-page .main-content {
-        width: 100%;
-    }
-}
+/* A largura fluida saiu daqui: virou o comportamento padrão de .main-content
+   em ui/theme/ui-kit.css. */
 
 /* Report Tabs */
 .report-tabs-container {

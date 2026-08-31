@@ -1459,7 +1459,8 @@
 .montagem-page .table tbody tr.panorama-row-active { box-shadow: inset 3px 0 #f97316; background: rgba(249,115,22,.08); }
 
 @media (min-width: 1600px) {
-    .montagem-page .main-content { width: auto; max-width: none; }
+    /* A largura fluida saiu daqui: virou o comportamento padrão de
+       .main-content em ui/theme/ui-kit.css. */
     .montagem-content-layout { display: grid; grid-template-columns: minmax(0, 1fr) clamp(350px, 21vw, 390px); gap: 16px; align-items: start; width: 100%; transition: grid-template-columns .25s ease, gap .25s ease; }
     .montagem-page .sidebar:not(.collapsed) ~ .main-content .montagem-content-layout { grid-template-columns: minmax(0, 1fr) clamp(300px, 17vw, 320px); gap: 12px; }
     .montagem-table-column, .montagem-table-column .table-card, .montagem-table-column .table-container { width: 100%; min-width: 0; }

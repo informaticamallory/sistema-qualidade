@@ -821,37 +821,5 @@
     .cartoes-summary { grid-template-columns: 1fr; }
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   Largura fluida ao recolher a sidebar
-   ══════════════════════════════════════════════════════════════════════
-   O vazio à direita não vinha de largura fixa no layout: `.main-content` já
-   usa flex: 1 e a margem já cai de 280px para 80px ao recolher. O que travava
-   era `max-width: 1440px` em ui-kit.css, aplicado a todo o sistema — o espaço
-   liberado não podia ser ocupado e sobrava como faixa vazia.
-
-   Largura explícita com calc() em vez de depender do flex reagir; é o mesmo
-   padrão já em produção em Relatórios e no Dashboard. Escopado em
-   .cartoes-page para não afetar as páginas que dependem do teto de leitura.
-   ══════════════════════════════════════════════════════════════════════ */
-.main-content.cartoes-page {
-    flex: 0 0 auto;
-    width: calc(100% - var(--ui-sidebar-width, 280px));
-    max-width: none;
-    /* width na transição para o collapse não ficar abrupto */
-    transition: margin-left var(--transition-normal, 0.25s ease),
-                padding var(--transition-normal, 0.25s ease),
-                width 0.2s ease;
-}
-
-.sidebar.collapsed ~ .main-content.cartoes-page {
-    width: calc(100% - var(--ui-sidebar-collapsed-width, 80px));
-}
-
-/* Abaixo de 1024px a sidebar sai do fluxo (vira menu sobreposto) e a margem
-   zera, então o conteúdo usa a largura inteira — mantém o responsivo. */
-@media (max-width: 1024px) {
-    .main-content.cartoes-page,
-    .sidebar.collapsed ~ .main-content.cartoes-page {
-        width: 100%;
-    }
-}
+/* A largura fluida saiu daqui: virou o comportamento padrão de .main-content
+   em ui/theme/ui-kit.css. */

@@ -1731,42 +1731,8 @@ body.is-resizing-widget {
         grid-column: span 12;
     }
 }
-/* ══════════════════════════════════════════════════════════════════════
-   Largura fluida do Dashboard
-   ══════════════════════════════════════════════════════════════════════
-   Causa do vazio à direita: ui-kit.css define `.main-content { max-width:
-   1440px }` para todo o sistema. Ao recolher o sidebar a margem cai de 280px
-   para 80px, liberando 200px — mas o teto de 1440px impedia o conteúdo de
-   crescer, e a área liberada virava faixa vazia.
-
-   Escopado em .dashboard-main para não alterar as demais páginas, que
-   dependem do limite de leitura de 1440px.
-   ══════════════════════════════════════════════════════════════════════ */
-/* Largura explícita em vez de depender só de flex: 1 — é o mesmo padrão que a
-   página de Relatórios já usa em produção para o caso idêntico. Com o sidebar
-   em position: fixed, calc(100% - largura do sidebar) garante que a área
-   liberada ao recolher seja de fato ocupada, sem depender de o flex reagir. */
-.main-content.dashboard-main {
-    flex: 0 0 auto;
-    width: calc(100% - var(--ui-sidebar-width, 280px));
-    max-width: none;
-    transition: margin-left var(--transition-normal, 0.25s ease),
-                padding var(--transition-normal, 0.25s ease),
-                width 0.2s ease;
-}
-
-.sidebar.collapsed ~ .main-content.dashboard-main {
-    width: calc(100% - var(--ui-sidebar-collapsed-width, 80px));
-}
-
-/* Abaixo de 1024px o sidebar sai do fluxo (vira menu sobreposto) e a margem
-   zera, então o conteúdo usa a largura inteira. */
-@media (max-width: 1024px) {
-    .main-content.dashboard-main,
-    .sidebar.collapsed ~ .main-content.dashboard-main {
-        width: 100%;
-    }
-}
+/* A largura fluida saiu daqui: virou o comportamento padrão de .main-content
+   em ui/theme/ui-kit.css. */
 
 /* ── Cards de indicadores ──────────────────────────────────────────────
    Base já é auto-fit; os degraus abaixo elevam a largura mínima conforme

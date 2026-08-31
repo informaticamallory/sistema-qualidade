@@ -81,19 +81,45 @@ h5,
   background: var(--bg);
 }
 
+/* Largura explícita em vez de `flex: 1` com teto de 1440px.
+
+   O teto deixava faixa vazia à direita: ao recolher o sidebar a margem cai de
+   280px para 80px, liberando 200px que o conteúdo não podia ocupar. Cinco
+   páginas já contornavam isso com regras próprias; a correção passou para cá
+   e as cópias saíram.
+
+   Com o sidebar em position: fixed, calc(100% - largura do sidebar) garante
+   que a área liberada seja de fato ocupada, sem depender de o flex reagir. */
 .main-content {
-  flex: 1;
+  flex: 0 0 auto;
   min-width: 0;
-  width: 100%;
-  max-width: 1440px;
+  width: calc(100% - var(--ui-sidebar-width));
   margin-left: var(--ui-sidebar-width);
   padding: 24px;
-  transition: margin-left var(--transition-normal), padding var(--transition-normal);
+  transition: margin-left var(--transition-normal), padding var(--transition-normal),
+    width var(--transition-normal);
 }
 
 .sidebar.collapsed ~ .main-content,
 .sidebar.collapsed ~ .main-wrapper .main-content {
   margin-left: var(--ui-sidebar-collapsed-width);
+  width: calc(100% - var(--ui-sidebar-collapsed-width));
+}
+
+/* Abaixo de 1024px o sidebar sai do fluxo (vira menu sobreposto) e o conteúdo
+   usa a largura inteira.
+
+   A margem precisa ser zerada aqui com o seletor de `.collapsed` junto: a
+   regra que a zera mais abaixo alcança só `.main-content`, e perde por
+   especificidade para `.sidebar.collapsed ~ .main-content`. Quem tivesse o
+   menu recolhido carregava 80px de margem para dentro do mobile. */
+@media (max-width: 1024px) {
+  .main-content,
+  .sidebar.collapsed ~ .main-content,
+  .sidebar.collapsed ~ .main-wrapper .main-content {
+    width: 100%;
+    margin-left: 0;
+  }
 }
 
 .page-header {

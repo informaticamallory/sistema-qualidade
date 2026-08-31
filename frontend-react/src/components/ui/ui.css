@@ -1,0 +1,309 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Mallory UI Kit — estilos dos componentes de src/components/ui/
+
+   Complementa ui/theme/ui-kit.css em vez de substituí-lo. O que já existia
+   lá (.btn e variantes, .badge, .form-control, .table, .stat-card) segue
+   sendo usado pelos componentes; aqui ficam apenas as lacunas:
+
+     - estado disabled com contraste real (o atual usa opacity: .5)
+     - estado de erro em campos de formulário
+     - Tabs estilo pill com contador
+     - indicador de prioridade lateral na tabela
+     - delta/tendência do KpiCard
+
+   Nenhuma cor literal: tudo sai dos tokens de styles/tokens.css.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Button ───────────────────────────────────────────────────────────
+   O disabled do ui-kit usa opacity: .5, o que reduz o contraste do texto
+   proporcionalmente e costuma reprovar em WCAG AA. Aqui o estado é pintado
+   com cores sólidas dos tokens, mantendo o texto legível nos dois temas. */
+.ui-btn:disabled,
+.ui-btn[aria-disabled="true"] {
+    opacity: 1;
+    background: var(--bg-2);
+    /* --fg-muted puro sobre --bg-2 mede 4.33:1, abaixo do mínimo AA de 4.5.
+       A mistura com --fg escurece o texto o suficiente para passar sem que o
+       botão pareça ativo. Medido nos dois temas. */
+    color: color-mix(in srgb, var(--fg-muted) 65%, var(--fg));
+    border-color: var(--border);
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.ui-btn {
+    font-family: var(--font-body);
+    gap: var(--space-2);
+}
+
+/* ── Badge ────────────────────────────────────────────────────────────
+   Reaproveita .badge/.badge-* do ui-kit; só acrescenta o ponto indicador. */
+.ui-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-body);
+    white-space: nowrap;
+}
+
+.ui-badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--r-pill);
+    background: currentColor;
+    flex: 0 0 auto;
+}
+
+/* ── Campos ───────────────────────────────────────────────────────────
+   Label em caixa alta acima do campo, conforme o kit. */
+.ui-field {
+    display: grid;
+    gap: var(--space-2);
+    min-width: 0;
+}
+
+.ui-field-label {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    font-weight: var(--fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-caps);
+    color: var(--fg-muted);
+}
+
+.ui-field-required {
+    color: var(--danger);
+    margin-left: 2px;
+}
+
+/* Erro: borda e mensagem em --danger, com o texto abaixo do campo */
+.ui-field-error .form-control {
+    border-color: var(--danger);
+}
+
+.ui-field-error .form-control:focus {
+    box-shadow: 0 0 0 3px var(--danger-soft);
+}
+
+.ui-field-message {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--danger);
+}
+
+/* Desabilitado e somente-leitura em --bg-2, como pede o kit */
+.ui-field .form-control:disabled,
+.ui-field .form-control[readonly] {
+    background: var(--bg-2);
+    color: var(--fg-muted);
+    cursor: not-allowed;
+}
+
+.ui-field .form-control[readonly] {
+    cursor: default;
+}
+
+/* ── Tabs (pill) ──────────────────────────────────────────────────────
+   Não existia no ui-kit; criado aqui. */
+.ui-tabs {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    padding: var(--space-1);
+    background: var(--bg-2);
+    border-radius: var(--r-pill);
+}
+
+.ui-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    border: none;
+    border-radius: var(--r-pill);
+    background: transparent;
+    color: var(--fg-muted);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: var(--fw-medium);
+    cursor: pointer;
+    transition: var(--transition-base);
+}
+
+.ui-tab:hover:not(.is-active) {
+    color: var(--fg);
+    background: var(--surface);
+}
+
+.ui-tab.is-active {
+    background: var(--surface);
+    color: var(--fg);
+    font-weight: var(--fw-semibold);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Contador ao lado do rótulo da aba */
+.ui-tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 var(--space-2);
+    border-radius: var(--r-pill);
+    background: var(--bg-2);
+    color: var(--fg-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: var(--fw-semibold);
+    font-variant-numeric: tabular-nums;
+}
+
+.ui-tab.is-active .ui-tab-count {
+    background: var(--primary-soft);
+    color: var(--primary-soft-fg);
+}
+
+/* ── Tabela ───────────────────────────────────────────────────────────
+   Reaproveita .table do ui-kit; acrescenta o indicador de prioridade. */
+.ui-table-head-cell {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    font-weight: var(--fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-caps);
+    color: var(--fg-muted);
+}
+
+/* Faixa colorida na lateral esquerda da linha. box-shadow inset em vez de
+   border-left para não deslocar o conteúdo nem alterar a altura da linha. */
+.ui-table-row[data-priority] > td:first-child {
+    box-shadow: inset 4px 0 0 0 var(--border);
+}
+
+.ui-table-row[data-priority="alta"] > td:first-child { box-shadow: inset 4px 0 0 0 var(--danger); }
+.ui-table-row[data-priority="media"] > td:first-child { box-shadow: inset 4px 0 0 0 var(--warning); }
+.ui-table-row[data-priority="baixa"] > td:first-child { box-shadow: inset 4px 0 0 0 var(--success); }
+.ui-table-row[data-priority="info"] > td:first-child { box-shadow: inset 4px 0 0 0 var(--info); }
+
+.ui-table-empty {
+    padding: var(--space-8) var(--space-4);
+    text-align: center;
+    color: var(--fg-muted);
+    font-size: var(--text-sm);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-caps);
+}
+
+/* ── KpiCard ──────────────────────────────────────────────────────────
+   Reaproveita a superfície de .stat-card; acrescenta valor em Sora,
+   delta e sparkline. */
+.ui-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--pad);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
+    min-width: 0;
+}
+
+.ui-kpi-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+}
+
+.ui-kpi-label {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    font-weight: var(--fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-caps);
+    color: var(--fg-muted);
+}
+
+.ui-kpi-icon {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--r-md);
+    background: var(--bg-2);
+    color: var(--fg-muted);
+    flex: 0 0 auto;
+}
+
+.ui-kpi-icon.primary { background: var(--primary-soft); color: var(--primary-soft-fg); }
+.ui-kpi-icon.success { background: var(--success-soft); color: var(--success); }
+.ui-kpi-icon.danger { background: var(--danger-soft); color: var(--danger); }
+.ui-kpi-icon.warning { background: var(--warning-soft); color: var(--warning); }
+.ui-kpi-icon.info { background: var(--info-soft); color: var(--info); }
+
+/* Valor em Sora com tabular-nums: números de larguras diferentes não
+   deslocam o layout quando o valor muda. */
+.ui-kpi-value {
+    font-family: var(--font-head);
+    font-size: var(--text-kpi);
+    font-weight: var(--fw-bold);
+    line-height: var(--leading-tight);
+    color: var(--fg);
+    font-variant-numeric: tabular-nums;
+}
+
+.ui-kpi-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    min-height: 18px;
+}
+
+.ui-kpi-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: var(--fw-semibold);
+    font-variant-numeric: tabular-nums;
+}
+
+.ui-kpi-delta.up { color: var(--success); }
+.ui-kpi-delta.down { color: var(--danger); }
+.ui-kpi-delta.flat { color: var(--fg-muted); }
+
+.ui-kpi-hint {
+    font-size: var(--text-xs);
+    color: var(--fg-subtle);
+}
+
+.ui-kpi-spark {
+    display: block;
+    width: 100%;
+    height: 28px;
+    overflow: visible;
+}
+
+/* Clicável (para uso como filtro, no padrão já adotado nas páginas) */
+.ui-kpi.is-clickable {
+    cursor: pointer;
+    outline: none;
+    transition: transform .2s ease, border-color .2s ease, background .2s ease;
+}
+
+.ui-kpi.is-clickable:hover { transform: translateY(-2px); }
+.ui-kpi.is-clickable:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.ui-kpi.is-active { border-color: var(--primary); }
+
+@media (max-width: 600px) {
+    .ui-tabs { width: 100%; }
+    .ui-tab { flex: 1 1 auto; justify-content: center; }
+}

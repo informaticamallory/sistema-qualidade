@@ -10,10 +10,23 @@ import {
 } from '../../utils/date';
 import { formatarTurno, normalizarTurno } from '../../utils/turnos';
 import { useAuth } from '../../context/auth-context';
+/* Componentes do Mallory UI Kit (Etapa 3) — consomem os tokens, então
+   herdam tema e densidade sem prop de estilo. */
+import { KpiCard, Button } from '../../components/ui';
 /* Reaproveita do layout de Inspeção de Injeção: seletor de período, botões de
    filtro e barra de ações — importado em vez de reescrito. */
 import '../Registro/InspecaoInjecao/InspecaoInjecao.css';
 import './Cartoes.css';
+
+/* Definição dos KPIs em dados, não em JSX repetido: os quatro cards só
+   diferem em rótulo, chave, tom e ícone. `status` nulo é o card "Total",
+   que limpa o filtro em vez de aplicar um. */
+const KPIS = [
+    { chave: 'total', label: 'Total de cartões', tone: 'primary', icone: 'fa-credit-card', status: null },
+    { chave: 'aprovados', label: 'Aprovados', tone: 'success', icone: 'fa-check-circle', status: 'aprovado' },
+    { chave: 'reprovados', label: 'Reprovados', tone: 'danger', icone: 'fa-times-circle', status: 'reprovado' },
+    { chave: 'pendentes', label: 'Pendentes', tone: 'warning', icone: 'fa-clock', status: 'pendente' }
+];
 
 export default function Cartoes() {
     const { user } = useAuth();
@@ -549,12 +562,8 @@ export default function Cartoes() {
     }, { total: 0, aprovados: 0, reprovados: 0, pendentes: 0 });
 
     const ativarFiltroStatus = (status) => setStatusFilter((atual) => (atual === status ? '' : status));
-    const acionarCardPorTeclado = (evento, status) => {
-        if (evento.key === 'Enter' || evento.key === ' ') {
-            evento.preventDefault();
-            if (status) ativarFiltroStatus(status); else setStatusFilter('');
-        }
-    };
+    /* O handler de teclado dos cards saiu: o KpiCard do UI Kit já trata
+       Enter e Espaço internamente, com role e tabIndex próprios. */
 
     const periodoLabel = dateFilter && dateEndFilter
         ? `${formatDateBR(dateFilter)} até ${formatDateBR(dateEndFilter)}`
@@ -723,55 +732,48 @@ export default function Cartoes() {
                             </select>
                         </label>
 
-                        <button
-                            type="button"
-                            className="btn btn-success btn-sm export-excel-button"
+                        {/* Button do UI Kit: mantém btn-success/btn-sm e ganha o
+                            estado disabled com contraste acessível (o .btn:disabled
+                            do ui-kit usa opacity .5 e reprova em AA). */}
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            className="btn-success export-excel-button"
                             onClick={exportarExcel}
                             disabled={loading || cartoes.length === 0}
                             title="Exportar os cartões filtrados para Excel"
+                            icon={<i className="fas fa-file-excel" aria-hidden="true"></i>}
                         >
-                            <i className="fas fa-file-excel" aria-hidden="true"></i>
                             <span className="filter-label">Exportar Excel</span>
-                        </button>
+                        </Button>
 
-                        <button className="btn btn-primary btn-sm new-inspection-button"
-                            onClick={() => { resetForm(); setShowModal(true); }}>
-                            <i className="fas fa-plus" aria-hidden="true"></i>
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            className="new-inspection-button"
+                            onClick={() => { resetForm(); setShowModal(true); }}
+                            icon={<i className="fas fa-plus" aria-hidden="true"></i>}
+                        >
                             <span className="filter-label">Novo Cartão</span>
-                        </button>
+                        </Button>
                     </div>
                 </div>
 
-                {/* KPIs pelos status registrados no módulo, clicáveis como filtro */}
+                {/* KPIs pelo componente do UI Kit: as cores vêm dos tokens
+                    semânticos, no lugar dos hex literais que estavam no CSS
+                    desta página. O comportamento de filtro é o mesmo. */}
                 <section className="cartoes-summary" aria-label="Resumo dos cartões de qualidade">
-                    <article className={`cartoes-summary-card filter-card total ${!statusFilter ? 'active' : ''}`}
-                        role="button" tabIndex="0" aria-pressed={!statusFilter}
-                        onClick={() => setStatusFilter('')} onKeyDown={(e) => acionarCardPorTeclado(e, '')}>
-                        <div className="cartoes-summary-heading"><i className="fas fa-credit-card" aria-hidden="true"></i><span>Total de cartões</span></div>
-                        <strong>{loading ? '—' : resumoIndicadores.total}</strong>
-                        <span className="cartoes-summary-line" aria-hidden="true"></span>
-                    </article>
-                    <article className={`cartoes-summary-card filter-card approved ${statusFilter === 'aprovado' ? 'active' : ''}`}
-                        role="button" tabIndex="0" aria-pressed={statusFilter === 'aprovado'}
-                        onClick={() => ativarFiltroStatus('aprovado')} onKeyDown={(e) => acionarCardPorTeclado(e, 'aprovado')}>
-                        <div className="cartoes-summary-heading"><i className="fas fa-check-circle" aria-hidden="true"></i><span>Aprovados</span></div>
-                        <strong>{loading ? '—' : resumoIndicadores.aprovados}</strong>
-                        <span className="cartoes-summary-line" aria-hidden="true"></span>
-                    </article>
-                    <article className={`cartoes-summary-card filter-card rejected ${statusFilter === 'reprovado' ? 'active' : ''}`}
-                        role="button" tabIndex="0" aria-pressed={statusFilter === 'reprovado'}
-                        onClick={() => ativarFiltroStatus('reprovado')} onKeyDown={(e) => acionarCardPorTeclado(e, 'reprovado')}>
-                        <div className="cartoes-summary-heading"><i className="fas fa-times-circle" aria-hidden="true"></i><span>Reprovados</span></div>
-                        <strong>{loading ? '—' : resumoIndicadores.reprovados}</strong>
-                        <span className="cartoes-summary-line" aria-hidden="true"></span>
-                    </article>
-                    <article className={`cartoes-summary-card filter-card pending ${statusFilter === 'pendente' ? 'active' : ''}`}
-                        role="button" tabIndex="0" aria-pressed={statusFilter === 'pendente'}
-                        onClick={() => ativarFiltroStatus('pendente')} onKeyDown={(e) => acionarCardPorTeclado(e, 'pendente')}>
-                        <div className="cartoes-summary-heading"><i className="fas fa-clock" aria-hidden="true"></i><span>Pendentes</span></div>
-                        <strong>{loading ? '—' : resumoIndicadores.pendentes}</strong>
-                        <span className="cartoes-summary-line" aria-hidden="true"></span>
-                    </article>
+                    {KPIS.map((kpi) => (
+                        <KpiCard
+                            key={kpi.status || 'total'}
+                            label={kpi.label}
+                            value={loading ? '—' : resumoIndicadores[kpi.chave]}
+                            tone={kpi.tone}
+                            icon={<i className={`fas ${kpi.icone}`} aria-hidden="true"></i>}
+                            active={kpi.status ? statusFilter === kpi.status : !statusFilter}
+                            onClick={() => (kpi.status ? ativarFiltroStatus(kpi.status) : setStatusFilter(''))}
+                        />
+                    ))}
                 </section>
 
                 {/* Tabela */}

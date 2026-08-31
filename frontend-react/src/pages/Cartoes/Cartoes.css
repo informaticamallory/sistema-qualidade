@@ -37,7 +37,8 @@
 .mobile-action-sheet-backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.4);
+    /* token --overlay: acompanha o tema, o preto fixo nao acompanhava */
+    background: var(--overlay);
     opacity: 0;
     transition: opacity 0.2s;
 }
@@ -220,6 +221,9 @@
     padding: 0;
 }
 
+/* As cores do cartao impresso ficam fixas de proposito: papel nao tem tema,
+   e usar tokens faria o cabecalho sair branco quando o usuario estivesse no
+   tema escuro. Sao as unicas cores literais que restam nesta folha. */
 .print-header {
     font-family: var(--font-family);
     background: var(--gradient-primary);
@@ -705,13 +709,15 @@
     }
 }
 
+/* Botao de impressao nos tokens informativos, em vez dos azuis literais
+   que nao mudavam com o tema. */
 .btn-print {
-    background: #e6f4ff;
-    color: #1778b5;
+    background: var(--info-soft);
+    color: var(--info);
 }
 
 .btn-print:hover {
-    background: #cfe9fb;
+    background: var(--info-soft-strong);
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -728,68 +734,11 @@
     margin-bottom: 18px;
 }
 
-.cartoes-summary-card {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    padding: 16px 18px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    box-shadow: var(--card-shadow);
-    overflow: hidden;
-}
-
-.cartoes-summary-heading {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    color: var(--text-2);
-    font-size: .86rem;
-    font-weight: 600;
-}
-
-.cartoes-summary-card strong {
-    margin-top: .5rem;
-    font-size: 1.9rem;
-    line-height: 1;
-    color: var(--text);
-}
-
-/* Barra colorida na base, como nos cards de referência */
-.cartoes-summary-line {
-    position: absolute;
-    left: 18px;
-    right: 18px;
-    bottom: 12px;
-    height: 3px;
-    border-radius: 3px;
-    background: var(--border);
-}
-
-.cartoes-summary-card.total .cartoes-summary-heading i { color: #f97316; }
-.cartoes-summary-card.total .cartoes-summary-line { background: #f97316; }
-.cartoes-summary-card.approved .cartoes-summary-heading i { color: #22c55e; }
-.cartoes-summary-card.approved .cartoes-summary-line { background: #22c55e; }
-.cartoes-summary-card.rejected .cartoes-summary-heading i { color: #ef4444; }
-.cartoes-summary-card.rejected .cartoes-summary-line { background: #ef4444; }
-.cartoes-summary-card.pending .cartoes-summary-heading i { color: #f59e0b; }
-.cartoes-summary-card.pending .cartoes-summary-line { background: #f59e0b; }
-
-/* Card como filtro clicável */
-.cartoes-summary-card.filter-card {
-    cursor: pointer;
-    outline: none;
-    transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease;
-}
-
-.cartoes-summary-card.filter-card:hover { transform: translateY(-2px); }
-.cartoes-summary-card.filter-card:focus-visible { outline: 2px solid #f97316; outline-offset: 3px; }
-
-.cartoes-summary-card.filter-card.total.active { border-color: rgba(249,115,22,.72); background: linear-gradient(145deg, rgba(249,115,22,.055), var(--surface)); }
-.cartoes-summary-card.filter-card.approved.active { border-color: rgba(34,197,94,.72); background: linear-gradient(145deg, rgba(34,197,94,.055), var(--surface)); }
-.cartoes-summary-card.filter-card.rejected.active { border-color: rgba(239,68,68,.72); background: linear-gradient(145deg, rgba(239,68,68,.055), var(--surface)); }
-.cartoes-summary-card.filter-card.pending.active { border-color: rgba(245,158,11,.72); background: linear-gradient(145deg, rgba(245,158,11,.055), var(--surface)); }
+/* Os cards de KPI passaram a usar o componente KpiCard do UI Kit, que traz
+   a superfície, o ícone tonalizado e o estado ativo a partir dos tokens.
+   O CSS que existia aqui foi removido: eram ~60 linhas com cores literais
+   (#f97316, #22c55e, #ef4444, #f59e0b) duplicando os tokens semânticos.
+   Só o grid container permanece, logo acima. */
 
 /* ── Barra de ações ── */
 .cartoes-filters { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }

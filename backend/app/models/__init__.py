@@ -12,6 +12,8 @@ from app.models.calibracao import TipoEquipamento, Equipamento, Calibracao
 from app.models.q49 import Q49Registro
 from app.models.resumo_bloqueio import ResumoBloqueio, ResumoBloqueioLinha
 from app.models.ficha_nc import FichaNC
+from app.models.material import Material, RevisaoDesenho, PosicaoRevisao
+from app.models.inspecao_recebimento import InspecaoRecebimento, ResultadoInspecao
 
 __all__ = [
     'Usuario',
@@ -32,5 +34,10 @@ __all__ = [
     'Q49Registro',
     'ResumoBloqueio',
     'ResumoBloqueioLinha',
-    'FichaNC'
+    'FichaNC',
+    'Material',
+    'RevisaoDesenho',
+    'PosicaoRevisao',
+    'InspecaoRecebimento',
+    'ResultadoInspecao'
 ]

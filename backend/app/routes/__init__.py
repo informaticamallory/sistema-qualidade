@@ -12,6 +12,8 @@ from app.routes.dashboard import dashboard_bp
 from app.routes.calibracoes import equipamentos_bp, tipos_equipamento_bp, calibracoes_bp
 from app.routes.q49 import q49_bp
 from app.routes.resumo_bloqueio import resumo_bloqueio_bp
+from app.routes.materiais import materiais_bp, revisoes_bp
+from app.routes.inspecoes_recebimento import inspecoes_recebimento_bp
 
 
 def register_blueprints(app):
@@ -32,3 +34,8 @@ def register_blueprints(app):
     app.register_blueprint(tipos_equipamento_bp, url_prefix='/api/tipos-equipamento')
     app.register_blueprint(calibracoes_bp, url_prefix='/api/calibracoes')
     app.register_blueprint(resumo_bloqueio_bp, url_prefix='/api/resumo-bloqueio')
+    app.register_blueprint(materiais_bp, url_prefix='/api/materiais')
+    app.register_blueprint(revisoes_bp, url_prefix='/api/revisoes')
+    # Prefixo novo: '/api/inspecao-recebimento' continua servindo a ficha antiga
+    # enquanto ela existir, e os dois não podem colidir.
+    app.register_blueprint(inspecoes_recebimento_bp, url_prefix='/api/inspecoes-recebimento')

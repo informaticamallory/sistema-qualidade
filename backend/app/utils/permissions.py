@@ -6,6 +6,9 @@ from app.models.permissao import Permissao, UsuarioPermissao
 PERMISSOES_CATALOGO = {
     'dashboard':         ['visualizar', 'exportar'],
     'registros':         ['visualizar', 'criar', 'editar', 'excluir', 'exportar'],
+    # Cadastro do desenho de referência. Separado de 'registros' porque quem
+    # executa a inspeção não deve poder alterar a cota contra a qual mede.
+    'materiais':         ['visualizar', 'criar', 'editar', 'excluir', 'exportar'],
     'injecao':           ['visualizar', 'criar', 'editar', 'excluir', 'exportar'],
     'cartoes':           ['visualizar', 'criar', 'editar', 'excluir', 'exportar'],
     'nao_conformidades': ['visualizar', 'criar', 'editar', 'excluir', 'exportar'],
@@ -18,6 +21,7 @@ PERMISSOES_CATALOGO = {
 MODULO_LABELS = {
     'dashboard': 'Dashboard',
     'registros': 'Registros',
+    'materiais': 'Materiais e Revisões',
     'injecao': 'Inspeção de Injeção',
     'cartoes': 'Cartões de Qualidade',
     'nao_conformidades': 'Não Conformidades',
@@ -46,6 +50,7 @@ DEFAULT_MATRIX = {
     'supervisor': {
         'dashboard': ['visualizar', 'exportar'],
         'registros': ['visualizar', 'criar', 'editar', 'excluir', 'exportar'],
+        'materiais': ['visualizar', 'criar', 'editar', 'excluir', 'exportar'],
         'injecao': ['visualizar', 'criar', 'editar', 'excluir', 'exportar'],
         'cartoes': ['visualizar', 'criar', 'editar', 'excluir', 'exportar'],
         'nao_conformidades': ['visualizar', 'criar', 'editar', 'excluir', 'exportar'],
@@ -56,6 +61,8 @@ DEFAULT_MATRIX = {
     'inspetor': {
         'dashboard': ['visualizar'],
         'registros': ['visualizar', 'criar', 'editar'],
+        # Só leitura: precisa enxergar as cotas para medir, sem poder alterá-las.
+        'materiais': ['visualizar'],
         'injecao': ['visualizar', 'criar', 'editar'],
         'cartoes': ['visualizar', 'criar', 'editar'],
         'nao_conformidades': ['visualizar', 'criar', 'editar'],
@@ -70,6 +77,7 @@ DEFAULT_MATRIX = {
     'consultor': {
         'dashboard': ['visualizar'],
         'registros': ['visualizar'],
+        'materiais': ['visualizar'],
         'injecao': ['visualizar'],
         'cartoes': ['visualizar'],
         'nao_conformidades': ['visualizar'],

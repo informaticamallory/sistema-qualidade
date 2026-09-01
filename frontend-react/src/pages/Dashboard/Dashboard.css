@@ -1722,15 +1722,9 @@ body.is-resizing-widget {
     }
 }
 
-@media (max-width: 360px) {
-    .dashboard-builder-grid .dashboard-widget.metric-widget {
-        grid-column: span 6;
-    }
-
-    .dashboard-builder-grid .dashboard-widget.metric-widget:nth-child(3) {
-        grid-column: span 12;
-    }
-}
+/* O bloco que ficava aqui pedia duas colunas abaixo de 360px, mas nunca teve
+   efeito: perdia na cascata para as regras de tamanho em .dashboard-main. As
+   duas colunas agora são o padrão do mobile, tratadas mais abaixo. */
 /* A largura fluida saiu daqui: virou o comportamento padrão de .main-content
    em ui/theme/ui-kit.css. */
 
@@ -1801,13 +1795,36 @@ body.is-resizing-widget {
     .dashboard-main .dashboard-builder-grid .widget-xl {
         grid-column: span 12;
     }
+
+    /* Três por linha: com 768px+ sobra espaço, e deixar o indicador ocupando a
+       linha toda no tablet ficaria pior do que no celular, que já traz dois. */
+    .dashboard-main .dashboard-builder-grid .dashboard-widget.metric-widget {
+        grid-column: span 4;
+    }
 }
 
+/* No celular o widget ocupa a linha inteira — menos os de indicador, que são
+   só título e número e cabem dois por linha. Empilhados, os quatro primeiros
+   consumiam a tela toda antes de aparecer qualquer gráfico. */
 @media (max-width: 767px) {
     .dashboard-main .dashboard-builder-grid .widget-sm,
     .dashboard-main .dashboard-builder-grid .widget-md,
     .dashboard-main .dashboard-builder-grid .widget-lg,
     .dashboard-main .dashboard-builder-grid .widget-xl {
+        grid-column: span 12;
+    }
+
+    /* Quatro classes contra as três das regras de tamanho acima: vence por
+       especificidade, não por ordem. */
+    .dashboard-main .dashboard-builder-grid .dashboard-widget.metric-widget {
+        grid-column: span 6;
+    }
+}
+
+/* Abaixo de 360px duas colunas deixariam ~150px por card, apertado demais
+   para o número e um título de duas linhas. Volta a empilhar. */
+@media (max-width: 359px) {
+    .dashboard-main .dashboard-builder-grid .dashboard-widget.metric-widget {
         grid-column: span 12;
     }
 }

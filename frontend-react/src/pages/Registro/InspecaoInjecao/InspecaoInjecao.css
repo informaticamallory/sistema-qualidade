@@ -352,6 +352,16 @@
     .form-row.form-row-compact .form-group {
         flex-basis: 100%;
     }
+
+    /* Números e cotas seguem dois por linha: são campos curtos, e empilhar os
+       cinco numéricos mais as quatro cotas enchia a tela do celular de rolagem
+       para digitar nove valores de poucos dígitos. Os demais campos compactos
+       (data, turno, máquina) continuam ocupando a linha inteira — quatro
+       classes contra três, vence por especificidade e não por ordem. */
+    .form-row.form-row-compact .form-group.form-group-number,
+    .form-row.form-row-compact .form-group.form-group-cota {
+        flex-basis: calc(50% - 15px);
+    }
 }
 .autocomplete-item.active {
     background: var(--primary-soft);

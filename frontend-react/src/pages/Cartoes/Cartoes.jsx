@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import ExcelJS from 'exceljs';
-import Sidebar from '../../components/Sidebar/Sidebar';
+import AppLayout from '../../components/Layout/AppLayout';
 import { cartoesAPI, produtosAPI } from '../../services/api';
 import { upperFields } from '../../utils/text';
 import {
@@ -658,10 +658,11 @@ export default function Cartoes() {
     const sheetCartao = sheetData ? cartoes.find((cartao) => cartao.id === sheetData.id) : null;
 
     return (
-        <div className="app-container">
-            <Sidebar />
-
-            <main className="main-content cartoes-page">
+        <AppLayout
+            breadcrumb={[{ label: 'Qualidade' }, { label: 'Cartões' }]}
+            mainClassName="cartoes-page"
+        >
+            <div>
                 <div className="page-header">
                     <div className="page-title">
                         <h1><i className="fas fa-credit-card"></i> Cartões de Qualidade</h1>
@@ -1169,8 +1170,8 @@ export default function Cartoes() {
                     </div>,
                     document.body
                 )}
-            </main>
-        </div>
+            </div>
+        </AppLayout>
     );
 }
 

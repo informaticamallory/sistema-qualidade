@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useRef, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import ExcelJS from 'exceljs';
-import Sidebar from '../../../components/Sidebar/Sidebar';
+import AppLayout from '../../../components/Layout/AppLayout';
 import { recebimentoAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
 import { toUpper, upperFields } from '../../../utils/text';
@@ -779,9 +779,10 @@ export default function InspecaoRecebimento() {
     ];
 
     return (
-        <div className="app-container">
-            <Sidebar />
-            <main className="main-content">
+        <AppLayout
+            breadcrumb={[{ label: 'Qualidade' }, { label: 'Registro' }, { label: 'Inspeção de Recebimento' }]}
+        >
+            <div>
                 <div className="page-header">
                     <div className="page-title">
                         <h1><i className="fas fa-clipboard-check"></i> Ficha de Inspeção de Recebimento</h1>
@@ -1447,7 +1448,7 @@ export default function InspecaoRecebimento() {
                     </div>,
                     document.body
                 )}
-            </main>
-        </div>
+            </div>
+        </AppLayout>
     );
 }

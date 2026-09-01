@@ -3,6 +3,11 @@
    Só tokens, sem cor literal — acompanha tema e densidade sozinha. */
 
 .app-shell-main {
+    /* Altura da barra, publicada para os descendentes. Quem usa position:
+       sticky dentro da página precisa somar isto ao próprio topo, senão gruda
+       atrás da barra em vez de abaixo dela. */
+    --app-topbar-h: 59px;
+
     /* O padding vai para a topbar e para o conteúdo separadamente, senão a
        barra não encosta nas bordas da área útil. */
     padding: 0 !important;

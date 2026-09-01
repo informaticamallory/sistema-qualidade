@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import Sidebar from '../../components/Sidebar/Sidebar';
+import AppLayout from '../../components/Layout/AppLayout';
 import { produtosAPI, q49API } from '../../services/api';
 import { formatDateBR, normalizeISODate, todayISO } from '../../utils/date';
 import './Q49.css';
@@ -664,10 +664,11 @@ export default function Q49() {
     };
 
     return (
-        <div className="app-container q49-page">
-            <Sidebar />
-
-            <main className="main-content">
+        <AppLayout
+            breadcrumb={[{ label: 'Qualidade' }, { label: 'Registro' }, { label: 'Produto Importado (Q49)' }]}
+            containerClassName="q49-page"
+        >
+            <div>
                 <div className="page-header q49-page-header">
                     <div className="page-title">
                         <h1>
@@ -776,7 +777,7 @@ export default function Q49() {
                 </div>
 
                 {typeof document !== 'undefined' && createPortal(renderModal(), document.body)}
-            </main>
-        </div>
+            </div>
+        </AppLayout>
     );
 }

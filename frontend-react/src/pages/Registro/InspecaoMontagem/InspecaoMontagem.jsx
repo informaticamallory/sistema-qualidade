@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import ExcelJS from 'exceljs';
-import Sidebar from '../../../components/Sidebar/Sidebar';
+import AppLayout from '../../../components/Layout/AppLayout';
 import { registrosAPI, defeitosAPI, produtosAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
 import { upperFields } from '../../../utils/text';
@@ -1145,10 +1145,11 @@ export default function InspecaoMontagem() {
     };
 
     return (
-        <div className="app-container montagem-page">
-            <Sidebar />
-
-            <main className="main-content">
+        <AppLayout
+            breadcrumb={[{ label: 'Qualidade' }, { label: 'Registro' }, { label: 'Inspeção de Montagem' }]}
+            containerClassName="montagem-page"
+        >
+            <div>
                 <div className="page-header">
                     <div className="page-title">
                         <h1><i className="fas fa-list-check"></i> Inspeção de Montagem</h1>
@@ -2241,8 +2242,8 @@ export default function InspecaoMontagem() {
                         <div className="lightbox-caption">{lightbox.fotos[lightbox.index]?.nome || `Foto ${lightbox.index + 1}`}</div>
                     </div>
                 ), document.body)}
-            </main>
-        </div>
+            </div>
+        </AppLayout>
     );
 }
 

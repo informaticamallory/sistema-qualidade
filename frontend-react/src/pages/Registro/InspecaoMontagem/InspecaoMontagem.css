@@ -1464,7 +1464,8 @@
     .montagem-content-layout { display: grid; grid-template-columns: minmax(0, 1fr) clamp(350px, 21vw, 390px); gap: 16px; align-items: start; width: 100%; transition: grid-template-columns .25s ease, gap .25s ease; }
     .montagem-page .sidebar:not(.collapsed) ~ .main-content .montagem-content-layout { grid-template-columns: minmax(0, 1fr) clamp(300px, 17vw, 320px); gap: 12px; }
     .montagem-table-column, .montagem-table-column .table-card, .montagem-table-column .table-container { width: 100%; min-width: 0; }
-    .montagem-page .piece-panorama { display: block; position: sticky; top: 16px; min-height: 480px; padding: 18px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--card-shadow); }
+    /* O topo soma a altura da barra superior: sem isso o painel gruda atrás dela. */
+    .montagem-page .piece-panorama { display: block; position: sticky; top: calc(var(--app-topbar-h, 0px) + 16px); min-height: 480px; padding: 18px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--card-shadow); }
     .montagem-page .mobile-clickable-row { cursor: pointer; }
     .montagem-page .montagem-table-column .table th.col-acoes,
     .montagem-page .montagem-table-column .table td.col-acoes { display: table-cell; position: sticky; right: 0; width: 140px; min-width: 140px; z-index: 3; background: var(--surface); box-shadow: -8px 0 14px -13px color-mix(in srgb, var(--text) 28%, transparent); }

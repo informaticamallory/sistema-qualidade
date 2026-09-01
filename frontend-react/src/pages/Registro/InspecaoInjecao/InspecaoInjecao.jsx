@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import ExcelJS from 'exceljs';
-import Sidebar from '../../../components/Sidebar/Sidebar';
+import AppLayout from '../../../components/Layout/AppLayout';
 import { injecaoAPI, produtosAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
 import { formatarTurno, normalizarTurno } from '../../../utils/turnos';
@@ -1224,10 +1224,11 @@ export default function InspecaoInjecao() {
     const fotosVisualizacao = normalizarFotosPeca(viewData?.foto_peca, viewData?.foto_peca_nome);
 
     return (
-        <div className="app-container injecao-page">
-            <Sidebar />
-
-            <main className="main-content">
+        <AppLayout
+            breadcrumb={[{ label: 'Qualidade' }, { label: 'Registro' }, { label: 'Inspeção de Injeção' }]}
+            containerClassName="injecao-page"
+        >
+            <div>
                 <div className="page-header">
                     <div className="page-title">
                         <h1><i className="fas fa-cubes"></i> Inspeção de peças plasticas</h1>
@@ -2033,8 +2034,8 @@ export default function InspecaoInjecao() {
                         </div>
                     </div>
                 ), document.body)}
-            </main>
-        </div>
+            </div>
+        </AppLayout>
     );
 }
 

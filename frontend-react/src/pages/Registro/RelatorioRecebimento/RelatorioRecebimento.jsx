@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useRef } from 'react';
-import Sidebar from '../../../components/Sidebar/Sidebar';
+import AppLayout from '../../../components/Layout/AppLayout';
 import { relatorioRecebimentoAPI, produtosAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
 import { ColumnToggle } from '../../../ui';
@@ -247,9 +247,10 @@ export default function RelatorioRecebimento() {
     const colunasVisiveis = COLUNAS.filter((c) => visible[c.key]);
 
     return (
-        <div className="app-container">
-            <Sidebar />
-            <main className="main-content">
+        <AppLayout
+            breadcrumb={[{ label: 'Qualidade' }, { label: 'Registro' }, { label: 'Relatório de Recebimento' }]}
+        >
+            <div>
                 <div className="page-header">
                     <div className="page-title">
                         <h1><i className="fas fa-truck-ramp-box"></i> Relatório de Entrada de Matéria-Prima Nacional</h1>
@@ -526,8 +527,8 @@ export default function RelatorioRecebimento() {
                         </div>
                     </div>
                 )}
-            </main>
-        </div>
+            </div>
+        </AppLayout>
     );
 }
 

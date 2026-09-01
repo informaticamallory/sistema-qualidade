@@ -1237,7 +1237,8 @@
     background: color-mix(in srgb, var(--surface) 92%, var(--primary));
   }
 
-  .piece-panorama { display: block; position: sticky; top: 16px; min-height: 480px; padding: 18px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--card-shadow); }
+  /* O topo soma a altura da barra superior: sem isso o painel gruda atrás dela. */
+  .piece-panorama { display: block; position: sticky; top: calc(var(--app-topbar-h, 0px) + 16px); min-height: 480px; padding: 18px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--card-shadow); }
   .mobile-clickable-row { cursor: pointer; }
 }
 .piece-panorama-empty { min-height: 440px; display: grid; place-content: center; text-align: center; color: var(--text-muted); padding: 30px; }

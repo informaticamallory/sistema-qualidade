@@ -1644,14 +1644,17 @@ export default function InspecaoInjecao() {
                                                         <input type="text" className="form-control field-upper" value={formData.peca}
                                                             readOnly style={{ backgroundColor: 'var(--surface-3)' }} placeholder="Descrição da peça" />
                                                     </div>
-                                                    <div className="form-group">
+                                                </div>
+
+                                                {/* Molde entrou aqui, e não na linha do Cód. SAP: com ele são seis
+                                                    campos curtos, que fecham três linhas de dois no celular sem
+                                                    sobrar meia linha vazia. */}
+                                                <div className="form-row form-row-compact form-row-numeric">
+                                                    <div className="form-group form-group-molde">
                                                         <label>Molde *</label>
                                                         <input type="text" className="form-control field-upper" value={formData.molde}
                                                             onChange={(e) => setCampo('molde', e.target.value)} aria-required="true" />
                                                     </div>
-                                                </div>
-
-                                                <div className="form-row form-row-compact form-row-numeric">
                                                     <div className="form-group form-group-number">
                                                         <label>Amostra Insp. *</label>
                                                         <input type="text" inputMode="numeric" pattern="[0-9]*" className="form-control" value={formData.amostra_insp}

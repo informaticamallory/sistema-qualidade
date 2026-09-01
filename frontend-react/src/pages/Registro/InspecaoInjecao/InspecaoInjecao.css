@@ -265,9 +265,10 @@
     align-items: end;
 }
 
+/* Duas colunas desde que o Molde passou para a grade dos numéricos. */
 .form-row-injecao-row2 {
     display: grid;
-    grid-template-columns: 180px 1fr 200px;
+    grid-template-columns: 180px 1fr;
     gap: 1rem;
     align-items: end;
 }
@@ -277,12 +278,10 @@
         grid-template-columns: 1fr 1fr;
     }
 
+    /* Sobraram dois campos largos — busca de código e descrição da peça.
+       Lado a lado eles se espremem, então cada um fica com a linha. */
     .form-row-injecao-row2 {
-        grid-template-columns: 1fr 1fr;
-    }
-
-    .form-row-injecao-row2 > *:first-child {
-        grid-column: 1 / -1;
+        grid-template-columns: 1fr;
     }
 }
 
@@ -481,10 +480,11 @@
     }
 }
 
-/* Grade responsiva dos indicadores numéricos. */
+/* Grade responsiva do Molde e dos indicadores numéricos.
+   Seis colunas: o Molde saiu da linha do Cód. SAP para cá. */
 .injecao-form-modal .form-row.form-row-compact.form-row-numeric {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1.2fr) repeat(5, minmax(0, 1fr));
     gap: 0.75rem;
     align-items: end;
 }
@@ -500,16 +500,24 @@
     min-width: 0;
 }
 
-@media (max-width: 700px) {
+/* No tablet os seis em uma linha cairiam para ~110px cada. Duas linhas de três. */
+@media (max-width: 768px) {
     .injecao-form-modal .form-row.form-row-compact.form-row-numeric {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 0.65rem;
     }
 }
 
-@media (max-width: 360px) {
+/* Duas colunas no celular: os seis campos fecham três linhas cheias.
+
+   O !important não é preferência de estilo, é necessidade: responsive.css
+   declara `.form-row { grid-template-columns: 1fr !important }` abaixo de
+   480px, e a única forma de vencer um !important é com outro. Era isso que
+   empilhava a coluna inteira aqui, e não a regra de flex logo acima — que
+   governa as cotas, um container flex onde grid-template-columns é inerte. */
+@media (max-width: 480px) {
     .injecao-form-modal .form-row.form-row-compact.form-row-numeric {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     }
 }
 

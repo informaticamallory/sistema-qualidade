@@ -18,6 +18,7 @@ import Indicadores from './pages/Indicadores/Indicadores';
 import Calibracao from './pages/Calibracao/Calibracao';
 import Usuarios from './pages/Usuarios/Usuarios';
 import Q49 from './pages/Q49/Q49';
+import CadastroMaterial from './pages/CadastroMaterial/CadastroMaterial';
 
 // Styles
 import '@fortawesome/fontawesome-free/css/all.min.css';
@@ -117,6 +118,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <Q49 />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/cadastro-material"
+            element={
+              <ProtectedRoute>
+                <CadastroMaterial />
               </ProtectedRoute>
             }
           />

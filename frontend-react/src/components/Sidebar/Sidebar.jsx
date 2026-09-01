@@ -39,6 +39,9 @@ export default function Sidebar({ collapsed: collapsedProp, onToggleCollapsed })
                 { path: '/registros/relatorio-recebimento', icon: 'fa-truck-ramp-box', label: 'Relatório de Recebimento', modulo: 'registros' }
             ]
         },
+        /* Item próprio, fora de Registro: cadastrar o desenho é trabalho de
+           engenharia, não lançamento de inspeção. */
+        { path: '/cadastro-material', icon: 'fa-drafting-compass', label: 'Cadastro de Material', modulo: 'materiais' },
         { path: '/cartoes', icon: 'fa-credit-card', label: 'Cartões', modulo: 'cartoes' },
         {
             key: 'fichas-nc',

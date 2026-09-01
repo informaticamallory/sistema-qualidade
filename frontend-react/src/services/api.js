@@ -149,13 +149,48 @@ export const injecaoAPI = {
     delete: (id) => api.delete(`/inspecao-injecao/${id}`),
 };
 
-// ==================== INSPEÇÃO DE RECEBIMENTO (FICHA) ====================
+// ==================== FICHA DE RECEBIMENTO (LEGADO) ====================
+// Nenhuma tela usa mais: a inspeção de recebimento passou a ser por lote
+// (inspecoesRecebimentoAPI, abaixo). Mantido porque as fichas antigas
+// continuam no banco e o endpoint segue de pé para consulta.
 export const recebimentoAPI = {
     getAll: (params = {}) => dedupedGet('/inspecao-recebimento', { params }),
     getById: (id) => dedupedGet(`/inspecao-recebimento/${id}`),
     create: (data) => api.post('/inspecao-recebimento', data),
     update: (id, data) => api.put(`/inspecao-recebimento/${id}`, data),
     delete: (id) => api.delete(`/inspecao-recebimento/${id}`),
+};
+
+// ==================== MATERIAIS E REVISÕES DE DESENHO ====================
+export const materiaisAPI = {
+    getAll: (params = {}) => dedupedGet('/materiais', { params }),
+    getById: (id) => dedupedGet(`/materiais/${id}`),
+    /* Busca do autocomplete da tela de inspeção. */
+    search: (termo) => dedupedGet('/materiais', { params: { search: termo, limit: 20 } }),
+    /* Cria o material (se ainda não existir) junto com a primeira revisão. */
+    create: (data) => api.post('/materiais', data),
+    update: (id, data) => api.put(`/materiais/${id}`, data),
+    delete: (id) => api.delete(`/materiais/${id}`),
+    getRevisoes: (id) => dedupedGet(`/materiais/${id}/revisoes`),
+    addRevisao: (id, data) => api.post(`/materiais/${id}/revisoes`, data),
+};
+
+export const revisoesAPI = {
+    getById: (revId) => dedupedGet(`/revisoes/${revId}`),
+    update: (revId, data) => api.put(`/revisoes/${revId}`, data),
+    delete: (revId) => api.delete(`/revisoes/${revId}`),
+    /* Pré-carrega a aba de Resultados a partir das cotas da revisão. */
+    getPosicoes: (revId) => dedupedGet(`/revisoes/${revId}/posicoes`),
+};
+
+// ==================== INSPEÇÃO DE RECEBIMENTO (POR LOTE) ====================
+export const inspecoesRecebimentoAPI = {
+    getAll: (params = {}) => dedupedGet('/inspecoes-recebimento', { params }),
+    getById: (id) => dedupedGet(`/inspecoes-recebimento/${id}`),
+    create: (data) => api.post('/inspecoes-recebimento', data),
+    update: (id, data) => api.put(`/inspecoes-recebimento/${id}`, data),
+    delete: (id) => api.delete(`/inspecoes-recebimento/${id}`),
+    saveResultados: (id, data) => api.put(`/inspecoes-recebimento/${id}/resultados`, data),
 };
 
 // ==================== RELATÓRIO DE RECEBIMENTO ====================

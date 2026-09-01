@@ -9,6 +9,9 @@ export const ROUTE_PERMISSIONS = [
     { path: '/registros/montagem', modulo: 'registros' },
     { path: '/registros/recebimento', modulo: 'registros' },
     { path: '/registros/relatorio-recebimento', modulo: 'registros' },
+    /* Cadastro do desenho de referência: módulo próprio, para o inspetor ler
+       as cotas sem poder alterá-las (ver backend/app/utils/permissions.py). */
+    { path: '/cadastro-material', modulo: 'materiais' },
     { path: '/registro/produto-importado', modulo: 'registros' },
     { path: '/cartoes', modulo: 'cartoes' },
     { path: '/fichas-nc/fnc', modulo: 'nao_conformidades' },

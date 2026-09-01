@@ -201,7 +201,10 @@ def handle_inspecao(id):
                 nova = RevisaoDesenho.query.get(_inteiro(dados.get('revisao_id'), 0))
                 if not nova:
                     return create_response(success=False, message='Revisão inválida', status_code=400)
-                inspecao.revisao_id = nova.id
+                # Atribui o objeto, e não só o id: o relationship só recarregaria
+                # depois do flush, e os resultados abaixo seriam montados a
+                # partir das posições da revisão antiga.
+                inspecao.revisao = nova
                 inspecao.material_id = nova.material_id
 
             for campo, limite in (('fornecedor', 255), ('lote', 100),

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import Sidebar from '../../components/Sidebar/Sidebar';
+import AppLayout from '../../components/Layout/AppLayout';
 import { resumoBloqueioAPI } from '../../services/api';
 import './ResumoBloqueio.css';
 
@@ -602,10 +602,11 @@ export default function ResumoBloqueio() {
     }[saveState];
 
     return (
-        <div className="app-container resumo-bloqueio-page">
-            <Sidebar />
-
-            <main className="main-content">
+        <AppLayout
+            breadcrumb={[{ label: 'Qualidade' }, { label: 'Fichas NC' }, { label: 'Resumo Diário de Bloqueio' }]}
+            containerClassName="resumo-bloqueio-page"
+        >
+            <div>
                 <div className="page-header resumo-page-header">
                     <div className="page-title">
                         <h1><i className="fas fa-triangle-exclamation"></i> Resumo Diário de Bloqueio</h1>
@@ -803,7 +804,7 @@ export default function ResumoBloqueio() {
                         {sendFeedback.message}
                     </div>
                 )}
-            </main>
-        </div>
+            </div>
+        </AppLayout>
     );
 }

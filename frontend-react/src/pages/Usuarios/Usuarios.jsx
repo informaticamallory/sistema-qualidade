@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import Sidebar from '../../components/Sidebar/Sidebar';
+import AppLayout from '../../components/Layout/AppLayout';
 import { usuariosAPI } from '../../services/api';
 import { toUpper } from '../../utils/text';
 import { useAuth } from '../../context/auth-context';
@@ -255,9 +255,10 @@ export default function Usuarios() {
     const sheetUsuario = sheetData ? usuarios.find((usuario) => usuario.id === sheetData.id) : null;
 
     return (
-        <div className="app-container">
-            <Sidebar />
-            <main className="main-content">
+        <AppLayout
+            breadcrumb={[{ label: 'Qualidade' }, { label: 'Usuários' }]}
+        >
+            <div>
                 <div className="page-header">
                     <div className="page-title">
                         <h1><i className="fas fa-users-gear"></i> Gerenciamento de Usuários</h1>
@@ -516,8 +517,8 @@ export default function Usuarios() {
                     </div>,
                     document.body
                 )}
-            </main>
-        </div>
+            </div>
+        </AppLayout>
     );
 }
 

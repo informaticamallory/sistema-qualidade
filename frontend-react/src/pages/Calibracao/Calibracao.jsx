@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import Sidebar from '../../components/Sidebar/Sidebar';
+import AppLayout from '../../components/Layout/AppLayout';
 import { equipamentosAPI, calibracoesAPI, tiposEquipamentoAPI } from '../../services/api';
 import { useAuth } from '../../context/auth-context';
 import { toUpper, upperFields } from '../../utils/text';
@@ -453,10 +453,10 @@ export default function Calibracao() {
     const ultimaCalibracaoView = viewCalibracoes[0] || viewEquipamento?.ultima_calibracao || null;
 
     return (
-        <div className="app-container">
-            <Sidebar />
-
-            <main className="main-content">
+        <AppLayout
+            breadcrumb={[{ label: 'Qualidade' }, { label: 'Calibração' }]}
+        >
+            <div>
                 {/* Header */}
                 <div className="page-header">
                     <div className="page-title">
@@ -1368,8 +1368,8 @@ export default function Calibracao() {
                     </div>,
                     document.body
                 )}
-            </main>
-        </div>
+            </div>
+        </AppLayout>
     );
 }
 

@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import Sidebar from '../../components/Sidebar/Sidebar';
+import AppLayout from '../../components/Layout/AppLayout';
 import { useAuth } from '../../context/auth-context';
 import { fichasAPI, produtosAPI } from '../../services/api';
 import { upperFields } from '../../utils/text';
@@ -416,10 +416,10 @@ export default function Fichas() {
     const sheetFicha = sheetData ? fichas.find((ficha) => ficha.id === sheetData.id) : null;
 
     return (
-        <div className="app-container">
-            <Sidebar />
-
-            <main className="main-content">
+        <AppLayout
+            breadcrumb={[{ label: 'Qualidade' }, { label: 'Fichas NC' }, { label: 'Fichas de Não Conformidade' }]}
+        >
+            <div>
                 <div className="page-header">
                     <div className="page-title">
                         <h1><i className="fas fa-exclamation-triangle"></i> Fichas de Não Conformidade</h1>
@@ -1174,8 +1174,8 @@ export default function Fichas() {
                     </div>,
                     document.body
                 )}
-            </main>
-        </div>
+            </div>
+        </AppLayout>
     );
 }
 

@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import AppLayout from '../../components/Layout/AppLayout';
 import { Tabs } from '../../components/ui';
-import { materiaisAPI, revisoesAPI } from '../../services/api';
+import { materiaisAPI, revisoesAPI, produtosAPI } from '../../services/api';
 import { upperFields } from '../../utils/text';
 import './CadastroMaterial.css';
 
@@ -53,6 +53,18 @@ export default function CadastroMaterial() {
     /* Quando preenchido, o modal está editando esta revisão em vez de criar. */
     const [revisaoEmEdicao, setRevisaoEmEdicao] = useState(null);
 
+    /* ── Auto-preenchimento do Componente pelo Cód. SAP ── */
+    const [buscandoComponente, setBuscandoComponente] = useState(false);
+    const [origemComponente, setOrigemComponente] = useState('');
+    /* O valor atual do Componente veio da busca? Só nesse caso uma busca
+       seguinte pode substituí-lo ou limpá-lo. */
+    const autoPreenchidoRef = useRef(false);
+    /* A busca só dispara depois de o usuário digitar. Sem isto, abrir o modal
+       para editar uma revisão já disparava consulta e sobrescrevia o que
+       acabou de ser carregado do banco. */
+    const sapDigitadoRef = useRef(false);
+    const debounceSapRef = useRef(null);
+
     const [expandido, setExpandido] = useState({});
 
     const carregar = useCallback(async () => {
@@ -83,6 +95,88 @@ export default function CadastroMaterial() {
 
     const setCampo = (campo, valor) => setFormData((prev) => ({ ...prev, [campo]: valor }));
 
+    /* Duas fontes, nesta ordem.
+
+       1. A tabela de materiais: se o código já está cadastrado, o componente
+          tem de ser o mesmo que consta lá — o caso comum aqui é lançar uma
+          revisão nova de um material que já existe, e divergir do cadastro só
+          criaria dois nomes para a mesma peça.
+
+       2. A base de produtos do SAP: para código ainda não cadastrado, traz a
+          descrição oficial em vez de deixar o inspetor digitar de memória. */
+    const buscarComponentePorSap = async (codigo) => {
+        try {
+            const resp = await materiaisAPI.getAll({ codigo_sap: codigo, limit: 1 });
+            const material = (resp.data?.data || resp.data || {}).materiais?.[0];
+            if (material?.componente) {
+                return { componente: material.componente, origem: 'material' };
+            }
+        } catch {
+            /* Segue para o SAP. */
+        }
+
+        try {
+            const resp = await produtosAPI.getByCode(codigo);
+            const produto = resp.data?.data;
+            if (produto?.desc_material) {
+                return { componente: produto.desc_material, origem: 'produto' };
+            }
+        } catch {
+            /* 404 é resposta esperada para código novo, não erro a exibir. */
+        }
+
+        return null;
+    };
+
+    useEffect(() => {
+        if (!modalAberto || !sapDigitadoRef.current) return;
+
+        const codigo = String(formData.codigo_sap || '').trim();
+        clearTimeout(debounceSapRef.current);
+
+        /* Menos de três caracteres ainda não é um código: consultar aqui só
+           geraria chamada a cada tecla do começo da digitação. */
+        if (codigo.length < 3) {
+            setBuscandoComponente(false);
+            setOrigemComponente('');
+            return;
+        }
+
+        let cancelado = false;
+        debounceSapRef.current = setTimeout(async () => {
+            setBuscandoComponente(true);
+            try {
+                const achado = await buscarComponentePorSap(codigo);
+                if (cancelado) return;
+
+                if (achado) {
+                    setFormData((prev) => ({ ...prev, componente: achado.componente }));
+                    setOrigemComponente(achado.origem);
+                    autoPreenchidoRef.current = true;
+                } else if (autoPreenchidoRef.current) {
+                    /* Limpa apenas o que a própria busca havia preenchido: o
+                       código mudou para um que não existe, e manter a descrição
+                       do código anterior seria pior que o campo vazio. Digitação
+                       manual nunca é apagada. */
+                    setFormData((prev) => ({ ...prev, componente: '' }));
+                    setOrigemComponente('');
+                    autoPreenchidoRef.current = false;
+                } else {
+                    setOrigemComponente('');
+                }
+            } finally {
+                if (!cancelado) setBuscandoComponente(false);
+            }
+        }, 450);
+
+        return () => {
+            cancelado = true;
+            clearTimeout(debounceSapRef.current);
+        };
+    }, [formData.codigo_sap, modalAberto]);
+
+    useEffect(() => () => clearTimeout(debounceSapRef.current), []);
+
     const updatePosicao = (i, campo, valor) => setPosicoes((prev) =>
         prev.map((p, idx) => (idx === i ? { ...p, [campo]: valor } : p)));
 
@@ -91,7 +185,19 @@ export default function CadastroMaterial() {
     const removePosicao = (i) => setPosicoes((prev) =>
         (prev.length === 1 ? prev : prev.filter((_, idx) => idx !== i)));
 
+    /* Toda abertura do modal começa sem busca pendente e sem marcar o
+       Componente como preenchido pelo sistema — o valor que entra aqui vem do
+       banco ou está vazio, e não deve ser apagado por uma busca. */
+    const zerarBuscaSap = () => {
+        clearTimeout(debounceSapRef.current);
+        sapDigitadoRef.current = false;
+        autoPreenchidoRef.current = false;
+        setBuscandoComponente(false);
+        setOrigemComponente('');
+    };
+
     const abrirNovo = () => {
+        zerarBuscaSap();
         setRevisaoEmEdicao(null);
         setFormData(formVazio());
         setPosicoes([posicaoVazia()]);
@@ -102,6 +208,7 @@ export default function CadastroMaterial() {
 
     const abrirNovaRevisao = (material) => {
         /* Herda a identificação do material: só a revisão e as cotas mudam. */
+        zerarBuscaSap();
         setRevisaoEmEdicao(null);
         setFormData({
             ...formVazio(),
@@ -119,6 +226,7 @@ export default function CadastroMaterial() {
 
     const abrirEdicao = async (material, revisao) => {
         setAlerta('');
+        zerarBuscaSap();
         try {
             const resp = await revisoesAPI.getById(revisao.id);
             const dados = resp.data?.data || resp.data || {};
@@ -445,7 +553,12 @@ export default function CadastroMaterial() {
                                                 <label>Cód. SAP *</label>
                                                 <input type="text" className="form-control field-upper"
                                                     value={formData.codigo_sap}
-                                                    onChange={(e) => setCampo('codigo_sap', e.target.value)}
+                                                    onChange={(e) => {
+                                                        /* Libera a busca: a partir daqui o valor é do
+                                                           usuário, não o que o modal carregou. */
+                                                        sapDigitadoRef.current = true;
+                                                        setCampo('codigo_sap', e.target.value);
+                                                    }}
                                                     aria-required="true" />
                                             </div>
                                             <div className="form-group">
@@ -463,14 +576,35 @@ export default function CadastroMaterial() {
                                             </div>
                                         </div>
 
-                                        <div className="form-row-material">
-                                            <div className="form-group form-group-largo">
+                                        <div className="form-row-material duas-colunas">
+                                            <div className="form-group">
                                                 <label>Componente</label>
-                                                <input type="text" className="form-control field-upper"
-                                                    value={formData.componente}
-                                                    onChange={(e) => setCampo('componente', e.target.value)} />
+                                                <div className="campo-com-status">
+                                                    <input type="text" className="form-control field-upper"
+                                                        value={formData.componente}
+                                                        onChange={(e) => {
+                                                            /* Edição manual desliga o preenchimento
+                                                               automático: uma busca posterior não deve
+                                                               apagar o que o usuário escreveu. */
+                                                            autoPreenchidoRef.current = false;
+                                                            setCampo('componente', e.target.value);
+                                                        }} />
+                                                    {buscandoComponente && (
+                                                        <span className="campo-spinner" role="status"
+                                                            aria-label="Buscando componente">
+                                                            <i className="fas fa-spinner fa-spin" aria-hidden="true"></i>
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {origemComponente && (
+                                                    <small className="campo-ajuda">
+                                                        {origemComponente === 'material'
+                                                            ? 'Preenchido a partir do material já cadastrado.'
+                                                            : 'Preenchido a partir da descrição do SAP.'}
+                                                    </small>
+                                                )}
                                             </div>
-                                            <div className="form-group form-group-largo">
+                                            <div className="form-group">
                                                 <label>Aplicação</label>
                                                 <input type="text" className="form-control field-upper"
                                                     value={formData.aplicacao}
@@ -478,14 +612,18 @@ export default function CadastroMaterial() {
                                             </div>
                                         </div>
 
-                                        <div className="form-row-material">
+                                        {/* Mesma grade da linha acima. Antes o Fornecedor ocupava
+                                            duas das três colunas, e entre 561px e 900px — onde a
+                                            grade cai para duas — ele não cabia ao lado do Setor e
+                                            descia de linha. */}
+                                        <div className="form-row-material duas-colunas">
                                             <div className="form-group">
                                                 <label>Setor</label>
                                                 <input type="text" className="form-control field-upper"
                                                     value={formData.setor}
                                                     onChange={(e) => setCampo('setor', e.target.value)} />
                                             </div>
-                                            <div className="form-group form-group-largo">
+                                            <div className="form-group">
                                                 <label>Fornecedor</label>
                                                 <input type="text" className="form-control field-upper"
                                                     value={formData.fornecedor}

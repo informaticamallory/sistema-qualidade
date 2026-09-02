@@ -142,6 +142,43 @@
     grid-column: span 2;
 }
 
+/* Linha de dois campos equivalentes, cada um com metade da largura. Sem isto,
+   dois `form-group-largo` (span 2) num grid de três colunas não caberiam na
+   mesma linha e o segundo caía para a linha de baixo. */
+.form-row-material.duas-colunas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* ── Campo com spinner ── */
+.campo-com-status {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.campo-com-status .form-control {
+    width: 100%;
+    padding-right: 38px;
+}
+
+/* !important porque o responsive.css declara `.form-control { padding:
+   12px 14px !important }` abaixo de 480px, que apagaria o espaço reservado e
+   deixaria o texto passar por baixo do spinner. Três classes para vencer por
+   especificidade, não por ordem de arquivo. */
+.material-modal .campo-com-status .form-control {
+    padding-right: 38px !important;
+}
+
+.campo-spinner {
+    position: absolute;
+    right: 12px;
+    display: grid;
+    place-items: center;
+    color: var(--primary);
+    font-size: .9rem;
+    pointer-events: none;
+}
+
 .section-header-linha {
     display: flex;
     align-items: center;
@@ -184,7 +221,10 @@
 }
 
 @media (max-width: 560px) {
+    /* A modificadora entra na lista de propósito: com duas classes ela vence
+       `.form-row-material` sozinha, e Componente/Aplicação não empilhariam. */
     .form-row-material,
+    .form-row-material.duas-colunas,
     .form-row-material .form-group-largo {
         grid-column: auto;
         grid-template-columns: 1fr;

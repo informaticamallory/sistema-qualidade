@@ -1862,64 +1862,64 @@ export default function InspecaoMontagem() {
                                             </div>
 
                                             {formData.status === 'reprovado' && (
+                                                 //<>
+                                                //     <div className="divider"></div>
+                                                //     <div className="form-section nc-section">
+                                                //         <h3 className="section-title">Não Conformidade</h3>
+                                                //         <div className="form-row">
+                                                //             <div className="form-group">
+                                                //                 <label>Documento</label>
+                                                //                 <input
+                                                //                     type="text"
+                                                //                     className="form-control field-upper"
+                                                //                     value={formData.documento}
+                                                //                     onChange={(e) => setFormData({ ...formData, documento: e.target.value.toUpperCase() })}
+                                                //                 />
+                                                //             </div>
+                                                //             <div className="form-group">
+                                                //                 <label>Prioridade</label>
+                                                //                 <select
+                                                //                     className="form-control"
+                                                //                     value={formData.prioridade}
+                                                //                     onChange={(e) => setFormData({ ...formData, prioridade: e.target.value })}
+                                                //                 >
+                                                //                     <option value="">Selecione</option>
+                                                //                     <option value="critico">Crítico</option>
+                                                //                     <option value="primario">Primário</option>
+                                                //                     <option value="secundario">Secundário</option>
+                                                //                 </select>
+                                                //             </div>
+                                                //         </div>
+                                                //         <div className="form-row">
+                                                //             <div className="form-group">
+                                                //                 <label>Defeito</label>
+                                                //                 <select
+                                                //                     className="form-control"
+                                                //                     value={formData.defeito}
+                                                //                     onChange={(e) => setFormData({ ...formData, defeito: e.target.value })}
+                                                //                 >
+                                                //                     <option value="">Selecione ou digite...</option>
+                                                //                     {defeitos.map(d => (
+                                                //                         <option key={d.id} value={d.defeito}>{d.defeito}</option>
+                                                //                     ))}
+                                                //                 </select>
+                                                //             </div>
+                                                //             <div className="form-group">
+                                                //                 <label>Origem do Problema</label>
+                                                //                 <select
+                                                //                     className="form-control"
+                                                //                     value={formData.origem_problema}
+                                                //                     onChange={(e) => setFormData({ ...formData, origem_problema: e.target.value })}
+                                                //                 >
+                                                //                     <option value="">Selecione</option>
+                                                //                     <option value="Injeção">Injeção</option>
+                                                //                     <option value="Montagem">Montagem</option>
+                                                //                     <option value="Logística">Logística</option>
+                                                //                 </select>
+                                                //             </div>
+                                                //         </div>
+                                                //     </div>
                                                 <>
-                                                    <div className="divider"></div>
-                                                    <div className="form-section nc-section">
-                                                        <h3 className="section-title">Não Conformidade</h3>
-                                                        <div className="form-row">
-                                                            <div className="form-group">
-                                                                <label>Documento</label>
-                                                                <input
-                                                                    type="text"
-                                                                    className="form-control field-upper"
-                                                                    value={formData.documento}
-                                                                    onChange={(e) => setFormData({ ...formData, documento: e.target.value.toUpperCase() })}
-                                                                />
-                                                            </div>
-                                                            <div className="form-group">
-                                                                <label>Prioridade</label>
-                                                                <select
-                                                                    className="form-control"
-                                                                    value={formData.prioridade}
-                                                                    onChange={(e) => setFormData({ ...formData, prioridade: e.target.value })}
-                                                                >
-                                                                    <option value="">Selecione</option>
-                                                                    <option value="critico">Crítico</option>
-                                                                    <option value="primario">Primário</option>
-                                                                    <option value="secundario">Secundário</option>
-                                                                </select>
-                                                            </div>
-                                                        </div>
-                                                        <div className="form-row">
-                                                            <div className="form-group">
-                                                                <label>Defeito</label>
-                                                                <select
-                                                                    className="form-control"
-                                                                    value={formData.defeito}
-                                                                    onChange={(e) => setFormData({ ...formData, defeito: e.target.value })}
-                                                                >
-                                                                    <option value="">Selecione ou digite...</option>
-                                                                    {defeitos.map(d => (
-                                                                        <option key={d.id} value={d.defeito}>{d.defeito}</option>
-                                                                    ))}
-                                                                </select>
-                                                            </div>
-                                                            <div className="form-group">
-                                                                <label>Origem do Problema</label>
-                                                                <select
-                                                                    className="form-control"
-                                                                    value={formData.origem_problema}
-                                                                    onChange={(e) => setFormData({ ...formData, origem_problema: e.target.value })}
-                                                                >
-                                                                    <option value="">Selecione</option>
-                                                                    <option value="Injeção">Injeção</option>
-                                                                    <option value="Montagem">Montagem</option>
-                                                                    <option value="Logística">Logística</option>
-                                                                </select>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
                                                     <div className="form-section checklist-section">
                                                         <h3 className="checklist-section-title checklist-title">
                                                             <i className="fas fa-clipboard-list"></i>

@@ -2,6 +2,7 @@
 import { createPortal } from 'react-dom';
 import ExcelJS from 'exceljs';
 import AppLayout from '../../../components/Layout/AppLayout';
+import ScannerCodigo from '../../../components/ScannerCodigo/ScannerCodigo';
 import { registrosAPI, defeitosAPI, produtosAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
 import { upperFields } from '../../../utils/text';
@@ -123,6 +124,7 @@ export default function InspecaoMontagem() {
 
     // Feedback da leitura do código de barras
     const [barcodeStatus, setBarcodeStatus] = useState(null); // { type: 'success' | 'error', message }
+    const [scannerAberto, setScannerAberto] = useState(false);
 
     // Lightbox de fotos com zoom
     const [lightbox, setLightbox] = useState({ open: false, fotos: [], index: 0 });
@@ -462,6 +464,21 @@ export default function InspecaoMontagem() {
         }));
         setShowSugestoes(false);
         setProdutoSugestoes([]);
+    };
+
+    /* Câmera só entra em cena onde existe de fato: aparelho sem câmera ou
+       página sem HTTPS não ganham um botão que só daria erro. */
+    const suportaCamera = typeof navigator !== 'undefined'
+        && !!navigator.mediaDevices?.getUserMedia
+        && window.isSecureContext;
+
+    const aoLerCodigoPelaCamera = (codigo) => {
+        setFormData((prev) => ({ ...prev, codigo_barras: codigo }));
+        setBarcodeStatus(null);
+        /* Mesma validação da digitação: confere o produto e avisa se o código
+           lido não corresponde ao Cód. SAP já informado. */
+        buscarPorCodigoBarras(codigo);
+        setFormDirty(true);
     };
 
     // Leitura do código de barras: preenche os dados e/ou valida contra o Código SAP digitado
@@ -1582,23 +1599,39 @@ export default function InspecaoMontagem() {
                                                     </div>
                                                     <div className="form-group sap-barcode-group">
                                                         <label><i className="fas fa-barcode"></i> Código de Barras do Produto</label>
-                                                        <input
-                                                            type="text"
-                                                            className="form-control field-upper"
-                                                            value={formData.codigo_barras}
-                                                            onChange={(e) => {
-                                                                setFormData({ ...formData, codigo_barras: e.target.value });
-                                                                if (barcodeStatus) setBarcodeStatus(null);
-                                                            }}
-                                                            onKeyDown={(e) => {
-                                                                if (e.key === 'Enter') {
-                                                                    e.preventDefault();
-                                                                    buscarPorCodigoBarras(e.target.value);
-                                                                }
-                                                            }}
-                                                            onBlur={(e) => buscarPorCodigoBarras(e.target.value)}
-                                                            placeholder="Escaneie ou digite o código de barras"
-                                                        />
+                                                        {/* O botão da câmera é um extra: digitar e usar leitor
+                                                            físico (que chega como digitação + Enter) seguem
+                                                            funcionando igual. */}
+                                                        <div className="barcode-campo">
+                                                            <input
+                                                                type="text"
+                                                                className="form-control field-upper"
+                                                                value={formData.codigo_barras}
+                                                                onChange={(e) => {
+                                                                    setFormData({ ...formData, codigo_barras: e.target.value });
+                                                                    if (barcodeStatus) setBarcodeStatus(null);
+                                                                }}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') {
+                                                                        e.preventDefault();
+                                                                        buscarPorCodigoBarras(e.target.value);
+                                                                    }
+                                                                }}
+                                                                onBlur={(e) => buscarPorCodigoBarras(e.target.value)}
+                                                                placeholder="Escaneie ou digite o código de barras"
+                                                            />
+                                                            {suportaCamera && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="barcode-camera-btn"
+                                                                    onClick={() => setScannerAberto(true)}
+                                                                    title="Ler com a câmera"
+                                                                    aria-label="Ler código de barras com a câmera"
+                                                                >
+                                                                    <i className="fas fa-camera" aria-hidden="true"></i>
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                         {barcodeStatus && (
                                                             <span className={`barcode-status barcode-status-${barcodeStatus.type}`}>
                                                                 <i className={`fas ${barcodeStatus.type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}`}></i>
@@ -2243,6 +2276,16 @@ export default function InspecaoMontagem() {
                         <div className="lightbox-caption">{lightbox.fotos[lightbox.index]?.nome || `Foto ${lightbox.index + 1}`}</div>
                     </div>
                 ), document.body)}
+
+                {/* Fora do modal de inspeção: o componente já se projeta em
+                    portal, e montá-lo aqui evita que fechar o formulário
+                    deixe a câmera ligada. */}
+                <ScannerCodigo
+                    aberto={scannerAberto}
+                    onLer={aoLerCodigoPelaCamera}
+                    onFechar={() => setScannerAberto(false)}
+                    titulo="Ler código de barras do produto"
+                />
             </div>
         </AppLayout>
     );

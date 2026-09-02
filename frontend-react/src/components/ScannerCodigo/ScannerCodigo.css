@@ -1,0 +1,246 @@
+/* Leitor de código de barras pela câmera.
+
+   Fundo escuro fixo, e não os tokens de tema: a imagem da câmera precisa de
+   moldura escura para a mira ficar legível, tanto no claro quanto no escuro. */
+
+.scanner-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 4000;
+    display: grid;
+    place-items: center;
+    padding: 12px;
+    background: rgba(8, 10, 14, .92);
+    /* Fica acima da topbar (z-index 900) e dos modais do sistema. */
+}
+
+.scanner-caixa {
+    display: flex;
+    flex-direction: column;
+    width: min(560px, 100%);
+    max-height: calc(100dvh - 24px);
+    overflow: hidden;
+    border-radius: 16px;
+    background: #12161d;
+    color: #f2f5f7;
+    box-shadow: 0 18px 60px rgba(0, 0, 0, .6);
+}
+
+/* ── Cabeçalho ── */
+.scanner-topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, .1);
+}
+
+.scanner-topo h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.scanner-fechar {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 auto;
+    border: none;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, .08);
+    color: #f2f5f7;
+    font-size: 1.05rem;
+    cursor: pointer;
+}
+
+.scanner-fechar:hover {
+    background: rgba(255, 255, 255, .16);
+}
+
+.scanner-fechar:focus-visible {
+    outline: 2px solid #ff6600;
+    outline-offset: 2px;
+}
+
+/* ── Área da câmera ── */
+.scanner-palco {
+    position: relative;
+    display: grid;
+    place-items: center;
+    /* 4:3 acompanha o que a maioria das câmeras traseiras entrega, sem
+       recortar as pontas de um código longo. */
+    aspect-ratio: 4 / 3;
+    width: 100%;
+    background: #000;
+    overflow: hidden;
+}
+
+.scanner-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* ── Mira ── */
+.scanner-mira {
+    position: absolute;
+    /* Área larga e baixa: código de barras é deitado, e uma mira quadrada faz
+       o operador afastar o aparelho mais do que precisa. */
+    width: 78%;
+    height: 42%;
+    pointer-events: none;
+}
+
+.scanner-canto {
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    border: 3px solid #ff6600;
+}
+
+.scanner-canto.ct-tl { top: 0; left: 0; border-right: none; border-bottom: none; border-radius: 6px 0 0 0; }
+.scanner-canto.ct-tr { top: 0; right: 0; border-left: none; border-bottom: none; border-radius: 0 6px 0 0; }
+.scanner-canto.ct-bl { bottom: 0; left: 0; border-right: none; border-top: none; border-radius: 0 0 0 6px; }
+.scanner-canto.ct-br { bottom: 0; right: 0; border-left: none; border-top: none; border-radius: 0 0 6px 0; }
+
+.scanner-linha {
+    position: absolute;
+    left: 6%;
+    right: 6%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #ff6600, transparent);
+    animation: scanner-varre 1.8s ease-in-out infinite;
+}
+
+@keyframes scanner-varre {
+    0%, 100% { top: 8%; opacity: .35; }
+    50% { top: 92%; opacity: 1; }
+}
+
+/* Quem pediu menos movimento não recebe a linha animada. */
+@media (prefers-reduced-motion: reduce) {
+    .scanner-linha {
+        animation: none;
+        top: 50%;
+        opacity: .8;
+    }
+}
+
+/* ── Avisos sobre o vídeo ── */
+.scanner-aviso {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    padding: 10px 16px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, .66);
+    font-size: .9rem;
+}
+
+.scanner-aviso.scanner-ok {
+    background: #16a34a;
+    font-weight: 600;
+}
+
+.scanner-palco.is-lido {
+    /* Confirmação também pela moldura, para quem não lê a legenda a tempo. */
+    box-shadow: inset 0 0 0 4px #16a34a;
+}
+
+.scanner-erro {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px;
+    text-align: center;
+    background: rgba(8, 10, 14, .9);
+}
+
+.scanner-erro > i {
+    font-size: 2rem;
+    color: #f59e0b;
+}
+
+.scanner-erro p {
+    margin: 0;
+    max-width: 40ch;
+    font-size: .92rem;
+    line-height: 1.5;
+}
+
+/* ── Rodapé ── */
+.scanner-rodape {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px 16px;
+    border-top: 1px solid rgba(255, 255, 255, .1);
+}
+
+.scanner-dica {
+    margin: 0;
+    font-size: .85rem;
+    line-height: 1.45;
+    color: rgba(242, 245, 247, .72);
+}
+
+.scanner-acoes {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Botões próprios: os do sistema herdam o tema claro e ficariam ilegíveis
+   sobre este fundo escuro fixo. */
+.scanner-acoes .btn {
+    flex: 1 1 auto;
+    /* Alvo de toque confortável para quem está de luva. */
+    min-height: 46px;
+    border: 1px solid rgba(255, 255, 255, .22);
+    background: rgba(255, 255, 255, .06);
+    color: #f2f5f7;
+}
+
+.scanner-acoes .btn:hover {
+    background: rgba(255, 255, 255, .14);
+}
+
+.scanner-acoes .btn.is-ativo {
+    border-color: #ff6600;
+    background: rgba(255, 102, 0, .22);
+    color: #ffb37a;
+}
+
+.scanner-motor {
+    font-size: .72rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: rgba(242, 245, 247, .4);
+}
+
+/* Em tela baixa (celular na horizontal) a câmera cede altura para os botões
+   continuarem alcançáveis. */
+@media (max-height: 520px) {
+    .scanner-palco {
+        aspect-ratio: auto;
+        height: 46dvh;
+    }
+
+    .scanner-topo,
+    .scanner-rodape {
+        padding: 10px 12px;
+    }
+}

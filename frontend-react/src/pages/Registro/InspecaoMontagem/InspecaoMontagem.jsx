@@ -1701,17 +1701,18 @@ export default function InspecaoMontagem() {
                                                             </div>
                                                             <div className="checklist-options">
                                                                 {item.hasValue && (
-                                                                    <>
-                                                                        <input
-                                                                            type="number"
-                                                                            step="0.01"
-                                                                            className="value-input"
-                                                                            placeholder="Valor"
-                                                                            value={checklist[item.id].valor}
-                                                                            onChange={(e) => updateChecklist(item.id, 'valor', e.target.value)}
-                                                                        />
-                                                                        <span className="unit">{item.unit}</span>
-                                                                    </>
+                                                                    /* A unidade era um rótulo ao lado do campo. Virou sufixo do
+                                                                       placeholder: o título do card já diz o que se mede, e os
+                                                                       ~35px que o rótulo ocupava faltavam para os botões
+                                                                       Conforme/NC caberem no card em telas estreitas. */
+                                                                    <input
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        className="value-input"
+                                                                        placeholder={item.unit ? `Valor (${item.unit})` : 'Valor'}
+                                                                        value={checklist[item.id].valor}
+                                                                        onChange={(e) => updateChecklist(item.id, 'valor', e.target.value)}
+                                                                    />
                                                                 )}
                                                                 <div className="radio-group">
                                                                     <label className={`radio-option ${checklist[item.id].conforme === true ? 'selected' : ''}`}>

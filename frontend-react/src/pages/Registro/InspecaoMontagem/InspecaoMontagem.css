@@ -605,10 +605,8 @@
     color: var(--text);
 }
 
-.unit {
-    color: var(--text-muted);
-    font-size: 0.9rem;
-}
+/* A regra .unit saiu junto com o rótulo de unidade ao lado do campo Valor: a
+   unidade virou sufixo do placeholder. Nenhuma tela usava a classe. */
 
 .radio-group {
     display: flex;
@@ -1011,24 +1009,45 @@
         gap: 8px;
     }
 
-    /* Conforme e NC precisam caber lado a lado dentro do card estreito. Sem
-       isso o radio-group quebra em duas linhas, o card cresce de 84 para 131px
-       e o ganho das duas colunas praticamente desaparece — medido. */
+    /* Os botões dividem a largura do card em vez de somarem larguras fixas.
+
+       Antes eram 128px fixos com nowrap, o que transbordava o card entre
+       360px e 413px de viewport — medido: faltavam 10px num iPhone de 375px.
+       Com flex-basis 0 eles encolhem juntos até o conteúdo, e o wrap deixa
+       empilhar quando nem isso basta; o card cresce em altura, o que é
+       preferível a um botão cortado. */
     .checklist-options .radio-group {
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
         gap: 5px;
+        width: 100%;
     }
 
-    /* O card precisa ceder 5px de padding para o radio-group de 130px caber
-       nos 152px de coluna que sobram num iPhone. */
+    /* flex-basis auto, e sem min-width: 0. Com basis 0 o botão encolhe abaixo
+       do próprio texto e "Conforme" fica cortado por dentro, sem o wrap nunca
+       disparar. Partindo da largura do conteúdo, ou os dois cabem lado a lado
+       e crescem juntos, ou o wrap os empilha inteiros. */
+    .checklist-options .radio-group .radio-option {
+        flex: 1 1 auto;
+        justify-content: center;
+        padding: 6px 8px;
+        white-space: nowrap;
+    }
+
+    /* O campo de valor acompanha o card em vez dos 80px fixos, que sobravam
+       da largura útil nas duas colunas. */
+    .checklist-options .value-input {
+        width: 100%;
+    }
+
     .inspection-modal .checklist-item {
         padding: 10px;
     }
 }
 
-/* Piso das duas colunas: o card precisa de 150px (radio-group 130 + padding 20)
-   e com o gap isso exige ~340px de viewport. Abaixo disso o Conforme/NC
-   transbordava o card — medido em 320px. Volta a uma coluna. */
+/* Piso das duas colunas. Os botões agora encolhem e quebram, então o card
+   estreito não corta mais nada — mas abaixo de 360px as duas colunas deixam
+   ~90px úteis, e nessa largura Conforme e NC ficam empilhados em toda a
+   coluna. Uma coluna só rende cards mais legíveis no mesmo espaço. */
 @media (max-width: 359px) {
     .checklist-grid,
     .checklist-grid.checklist-grid-wide {

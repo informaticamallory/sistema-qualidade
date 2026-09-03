@@ -162,12 +162,28 @@
     }
 }
 
+/* Mesma decisão da grade do Cadastro: no celular ficam dois campos por linha
+   em vez de empilhar, para o formulário caber em menos rolagem. */
 @media (max-width: 560px) {
+    .form-row-recb {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-3);
+    }
+
+    .form-row-recb .form-group-largo {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 359px) {
     .form-row-recb,
     .form-row-recb .form-group-largo {
         grid-column: auto;
         grid-template-columns: 1fr;
     }
+}
+
+@media (max-width: 560px) {
 
     /* A rolagem horizontal saiu com a tabela: os cards empilham em uma coluna. */
 

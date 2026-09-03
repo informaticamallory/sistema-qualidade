@@ -104,12 +104,24 @@
 }
 
 /* min-height: 0 é o que permite o item flex encolher abaixo do conteúdo —
-   sem ele o overflow nunca entra em ação. */
+   sem ele o overflow nunca entra em ação.
+
+   O gradiente no fim anuncia que há mais campo abaixo. Sem ele os botões do
+   rodapé pareciam o fim do formulário, e Componente, Aplicação, Setor e
+   Observações passavam por cortados — estavam ali, só não se ofereciam.
+   `background-attachment: local, local, scroll, scroll` é o truque que faz as
+   sombras aparecerem apenas quando existe conteúdo fora de vista. */
 .material-modal .modal-body,
 .recb-modal .modal-body {
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
+    background:
+        linear-gradient(var(--surface) 30%, transparent) top / 100% 24px no-repeat,
+        linear-gradient(transparent, var(--surface) 70%) bottom / 100% 24px no-repeat,
+        radial-gradient(farthest-side at 50% 0, color-mix(in srgb, var(--fg) 14%, transparent), transparent) top / 100% 10px no-repeat,
+        radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, var(--fg) 14%, transparent), transparent) bottom / 100% 10px no-repeat;
+    background-attachment: local, local, scroll, scroll;
 }
 
 .material-modal .modal-header,
@@ -597,15 +609,33 @@
     }
 }
 
+/* No celular a grade fica em duas colunas em vez de empilhar: o formulário
+   inteiro passou de 758px para menos, e mais campos aparecem sem rolar — que
+   era o real problema, já que a rolagem existia mas não se anunciava. */
 @media (max-width: 560px) {
-    /* A modificadora entra na lista de propósito: com duas classes ela vence
-       `.form-row-material` sozinha, e Componente/Aplicação não empilhariam. */
+    .form-row-material,
+    .form-row-material.duas-colunas {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-3);
+    }
+
+    .form-row-material .form-group-largo {
+        grid-column: span 2;
+    }
+}
+
+/* Abaixo de 360px duas colunas deixam ~150px por campo, apertado para
+   rótulos como "Revisão do Desenho". Aí sim empilha. */
+@media (max-width: 359px) {
     .form-row-material,
     .form-row-material.duas-colunas,
     .form-row-material .form-group-largo {
         grid-column: auto;
         grid-template-columns: 1fr;
     }
+}
+
+@media (max-width: 560px) {
 
     .linha-revisoes > td {
         padding-left: var(--space-3);

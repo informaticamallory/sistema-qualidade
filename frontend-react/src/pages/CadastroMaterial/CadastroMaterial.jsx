@@ -634,15 +634,18 @@ export default function CadastroMaterial() {
                                     ariaLabel="Seções do cadastro"
                                     activeId={activeTab}
                                     onChange={setActiveTab}
+                                    /* Rótulos curtos, como na Injeção: o título completo de
+                                       cada seção já aparece no conteúdo, e "Dados do Material
+                                       / Revisão" numa aba pedia a largura inteira do celular. */
                                     items={[
                                         {
                                             id: 'dados',
-                                            label: 'Dados do Material / Revisão',
+                                            label: 'Dados',
                                             icon: <i className="fas fa-file-lines" aria-hidden="true"></i>
                                         },
                                         {
                                             id: 'cotas',
-                                            label: 'Cotas Dimensionais',
+                                            label: 'Cotas',
                                             count: posicoesPreenchidas().length,
                                             icon: <i className="fas fa-ruler-combined" aria-hidden="true"></i>
                                         }
@@ -660,6 +663,10 @@ export default function CadastroMaterial() {
 
                                 {(formViewMode === 'geral' || activeTab === 'dados') && (
                                     <div className="form-section">
+                                        {/* O título por extenso vive aqui porque a aba usa o
+                                            rótulo curto. Serve também à visão geral, onde as
+                                            seções vêm em sequência e precisam se identificar. */}
+                                        <h3 className="section-title">Dados do Material / Revisão</h3>
                                         <div className="form-row-material">
                                             <div className="form-group">
                                                 <label>Cód. SAP *</label>

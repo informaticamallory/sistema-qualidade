@@ -303,9 +303,31 @@
 .ui-kpi.is-clickable:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 .ui-kpi.is-active { border-color: var(--primary); }
 
+/* No celular as abas ficam numa linha só, rolando na horizontal se não
+   couberem.
+
+   Antes eram `flex: 1 1 auto` com wrap: rótulo longo pedia a largura toda, e
+   duas abas viravam duas linhas de botão — 109px de barra antes de qualquer
+   campo aparecer, medido no modal de Cadastro de Material. Uma barra que rola
+   custa 38px e não empurra o formulário para fora da tela. */
 @media (max-width: 600px) {
-    .ui-tabs { width: 100%; }
-    .ui-tab { flex: 1 1 auto; justify-content: center; }
+    .ui-tabs {
+        width: 100%;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        /* Some a barra de rolagem, que aqui só roubaria altura. */
+        scrollbar-width: none;
+    }
+
+    .ui-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .ui-tab {
+        flex: 0 0 auto;
+        justify-content: center;
+        white-space: nowrap;
+    }
 }
 
 /* ══════════════════════════════════════════════════════════════════════

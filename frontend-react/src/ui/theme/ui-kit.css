@@ -537,6 +537,19 @@ h5,
   border-bottom: 0;
 }
 
+/* ── Botão de menu do celular com modal aberto ──
+   Ele é fixo em 10,10 e cai exatamente sobre o cabeçalho do modal, que no
+   celular começa a 20px do topo. Some enquanto houver modal: com um
+   formulário aberto o menu não serve para nada, e disputar z-index só
+   resolveria o caso de quem estivesse por cima naquele momento.
+
+   `:has` é a única forma de fazer isto sem estado no JSX de cada tela.
+   Onde não houver suporte, nada muda em relação a hoje. */
+body:has(.modal-overlay) .mobile-toggle,
+body:has(.scanner-overlay) .mobile-toggle {
+  display: none;
+}
+
 /* ══════════════════════════════════════════════════════════════════════
    Padrões de listagem
    ══════════════════════════════════════════════════════════════════════

@@ -1948,13 +1948,9 @@
 }
 
 /* ── Unsaved Confirm & Delete Confirm Modals ── */
-.unsaved-confirm-overlay { position:fixed; inset:0; z-index:6000; display:grid; place-items:center; padding:20px; background:rgba(2,6,12,.76); backdrop-filter:blur(5px); animation:unsavedFade .18s ease-out; }
-.unsaved-confirm-dialog { width:min(460px,100%); padding:26px; display:grid; grid-template-columns:54px 1fr; gap:16px; color:#e5e7eb; background:linear-gradient(150deg,#1c2735,#111923); border:1px solid #3a4656; border-radius:18px; box-shadow:0 26px 70px rgba(0,0,0,.52),0 0 30px rgba(249,115,22,.08); animation:unsavedScale .2s ease-out; }
-.unsaved-confirm-icon { width:52px;height:52px;display:grid;place-items:center;border-radius:14px;color:#fb923c;background:rgba(249,115,22,.14);border:1px solid rgba(249,115,22,.35);font-size:1.35rem; }
-.unsaved-confirm-copy h2 { margin:2px 0 8px;font-size:1.2rem;color:var(--text); }.unsaved-confirm-copy p{margin:0;color:#aeb9c8;line-height:1.55;font-size:.9rem}.unsaved-confirm-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:10px;margin-top:8px}.unsaved-confirm-actions button{border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer}.btn-confirm-cancel{color:#e2e8f0;background:#1e293b;border:1px solid #475569}.btn-confirm-leave{color:#fff;background:#dc2626;border:1px solid #ef4444;box-shadow:0 8px 20px rgba(220,38,38,.24)}
-@keyframes unsavedFade{from{opacity:0}to{opacity:1}}@keyframes unsavedScale{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
-@media(max-width:520px){.unsaved-confirm-dialog{grid-template-columns:44px 1fr;padding:20px}.unsaved-confirm-icon{width:42px;height:42px}.unsaved-confirm-actions{flex-direction:column-reverse}.unsaved-confirm-actions button{width:100%}}
-@media(prefers-reduced-motion:reduce){.unsaved-confirm-overlay,.unsaved-confirm-dialog{animation:none}}
+/* O dialogo de alteracoes nao salvas virou componente:
+   components/ui/ConfirmarSaida.jsx, com o estilo em components/ui/ui.css.
+   Era copia do CSS da Injecao. */
 
 /* ── Panorama (classes internas compartilhadas) ── */
 .piece-panorama-empty { min-height: 440px; display: grid; place-content: center; text-align: center; color: var(--text-muted); padding: 30px; }

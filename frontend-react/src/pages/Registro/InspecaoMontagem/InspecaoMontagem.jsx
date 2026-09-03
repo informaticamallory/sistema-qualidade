@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import ExcelJS from 'exceljs';
 import AppLayout from '../../../components/Layout/AppLayout';
 import ScannerCodigo from '../../../components/ScannerCodigo/ScannerCodigo';
+import { ConfirmarSaida } from '../../../components/ui';
 import { registrosAPI, defeitosAPI, produtosAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
 import { upperFields } from '../../../utils/text';
@@ -2047,17 +2048,14 @@ export default function InspecaoMontagem() {
                 ), document.body)}
 
                 {/* Modal de confirmação unsaved */}
-                {showUnsavedConfirm && typeof document !== 'undefined' && createPortal((
-                    <div className="unsaved-confirm-overlay" onClick={() => setShowUnsavedConfirm(false)}>
-                        <div className="unsaved-confirm-dialog" role="alertdialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
-                            <div className="unsaved-confirm-icon"><i className="fas fa-exclamation-triangle"></i></div>
-                            <div className="unsaved-confirm-copy"><h2>Alterações não salvas</h2>
-                                <p>Você tem alterações que ainda não foram salvas. Deseja realmente sair sem salvar?</p></div>
-                            <div className="unsaved-confirm-actions"><button type="button" className="btn-confirm-cancel" onClick={() => setShowUnsavedConfirm(false)}>Cancelar</button>
-                                <button type="button" className="btn-confirm-leave" onClick={fecharFormularioSemSalvar}>Sair sem salvar</button></div>
-                        </div>
-                    </div>
-                ), document.body)}
+                {/* Componente do UI Kit: o mesmo diálogo das telas novas, e é por
+                    ele que o estilo entra na página. O diálogo de exclusão abaixo
+                    reaproveita as mesmas classes. */}
+                <ConfirmarSaida
+                    aberto={showUnsavedConfirm}
+                    onCancelar={() => setShowUnsavedConfirm(false)}
+                    onSair={fecharFormularioSemSalvar}
+                />
 
                 {/* Modal de confirmação de exclusão */}
                 {deleteConfirm && typeof document !== 'undefined' && createPortal((

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import AppLayout from '../../../components/Layout/AppLayout';
-import { Tabs } from '../../../components/ui';
+import { Tabs, ConfirmarSaida } from '../../../components/ui';
 import { materiaisAPI, revisoesAPI, inspecoesRecebimentoAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
 import { upperFields } from '../../../utils/text';
@@ -61,6 +61,10 @@ export default function InspecaoRecebimento() {
     /* Erro do status final fica junto do próprio campo, além do alerta no topo:
        na aba de Resultados o campo pode estar abaixo de nove cards. */
     const [erroStatusFinal, setErroStatusFinal] = useState('');
+    /* Alteracoes pendentes: marcadas nas funcoes que mudam o formulario, e nao
+       campo por campo, para nenhum campo novo escapar por esquecimento. */
+    const [formDirty, setFormDirty] = useState(false);
+    const [confirmarSaida, setConfirmarSaida] = useState(false);
 
     /* Autocomplete de material */
     const [sugestoes, setSugestoes] = useState([]);
@@ -93,7 +97,35 @@ export default function InspecaoRecebimento() {
 
     useEffect(() => () => clearTimeout(debounceRef.current), []);
 
-    const setCampo = (campo, valor) => setFormData((prev) => ({ ...prev, [campo]: valor }));
+    /* Fechar a aba ou recarregar tambem e saida: o navegador mostra o proprio
+       aviso, que o dialogo do sistema nao alcanca. */
+    useEffect(() => {
+        if (!modalAberto || !formDirty) return undefined;
+        const proteger = (evento) => { evento.preventDefault(); evento.returnValue = ''; };
+        window.addEventListener('beforeunload', proteger);
+        return () => window.removeEventListener('beforeunload', proteger);
+    }, [modalAberto, formDirty]);
+
+    const setCampo = (campo, valor) => {
+        setFormData((prev) => ({ ...prev, [campo]: valor }));
+        setFormDirty(true);
+    };
+
+    const fecharModal = () => {
+        setModalAberto(false);
+        setFormDirty(false);
+        setConfirmarSaida(false);
+    };
+
+    /* Unico caminho de fechamento: o X, o Cancelar, o clique no fundo e o Esc
+       passam por aqui, senao um deles descartaria a medicao em silencio. */
+    const solicitarFechamento = () => {
+        if (formDirty) {
+            setConfirmarSaida(true);
+            return;
+        }
+        fecharModal();
+    };
 
     /* ── Autocomplete de material ── */
     const buscarMateriais = (termo) => {
@@ -126,6 +158,7 @@ export default function InspecaoRecebimento() {
         setRevisoesDisponiveis(revisoes);
         setResultados([]);
         setSugestoesAbertas(false);
+        setFormDirty(true);
         setAlerta(revisoes.length ? '' : 'Este material ainda não tem revisão de desenho cadastrada.');
     };
 
@@ -154,10 +187,15 @@ export default function InspecaoRecebimento() {
         }
     };
 
-    const updateResultado = (i, campo, valor) => setResultados((prev) =>
-        prev.map((r, idx) => (idx === i ? { ...r, [campo]: valor } : r)));
+    const updateResultado = (i, campo, valor) => {
+        setResultados((prev) => prev.map((r, idx) => (idx === i ? { ...r, [campo]: valor } : r)));
+        setFormDirty(true);
+    };
 
-    const marcarTodos = (status) => setResultados((prev) => prev.map((r) => ({ ...r, status })));
+    const marcarTodos = (status) => {
+        setResultados((prev) => prev.map((r) => ({ ...r, status })));
+        setFormDirty(true);
+    };
 
     /* ── Abrir / editar ── */
     const abrirNovo = () => {
@@ -169,6 +207,10 @@ export default function InspecaoRecebimento() {
         setActiveTab('identificacao');
         setAlerta('');
         setErroStatusFinal('');
+        /* Zerado aqui: os campos acabaram de ser preenchidos pelo formVazio,
+           e isso nao e alteracao do usuario. */
+        setFormDirty(false);
+        setConfirmarSaida(false);
         setModalAberto(true);
     };
 
@@ -212,6 +254,10 @@ export default function InspecaoRecebimento() {
                 status: r.status || ''
             })));
             setActiveTab('identificacao');
+            /* Carregar do banco não é alteração do usuário: sem zerar aqui,
+               abrir e fechar uma inspeção já pediria confirmação. */
+            setFormDirty(false);
+            setConfirmarSaida(false);
             setModalAberto(true);
         } catch (e) {
             setErro(e.response?.data?.message || 'Não foi possível abrir a inspeção');
@@ -276,7 +322,9 @@ export default function InspecaoRecebimento() {
                 await inspecoesRecebimentoAPI.create(payload);
             }
 
-            setModalAberto(false);
+            /* fecharModal e nao setModalAberto: salvou, entao nao ha mais
+               alteracao pendente e reabrir nao deve pedir confirmacao. */
+            fecharModal();
             await carregar();
         } catch (e) {
             setAlerta(e.response?.data?.message || 'Não foi possível salvar a inspeção');
@@ -455,11 +503,11 @@ export default function InspecaoRecebimento() {
                 </div>
 
                 {modalAberto && (
-                    <div className="modal-overlay recb-modal" onClick={() => !salvando && setModalAberto(false)}>
+                    <div className="modal-overlay recb-modal" onClick={() => !salvando && solicitarFechamento()}>
                         <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                             <div className="modal-header">
                                 <h2>{editandoId ? 'Editar Inspeção' : 'Nova Inspeção de Recebimento'}</h2>
-                                <button className="modal-close" onClick={() => setModalAberto(false)}
+                                <button className="modal-close" onClick={solicitarFechamento}
                                     aria-label="Fechar">
                                     <i className="fas fa-times"></i>
                                 </button>
@@ -787,7 +835,7 @@ export default function InspecaoRecebimento() {
                             </div>
 
                             <div className="modal-footer">
-                                <button className="btn btn-outline" onClick={() => setModalAberto(false)} disabled={salvando}>
+                                <button className="btn btn-outline" onClick={solicitarFechamento} disabled={salvando}>
                                     Cancelar
                                 </button>
                                 <button className="btn btn-primary" onClick={salvar} disabled={salvando}>
@@ -798,6 +846,12 @@ export default function InspecaoRecebimento() {
                         </div>
                     </div>
                 )}
+
+                <ConfirmarSaida
+                    aberto={confirmarSaida}
+                    onCancelar={() => setConfirmarSaida(false)}
+                    onSair={fecharModal}
+                />
             </div>
         </AppLayout>
     );

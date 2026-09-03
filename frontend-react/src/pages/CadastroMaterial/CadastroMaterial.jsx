@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import AppLayout from '../../components/Layout/AppLayout';
-import { Tabs } from '../../components/ui';
+import { Tabs, ConfirmarSaida } from '../../components/ui';
 import { materiaisAPI, revisoesAPI, produtosAPI } from '../../services/api';
 import { upperFields } from '../../utils/text';
 import './CadastroMaterial.css';
@@ -64,6 +64,10 @@ export default function CadastroMaterial() {
     const [posicoes, setPosicoes] = useState([posicaoVazia()]);
     const [salvando, setSalvando] = useState(false);
     const [alerta, setAlerta] = useState('');
+    /* Alterações pendentes: marcadas nas funções que mudam o formulário, e não
+       campo por campo, para nenhum campo novo escapar por esquecimento. */
+    const [formDirty, setFormDirty] = useState(false);
+    const [confirmarSaida, setConfirmarSaida] = useState(false);
 
     /* Quando preenchido, o modal está editando esta revisão em vez de criar. */
     const [revisaoEmEdicao, setRevisaoEmEdicao] = useState(null);
@@ -108,7 +112,26 @@ export default function CadastroMaterial() {
 
     useEffect(() => { carregar(); }, [carregar]);
 
-    const setCampo = (campo, valor) => setFormData((prev) => ({ ...prev, [campo]: valor }));
+    const setCampo = (campo, valor) => {
+        setFormData((prev) => ({ ...prev, [campo]: valor }));
+        setFormDirty(true);
+    };
+
+    const fecharModal = () => {
+        setModalAberto(false);
+        setFormDirty(false);
+        setConfirmarSaida(false);
+    };
+
+    /* Único caminho de fechamento: o X, o Cancelar, o clique no fundo e o Esc
+       passam por aqui, senão um deles descartaria o preenchimento em silêncio. */
+    const solicitarFechamento = () => {
+        if (formDirty) {
+            setConfirmarSaida(true);
+            return;
+        }
+        fecharModal();
+    };
 
     /* Duas fontes, nesta ordem.
 
@@ -192,27 +215,46 @@ export default function CadastroMaterial() {
 
     useEffect(() => () => clearTimeout(debounceSapRef.current), []);
 
-    const updatePosicao = (i, campo, valor) => setPosicoes((prev) =>
-        prev.map((p, idx) => (idx === i ? { ...p, [campo]: valor } : p)));
+    /* Fechar a aba ou recarregar também é saída: o navegador mostra o próprio
+       aviso, que o diálogo do sistema não alcança. */
+    useEffect(() => {
+        if (!modalAberto || !formDirty) return undefined;
+        const proteger = (evento) => { evento.preventDefault(); evento.returnValue = ''; };
+        window.addEventListener('beforeunload', proteger);
+        return () => window.removeEventListener('beforeunload', proteger);
+    }, [modalAberto, formDirty]);
 
-    const addPosicao = () => setPosicoes((prev) => [...prev, posicaoVazia()]);
+    const updatePosicao = (i, campo, valor) => {
+        setPosicoes((prev) => prev.map((p, idx) => (idx === i ? { ...p, [campo]: valor } : p)));
+        setFormDirty(true);
+    };
 
-    const removePosicao = (i) => setPosicoes((prev) =>
-        (prev.length === 1 ? prev : prev.filter((_, idx) => idx !== i)));
+    const addPosicao = () => {
+        setPosicoes((prev) => [...prev, posicaoVazia()]);
+        setFormDirty(true);
+    };
 
-    /* Toda abertura do modal começa sem busca pendente e sem marcar o
-       Componente como preenchido pelo sistema — o valor que entra aqui vem do
-       banco ou está vazio, e não deve ser apagado por uma busca. */
-    const zerarBuscaSap = () => {
+    const removePosicao = (i) => {
+        setPosicoes((prev) => (prev.length === 1 ? prev : prev.filter((_, idx) => idx !== i)));
+        setFormDirty(true);
+    };
+
+    /* Estado zerado a cada abertura do modal. Fica numa função só porque os
+       três caminhos de abertura precisam do mesmo reset, e um deles esquecer
+       significaria pedir confirmação de saída sem alteração alguma, ou pior,
+       uma busca apagando o que acabou de vir do banco. */
+    const zerarEstadoDoModal = () => {
         clearTimeout(debounceSapRef.current);
         sapDigitadoRef.current = false;
         autoPreenchidoRef.current = false;
         setBuscandoComponente(false);
         setOrigemComponente('');
+        setFormDirty(false);
+        setConfirmarSaida(false);
     };
 
     const abrirNovo = () => {
-        zerarBuscaSap();
+        zerarEstadoDoModal();
         setRevisaoEmEdicao(null);
         setFormData(formVazio());
         setPosicoes([posicaoVazia()]);
@@ -223,7 +265,7 @@ export default function CadastroMaterial() {
 
     const abrirNovaRevisao = (material) => {
         /* Herda a identificação do material: só a revisão e as cotas mudam. */
-        zerarBuscaSap();
+        zerarEstadoDoModal();
         setRevisaoEmEdicao(null);
         setFormData({
             ...formVazio(),
@@ -240,7 +282,7 @@ export default function CadastroMaterial() {
 
     const abrirEdicao = async (material, revisao) => {
         setAlerta('');
-        zerarBuscaSap();
+        zerarEstadoDoModal();
         try {
             const resp = await revisoesAPI.getById(revisao.id);
             const dados = resp.data?.data || resp.data || {};
@@ -323,7 +365,9 @@ export default function CadastroMaterial() {
                 await materiaisAPI.create({ ...payload, data: payload.data || null });
             }
 
-            setModalAberto(false);
+            /* fecharModal e não setModalAberto: salvou, então não há mais
+               alteração pendente e reabrir o modal não deve pedir confirmação. */
+            fecharModal();
             await carregar();
         } catch (e) {
             setAlerta(e.response?.data?.message || 'Não foi possível salvar');
@@ -555,11 +599,11 @@ export default function CadastroMaterial() {
                 </div>
 
                 {modalAberto && (
-                    <div className="modal-overlay material-modal" onClick={() => !salvando && setModalAberto(false)}>
+                    <div className="modal-overlay material-modal" onClick={() => !salvando && solicitarFechamento()}>
                         <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                             <div className="modal-header">
                                 <h2>{revisaoEmEdicao ? 'Editar Revisão' : 'Novo Material / Revisão'}</h2>
-                                <button className="modal-close" onClick={() => setModalAberto(false)}
+                                <button className="modal-close" onClick={solicitarFechamento}
                                     aria-label="Fechar">
                                     <i className="fas fa-times"></i>
                                 </button>
@@ -787,7 +831,7 @@ export default function CadastroMaterial() {
                             </div>
 
                             <div className="modal-footer">
-                                <button className="btn btn-outline" onClick={() => setModalAberto(false)} disabled={salvando}>
+                                <button className="btn btn-outline" onClick={solicitarFechamento} disabled={salvando}>
                                     Cancelar
                                 </button>
                                 <button className="btn btn-primary" onClick={salvar} disabled={salvando}>
@@ -798,6 +842,12 @@ export default function CadastroMaterial() {
                         </div>
                     </div>
                 )}
+
+                <ConfirmarSaida
+                    aberto={confirmarSaida}
+                    onCancelar={() => setConfirmarSaida(false)}
+                    onSair={fecharModal}
+                />
             </div>
         </AppLayout>
     );

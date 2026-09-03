@@ -115,18 +115,9 @@
     grid-column: span 2;
 }
 
-.campo-lido {
-    background: var(--bg-2);
-    color: var(--fg-muted);
-    cursor: default;
-}
-
-.campo-ajuda {
-    display: block;
-    margin-top: 4px;
-    font-size: var(--text-xs);
-    color: var(--fg-muted);
-}
+/* `.campo-lido`, `.campo-ajuda` e `.campo-travado` passaram para
+   CadastroMaterial.css: as duas telas usam, e a importação vai naquela
+   direção — daqui o Cadastro não as veria. */
 
 /* ── Autocomplete de material ── */
 .recb-autocomplete {

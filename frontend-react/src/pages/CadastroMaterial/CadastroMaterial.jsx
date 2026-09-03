@@ -13,14 +13,17 @@ import './CadastroMaterial.css';
 
 const INSTRUMENTOS = [
     'Trena métrica',
+    'Trena',
     'Paquímetro',
     'Micrômetro',
     'Relógio comparador',
     'Projetor de perfil',
     'Traçador de altura',
     'Calibrador passa/não passa',
+    'Multímetro',
     'Balança',
-    'Visual'
+    'Visual',
+    'Funcional'
 ];
 
 /* Padrões do fluxo de recebimento. Ficam como valor inicial, não travado: são
@@ -650,10 +653,15 @@ export default function CadastroMaterial() {
                                             Recebimento. O Setor ficou com a linha. */}
                                         <div className="form-row-material duas-colunas">
                                             <div className="form-group">
-                                                <label>Setor</label>
-                                                <input type="text" className="form-control field-upper"
-                                                    value={formData.setor}
-                                                    onChange={(e) => setCampo('setor', e.target.value)} />
+                                                <label htmlFor="setor">Setor</label>
+                                                {/* Fixo: este cadastro serve ao fluxo de recebimento, e o
+                                                    setor não é escolha do usuário. readOnly em vez de
+                                                    disabled, para o valor continuar sendo enviado no
+                                                    formulário e chegar ao banco. */}
+                                                <input id="setor" type="text"
+                                                    className="form-control campo-travado"
+                                                    value={formData.setor} readOnly
+                                                    aria-readonly="true" tabIndex={-1} />
                                             </div>
                                         </div>
 
@@ -713,10 +721,23 @@ export default function CadastroMaterial() {
 
                                                     <div className="cota-campo">
                                                         <label htmlFor={`inst-${i}`}>Instrumento</label>
-                                                        <input id={`inst-${i}`} type="text" className="form-control"
-                                                            list="lista-instrumentos" value={p.instrumento}
-                                                            onChange={(e) => updatePosicao(i, 'instrumento', e.target.value)}
-                                                            placeholder="Paquímetro" />
+                                                        {/* Select, e não input com datalist: o navegador filtra
+                                                            o datalist pelo texto do campo, e com o padrão já
+                                                            preenchido só ele casava — a lista parecia ter uma
+                                                            opção só. */}
+                                                        <select id={`inst-${i}`} className="form-control"
+                                                            value={p.instrumento}
+                                                            onChange={(e) => updatePosicao(i, 'instrumento', e.target.value)}>
+                                                            <option value="">Selecione</option>
+                                                            {/* Valor gravado fora da lista entra como opção, para
+                                                                editar uma revisão antiga não o descartar. */}
+                                                            {p.instrumento && !INSTRUMENTOS.includes(p.instrumento) && (
+                                                                <option value={p.instrumento}>{p.instrumento}</option>
+                                                            )}
+                                                            {INSTRUMENTOS.map((nome) => (
+                                                                <option key={nome} value={nome}>{nome}</option>
+                                                            ))}
+                                                        </select>
                                                     </div>
 
                                                     <div className="cota-campo cota-campo-final">
@@ -729,11 +750,6 @@ export default function CadastroMaterial() {
                                             ))}
                                         </div>
 
-                                        {/* Lista sugerida, mas o campo aceita texto livre: cada setor
-                                            tem instrumento que a lista fixa não cobriria. */}
-                                        <datalist id="lista-instrumentos">
-                                            {INSTRUMENTOS.map((nome) => <option key={nome} value={nome} />)}
-                                        </datalist>
                                     </div>
                                 )}
                             </div>

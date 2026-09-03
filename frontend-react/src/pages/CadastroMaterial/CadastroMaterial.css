@@ -113,15 +113,52 @@
     border-bottom: none;
 }
 
-/* ── Modal ── */
+/* ── Modal ──
+   Altura presa à viewport, com a rolagem no corpo em vez de no modal inteiro.
+
+   Sem isto o modal crescia com o conteúdo — 1389px na aba de cotas com nove
+   posições, 1809px na visão geral — e quem rolava era a página, levando os
+   botões Cancelar e Salvar para fora da tela. Agora cabeçalho, alternador,
+   abas e rodapé ficam parados e só os campos rolam.
+
+   Vale para as duas telas: a de Inspeção de Recebimento importa este CSS. */
+.material-modal .modal-content,
+.recb-modal .modal-content {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 2 * var(--space-4));
+}
+
 .material-modal .modal-content {
     width: min(980px, 96vw);
 }
 
+/* min-height: 0 é o que permite o item flex encolher abaixo do conteúdo —
+   sem ele o overflow nunca entra em ação. */
+.material-modal .modal-body,
+.recb-modal .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.material-modal .modal-header,
+.material-modal .form-view-switcher,
+.material-modal .modal-tabs,
+.material-modal .modal-footer,
+.recb-modal .modal-header,
+.recb-modal .form-view-switcher,
+.recb-modal .modal-tabs,
+.recb-modal .modal-footer {
+    flex: 0 0 auto;
+}
+
 /* As abas em si são o componente Tabs do UI Kit; aqui só o encaixe no modal.
    Compartilhado com a tela de Inspeção de Recebimento, que importa este CSS. */
+/* Faixa enxuta: cabeçalho, alternador e abas somavam 177px, 29% da altura do
+   modal, antes de qualquer campo aparecer. */
 .modal-tabs {
-    padding: var(--space-3) var(--space-6);
+    padding: 6px var(--space-6);
     border-bottom: 1px solid var(--border);
     overflow-x: auto;
 }
@@ -132,8 +169,8 @@
 .form-view-switcher {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    padding: var(--space-3) var(--space-6);
+    gap: 6px;
+    padding: 6px var(--space-6);
     background: var(--bg-2);
     border-bottom: 1px solid var(--border);
     overflow-x: auto;
@@ -144,8 +181,10 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-height: 40px;
-    padding: 0 16px;
+    /* 34px ainda é alvo de toque aceitável para um controle secundário, que
+       fica fora do caminho de preenchimento. */
+    min-height: 34px;
+    padding: 0 12px;
     border: 1px solid var(--border);
     border-radius: var(--r-md);
     background: var(--surface);
@@ -223,6 +262,41 @@
    especificidade, não por ordem de arquivo. */
 .material-modal .campo-com-status .form-control {
     padding-right: 38px !important;
+}
+
+/* ── Campos de leitura ──
+   Aqui e não no CSS da Inspeção: aquele arquivo importa este, e não o
+   contrário, então uma classe definida lá não chegaria ao Cadastro. */
+.campo-lido {
+    background: var(--bg-2);
+    color: var(--fg-muted);
+    cursor: default;
+}
+
+/* Valor fixo: além de não editável, não recebe cursor de texto nem anel de
+   foco, para não parecer um campo aberto. É readOnly e não disabled, de modo
+   que o valor continua sendo enviado no formulário. */
+.campo-travado {
+    background: var(--bg-2);
+    color: var(--fg-muted);
+    /* not-allowed, e não default: diz que o campo não aceita edição, em vez de
+       só deixar de parecer um campo de texto. */
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.campo-travado:focus,
+.campo-travado:focus-visible {
+    outline: none;
+    box-shadow: none;
+    border-color: var(--border);
+}
+
+.campo-ajuda {
+    display: block;
+    margin-top: 4px;
+    font-size: var(--text-xs);
+    color: var(--fg-muted);
 }
 
 .campo-spinner {

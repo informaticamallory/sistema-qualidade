@@ -84,55 +84,17 @@
 }
 
 /* ── Modal ──
-   Altura presa à viewport, com a rolagem no corpo em vez de no modal inteiro.
+   A rolagem é do modal inteiro, e não do corpo: é o padrão do sistema, vindo
+   de `.modal-content { max-height: 90vh; overflow-y: auto }`. Cabeçalho,
+   abas e rodapé rolam junto, então os botões Cancelar e Salvar aparecem ao
+   chegar no fim do formulário, como nos outros modais.
 
-   Sem isto o modal crescia com o conteúdo — 1389px na aba de cotas com nove
-   posições, 1809px na visão geral — e quem rolava era a página, levando os
-   botões Cancelar e Salvar para fora da tela. Agora cabeçalho, alternador,
-   abas e rodapé ficam parados e só os campos rolam.
-
-   Vale para as duas telas: a de Inspeção de Recebimento importa este CSS. */
-.material-modal .modal-content,
-.recb-modal .modal-content {
-    display: flex;
-    flex-direction: column;
-    max-height: calc(100dvh - 2 * var(--space-4));
-}
-
+   Tinha posto aqui um layout flex com rodapé fixo. Estava errado por dois
+   motivos: destoava de todos os outros modais, e nasceu de uma medição em que
+   o CSS onde o max-height vive não estava carregado — o modal parecia crescer
+   sem limite, quando no aplicativo já era limitado. */
 .material-modal .modal-content {
     width: min(980px, 96vw);
-}
-
-/* min-height: 0 é o que permite o item flex encolher abaixo do conteúdo —
-   sem ele o overflow nunca entra em ação.
-
-   O gradiente no fim anuncia que há mais campo abaixo. Sem ele os botões do
-   rodapé pareciam o fim do formulário, e Componente, Aplicação, Setor e
-   Observações passavam por cortados — estavam ali, só não se ofereciam.
-   `background-attachment: local, local, scroll, scroll` é o truque que faz as
-   sombras aparecerem apenas quando existe conteúdo fora de vista. */
-.material-modal .modal-body,
-.recb-modal .modal-body {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    background:
-        linear-gradient(var(--surface) 30%, transparent) top / 100% 24px no-repeat,
-        linear-gradient(transparent, var(--surface) 70%) bottom / 100% 24px no-repeat,
-        radial-gradient(farthest-side at 50% 0, color-mix(in srgb, var(--fg) 14%, transparent), transparent) top / 100% 10px no-repeat,
-        radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, var(--fg) 14%, transparent), transparent) bottom / 100% 10px no-repeat;
-    background-attachment: local, local, scroll, scroll;
-}
-
-.material-modal .modal-header,
-.material-modal .form-view-switcher,
-.material-modal .modal-tabs,
-.material-modal .modal-footer,
-.recb-modal .modal-header,
-.recb-modal .form-view-switcher,
-.recb-modal .modal-tabs,
-.recb-modal .modal-footer {
-    flex: 0 0 auto;
 }
 
 /* As abas em si são o componente Tabs do UI Kit; aqui só o encaixe no modal.

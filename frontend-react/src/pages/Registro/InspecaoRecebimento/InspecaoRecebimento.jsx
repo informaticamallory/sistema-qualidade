@@ -307,10 +307,14 @@ export default function InspecaoRecebimento() {
     const contar = (status) => inspecoes.filter((i) => i.status === status).length;
 
     const cards = [
-        { chave: 'todos', rotulo: 'Total', valor: inspecoes.length, classe: 'total' },
-        { chave: 'aprovado', rotulo: 'Aprovados', valor: contar('aprovado'), classe: 'approved' },
-        { chave: 'reprovado', rotulo: 'Reprovados', valor: contar('reprovado'), classe: 'rejected' },
-        { chave: 'pendente', rotulo: 'Pendentes', valor: contar('pendente'), classe: 'pending' }
+        { chave: 'todos', rotulo: 'Total de inspeções', valor: inspecoes.length,
+            classe: 'total', icone: 'fa-clipboard-list', descricao: 'Todos os status' },
+        { chave: 'aprovado', rotulo: 'Aprovadas', valor: contar('aprovado'),
+            classe: 'approved', icone: 'fa-check-circle', descricao: 'Lotes aprovados' },
+        { chave: 'reprovado', rotulo: 'Reprovadas', valor: contar('reprovado'),
+            classe: 'rejected', icone: 'fa-circle-xmark', descricao: 'Lotes reprovados' },
+        { chave: 'pendente', rotulo: 'Pendentes', valor: contar('pendente'),
+            classe: 'pending', icone: 'fa-clock', descricao: 'Medição incompleta' }
     ];
 
     /* Prévia do status enquanto o inspetor preenche, com a mesma regra do
@@ -350,17 +354,24 @@ export default function InspecaoRecebimento() {
                     </div>
                 )}
 
-                <div className="recb-summary-grid">
+                {/* Cards do UI Kit, os mesmos da Injeção e do Cadastro de Material.
+                    Aqui também filtram a lista, então viram botão de verdade. */}
+                <div className="summary-grid">
                     {cards.map((card) => (
                         <button
                             key={card.chave}
                             type="button"
-                            className={`recb-summary-card filter-card ${card.classe} ${filtroStatus === card.chave ? 'active' : ''}`}
+                            className={`summary-card is-clickable ${card.classe} ${filtroStatus === card.chave ? 'is-active' : ''}`}
                             onClick={() => setFiltroStatus(card.chave)}
                             aria-pressed={filtroStatus === card.chave}
                         >
-                            <span className="recb-summary-label">{card.rotulo}</span>
-                            <strong className="recb-summary-valor">{card.valor}</strong>
+                            <div className="summary-heading">
+                                <i className={`fas ${card.icone}`} aria-hidden="true"></i>
+                                <span>{card.rotulo}</span>
+                            </div>
+                            <strong>{loading ? '—' : card.valor}</strong>
+                            <small>{card.descricao}</small>
+                            <span className="summary-line" aria-hidden="true"></span>
                         </button>
                     ))}
                 </div>
@@ -420,14 +431,20 @@ export default function InspecaoRecebimento() {
                                                 </span>
                                             </td>
                                             <td className="col-acoes">
-                                                <button className="btn-icon" title="Abrir inspeção"
-                                                    onClick={() => abrirEdicao(i)}>
-                                                    <i className="fas fa-pen"></i>
-                                                </button>
-                                                <button className="btn-icon btn-icon-danger" title="Excluir"
-                                                    onClick={() => excluir(i)}>
-                                                    <i className="fas fa-trash"></i>
-                                                </button>
+                                                <div className="acoes">
+                                                    <button className="btn-icon btn-edit"
+                                                        title="Abrir inspeção"
+                                                        aria-label={`Abrir inspeção do lote ${i.lote || i.codigo_sap}`}
+                                                        onClick={() => abrirEdicao(i)}>
+                                                        <i className="fas fa-pen" aria-hidden="true"></i>
+                                                    </button>
+                                                    <button className="btn-icon btn-delete"
+                                                        title="Excluir inspeção"
+                                                        aria-label={`Excluir inspeção do lote ${i.lote || i.codigo_sap}`}
+                                                        onClick={() => excluir(i)}>
+                                                        <i className="fas fa-trash" aria-hidden="true"></i>
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}

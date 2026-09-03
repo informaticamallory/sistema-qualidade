@@ -537,6 +537,162 @@ h5,
   border-bottom: 0;
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   Padrões de listagem
+   ══════════════════════════════════════════════════════════════════════
+   Estes três blocos vieram das telas que já os tinham, para virarem o
+   padrão do sistema em vez de uma cópia por página. */
+
+/* ── Botões de ação da linha ──
+   `.acoes` morava no CSS da Inspeção de Injeção, e as variantes de cor
+   estavam duplicadas em Cartões e Calibração. Sem o container, os botões
+   quebravam em coluna dentro da célula estreita. */
+.acoes {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-view {
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+
+.btn-view:hover {
+  background: var(--purple-soft-strong);
+}
+
+.btn-edit {
+  background: var(--info-soft);
+  color: var(--info);
+}
+
+.btn-edit:hover {
+  background: var(--info-soft-strong);
+}
+
+.btn-delete {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.btn-delete:hover {
+  background: var(--danger-soft-strong);
+}
+
+/* ── Card de resumo da listagem ──
+   Mesma anatomia dos cards da Inspeção de Injeção: título com ícone, valor
+   grande, descrição e a faixa de tom no pé. O tom sai de uma classe
+   modificadora — total, approved, rejected, pending. */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--gap);
+}
+
+.summary-card {
+  min-width: 0;
+  padding: 1rem 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--fg);
+  text-align: left;
+  font-family: inherit;
+}
+
+.summary-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: var(--fw-bold);
+}
+
+.summary-heading i {
+  color: var(--primary);
+}
+
+.summary-card.approved .summary-heading i {
+  color: var(--success);
+}
+
+.summary-card.rejected .summary-heading i {
+  color: var(--danger);
+}
+
+.summary-card.pending .summary-heading i {
+  color: var(--warning);
+}
+
+.summary-card strong {
+  display: block;
+  margin-top: 0.8rem;
+  font-family: var(--font-display, inherit);
+  font-size: clamp(1.65rem, 3vw, 2.2rem);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-card small {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--fg-muted);
+  font-size: 0.76rem;
+}
+
+.summary-line {
+  display: block;
+  width: 100%;
+  height: 3px;
+  margin-top: 0.75rem;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.summary-card.approved .summary-line { background: var(--success); }
+.summary-card.rejected .summary-line { background: var(--danger); }
+.summary-card.pending .summary-line { background: var(--warning); }
+
+/* Card que também filtra a lista. */
+.summary-card.is-clickable {
+  cursor: pointer;
+  transition: var(--transition-base);
+}
+
+.summary-card.is-clickable:hover {
+  transform: translateY(-2px);
+}
+
+.summary-card.is-clickable:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.summary-card.is-active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+@media (max-width: 600px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem;
+  }
+
+  .summary-card {
+    padding: 0.7rem 0.55rem;
+    border-radius: 12px;
+    text-align: center;
+  }
+
+  .summary-heading {
+    justify-content: center;
+    font-size: 0.78rem;
+  }
+}
+
 /* Compactação da tabela em tablet e abaixo.
 
    Estas regras nasceram no CSS da Inspeção de Injeção e valiam só para as

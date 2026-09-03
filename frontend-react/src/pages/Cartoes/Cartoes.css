@@ -12,15 +12,8 @@
     width: 280px;
 }
 
-/* View Button */
-.btn-view {
-    background: var(--purple-soft);
-    color: var(--purple);
-}
-
-.btn-view:hover {
-    background: var(--purple-soft-strong);
-}
+/* .btn-view passou para ui/theme/ui-kit.css, junto de .btn-edit e
+   .btn-delete: são o padrão de ação de linha do sistema. */
 
 .mobile-action-sheet {
     display: none;

@@ -389,19 +389,36 @@ export default function CadastroMaterial() {
                     </div>
                 )}
 
-                <div className="material-resumo">
-                    <div className="material-resumo-card">
-                        <span className="material-resumo-label">Materiais</span>
-                        <strong className="material-resumo-valor">{materiais.length}</strong>
-                    </div>
-                    <div className="material-resumo-card">
-                        <span className="material-resumo-label">Revisões</span>
-                        <strong className="material-resumo-valor">{totalRevisoes}</strong>
-                    </div>
-                    <div className="material-resumo-card">
-                        <span className="material-resumo-label">Sem revisão</span>
-                        <strong className="material-resumo-valor">{semRevisao}</strong>
-                    </div>
+                {/* Cards de resumo do UI Kit, mesma anatomia da Inspeção de Injeção:
+                    título com ícone, valor grande, descrição e faixa de tom no pé. */}
+                <div className="summary-grid">
+                    <article className="summary-card total">
+                        <div className="summary-heading">
+                            <i className="fas fa-cubes" aria-hidden="true"></i>
+                            <span>Materiais</span>
+                        </div>
+                        <strong>{loading ? '—' : materiais.length}</strong>
+                        <small>Códigos cadastrados</small>
+                        <span className="summary-line" aria-hidden="true"></span>
+                    </article>
+                    <article className="summary-card approved">
+                        <div className="summary-heading">
+                            <i className="fas fa-file-lines" aria-hidden="true"></i>
+                            <span>Revisões</span>
+                        </div>
+                        <strong>{loading ? '—' : totalRevisoes}</strong>
+                        <small>Revisões de desenho</small>
+                        <span className="summary-line" aria-hidden="true"></span>
+                    </article>
+                    <article className="summary-card pending">
+                        <div className="summary-heading">
+                            <i className="fas fa-triangle-exclamation" aria-hidden="true"></i>
+                            <span>Sem revisão</span>
+                        </div>
+                        <strong>{loading ? '—' : semRevisao}</strong>
+                        <small>Materiais sem cotas</small>
+                        <span className="summary-line" aria-hidden="true"></span>
+                    </article>
                 </div>
 
                 <div className="filters-card">
@@ -469,14 +486,23 @@ export default function CadastroMaterial() {
                                                     </span>
                                                 </td>
                                                 <td className="col-acoes">
-                                                    <button className="btn-icon" title="Nova revisão deste material"
-                                                        onClick={() => abrirNovaRevisao(material)}>
-                                                        <i className="fas fa-plus"></i>
-                                                    </button>
-                                                    <button className="btn-icon btn-icon-danger" title="Excluir material"
-                                                        onClick={() => excluirMaterial(material)}>
-                                                        <i className="fas fa-trash"></i>
-                                                    </button>
+                                                    {/* .acoes deixa os botões lado a lado; sem ele
+                                                        quebravam em coluna na célula estreita. As
+                                                        variantes de cor são as do UI Kit. */}
+                                                    <div className="acoes">
+                                                        <button className="btn-icon btn-edit"
+                                                            title="Nova revisão deste material"
+                                                            aria-label={`Nova revisão de ${material.codigo_sap}`}
+                                                            onClick={() => abrirNovaRevisao(material)}>
+                                                            <i className="fas fa-plus" aria-hidden="true"></i>
+                                                        </button>
+                                                        <button className="btn-icon btn-delete"
+                                                            title="Excluir material"
+                                                            aria-label={`Excluir ${material.codigo_sap}`}
+                                                            onClick={() => excluirMaterial(material)}>
+                                                            <i className="fas fa-trash" aria-hidden="true"></i>
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>,
                                             aberto && (
@@ -498,14 +524,20 @@ export default function CadastroMaterial() {
                                                                         <td>{rev.data ? rev.data.split('-').reverse().join('/') : '—'}</td>
                                                                         <td className="col-num">{rev.total_posicoes}</td>
                                                                         <td className="col-acoes">
-                                                                            <button className="btn-icon" title="Editar revisão"
-                                                                                onClick={() => abrirEdicao(material, rev)}>
-                                                                                <i className="fas fa-pen"></i>
-                                                                            </button>
-                                                                            <button className="btn-icon btn-icon-danger" title="Excluir revisão"
-                                                                                onClick={() => excluirRevisao(rev)}>
-                                                                                <i className="fas fa-trash"></i>
-                                                                            </button>
+                                                                            <div className="acoes">
+                                                                                <button className="btn-icon btn-edit"
+                                                                                    title="Editar revisão"
+                                                                                    aria-label={`Editar revisão ${rev.revisao}`}
+                                                                                    onClick={() => abrirEdicao(material, rev)}>
+                                                                                    <i className="fas fa-pen" aria-hidden="true"></i>
+                                                                                </button>
+                                                                                <button className="btn-icon btn-delete"
+                                                                                    title="Excluir revisão"
+                                                                                    aria-label={`Excluir revisão ${rev.revisao}`}
+                                                                                    onClick={() => excluirRevisao(rev)}>
+                                                                                    <i className="fas fa-trash" aria-hidden="true"></i>
+                                                                                </button>
+                                                                            </div>
                                                                         </td>
                                                                     </tr>
                                                                 ))}

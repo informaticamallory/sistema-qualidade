@@ -1,38 +1,8 @@
 /* Cadastro de Material e Revisão de Desenho.
    Só tokens: a página acompanha tema e densidade sem cor literal. */
 
-/* ── Resumo ── */
-.material-resumo {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: var(--space-4);
-    margin-bottom: var(--gap);
-}
-
-.material-resumo-card {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: var(--space-4) var(--space-5);
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--r-lg);
-}
-
-.material-resumo-label {
-    font-size: var(--text-xs);
-    font-weight: var(--fw-semibold);
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    color: var(--fg-muted);
-}
-
-.material-resumo-valor {
-    font-family: var(--font-display, inherit);
-    font-size: 1.6rem;
-    line-height: 1.1;
-    color: var(--fg);
-}
+/* O resumo próprio desta tela saiu: virou `.summary-card` em
+   ui/theme/ui-kit.css, com a mesma anatomia dos cards da Injeção. */
 
 /* ── Busca ── */
 .material-busca {

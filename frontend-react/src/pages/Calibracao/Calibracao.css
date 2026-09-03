@@ -184,32 +184,9 @@
     transform: translateY(-1px);
 }
 
-.btn-view {
-    background: var(--purple-soft);
-    color: var(--purple);
-}
-
-.btn-view:hover {
-    background: var(--purple-soft-strong);
-}
-
-.btn-edit {
-    background: var(--info-soft);
-    color: var(--info);
-}
-
-.btn-edit:hover {
-    background: var(--info-soft-strong);
-}
-
-.btn-delete {
-    background: var(--danger-soft);
-    color: var(--danger);
-}
-
-.btn-delete:hover {
-    background: var(--danger-soft-strong);
-}
+/* .btn-view, .btn-edit e .btn-delete passaram para ui/theme/ui-kit.css: são
+   o padrão de ação de linha do sistema, e estavam duplicados aqui e em
+   Cartões — o que deixou telas novas sem eles. */
 /* Action Button - Calibrate */
 .btn-calibrate {
     background: var(--gradient-info);

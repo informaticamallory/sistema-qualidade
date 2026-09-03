@@ -31,7 +31,10 @@ const formVazio = () => ({
     data_inspecao: hoje(),
     nota_fiscal: '',
     quantidade_total: '',
-    observacao: ''
+    observacao: '',
+    /* Vazio de propósito: o inspetor tem de concluir explicitamente, e não
+       herdar um padrão que passaria batido. */
+    status: ''
 });
 
 const formatarData = (iso) => (iso ? iso.split('-').reverse().join('/') : '—');
@@ -53,6 +56,9 @@ export default function InspecaoRecebimento() {
     const [editandoId, setEditandoId] = useState(null);
     const [salvando, setSalvando] = useState(false);
     const [alerta, setAlerta] = useState('');
+    /* Erro do status final fica junto do próprio campo, além do alerta no topo:
+       na aba de Resultados o campo pode estar abaixo de nove cards. */
+    const [erroStatusFinal, setErroStatusFinal] = useState('');
 
     /* Autocomplete de material */
     const [sugestoes, setSugestoes] = useState([]);
@@ -160,11 +166,13 @@ export default function InspecaoRecebimento() {
         setSugestoes([]);
         setActiveTab('identificacao');
         setAlerta('');
+        setErroStatusFinal('');
         setModalAberto(true);
     };
 
     const abrirEdicao = async (inspecao) => {
         setAlerta('');
+        setErroStatusFinal('');
         try {
             const resp = await inspecoesRecebimentoAPI.getById(inspecao.id);
             const dados = resp.data?.data || resp.data || {};
@@ -184,7 +192,11 @@ export default function InspecaoRecebimento() {
                 data_inspecao: dados.data_inspecao || hoje(),
                 nota_fiscal: dados.nota_fiscal || '',
                 quantidade_total: dados.quantidade_total ?? '',
-                observacao: dados.observacao || ''
+                observacao: dados.observacao || '',
+                /* 'pendente' não é opção do select: uma inspeção gravada antes
+                   deste campo existir cai como não escolhida, e precisa ser
+                   concluída para salvar de novo. */
+                status: ['aprovado', 'reprovado'].includes(dados.status) ? dados.status : ''
             });
             setRevisoesDisponiveis(listaRevs);
             setResultados((dados.resultados || []).map((r) => ({
@@ -221,6 +233,11 @@ export default function InspecaoRecebimento() {
             setActiveTab('dados');
             return 'Informe a data da inspeção';
         }
+        if (!formData.status) {
+            setActiveTab('resultados');
+            setErroStatusFinal('Selecione o status final da inspeção');
+            return 'Selecione o status final da inspeção, ao fim da aba Resultados';
+        }
         return '';
     };
 
@@ -240,6 +257,9 @@ export default function InspecaoRecebimento() {
                 nota_fiscal: formData.nota_fiscal,
                 quantidade_total: Number(formData.quantidade_total) || 0,
                 observacao: formData.observacao,
+                /* Enviado explicitamente: o servidor só calcula o status pelas
+                   medições quando o campo vem vazio. */
+                status: formData.status,
                 resultados: resultados.map((r) => ({
                     posicao_revisao_id: r.posicao_revisao_id,
                     valor_medido: r.valor_medido,
@@ -622,57 +642,95 @@ export default function InspecaoRecebimento() {
                                                     </div>
                                                 </div>
 
-                                                <div className="table-container">
-                                                    <table className="ficha-table tabela-resultados">
-                                                        <thead>
-                                                            <tr>
-                                                                <th style={{ width: 90 }}>Posição</th>
-                                                                <th style={{ width: 150 }}>Cota nominal</th>
-                                                                <th style={{ width: 150 }}>Instrumento</th>
-                                                                <th style={{ width: 140 }}>Valor medido</th>
-                                                                <th style={{ width: 130 }}>Status</th>
-                                                                <th>Observação</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            {resultados.map((r, i) => (
-                                                                <tr key={r.posicao_revisao_id || i}
-                                                                    className={r.status === 'nok' ? 'linha-nok' : ''}>
-                                                                    <td><strong>{r.posicao}</strong></td>
-                                                                    <td className="celula-referencia">{r.cota_nominal || '—'}</td>
-                                                                    <td className="celula-referencia">{r.instrumento || '—'}</td>
-                                                                    <td>
-                                                                        <input type="text" value={r.valor_medido}
-                                                                            onChange={(e) => updateResultado(i, 'valor_medido', e.target.value)}
-                                                                            aria-label={`Valor medido da posição ${r.posicao}`} />
-                                                                    </td>
-                                                                    <td>
-                                                                        <div className="status-toggle" role="group"
-                                                                            aria-label={`Status da posição ${r.posicao}`}>
-                                                                            <button type="button"
-                                                                                className={`status-btn ok ${r.status === 'ok' ? 'active' : ''}`}
-                                                                                onClick={() => updateResultado(i, 'status', r.status === 'ok' ? '' : 'ok')}
-                                                                                aria-pressed={r.status === 'ok'}>
-                                                                                OK
-                                                                            </button>
-                                                                            <button type="button"
-                                                                                className={`status-btn nok ${r.status === 'nok' ? 'active' : ''}`}
-                                                                                onClick={() => updateResultado(i, 'status', r.status === 'nok' ? '' : 'nok')}
-                                                                                aria-pressed={r.status === 'nok'}>
-                                                                                NOK
-                                                                            </button>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td>
-                                                                        <input type="text" value={r.observacao}
-                                                                            onChange={(e) => updateResultado(i, 'observacao', e.target.value)}
-                                                                            placeholder={r.observacoes_cota || ''}
-                                                                            aria-label={`Observação da posição ${r.posicao}`} />
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
+                                                {/* Um card por posição da revisão. A cota vem travada:
+                                                    é o que o desenho manda, e alterá-la aqui seria
+                                                    mexer na referência durante a medição. */}
+                                                <div className="cotas-grid">
+                                                    {resultados.map((r, i) => (
+                                                        <div key={r.posicao_revisao_id || i}
+                                                            className={`cota-card ${r.status === 'nok' ? 'is-nok' : ''}`}>
+                                                            <header className="cota-card-topo">
+                                                                <span className="cota-posicao">
+                                                                    <i className="fas fa-location-dot" aria-hidden="true"></i>
+                                                                    {r.posicao}
+                                                                </span>
+                                                                <span className="cota-instrumento">
+                                                                    <i className="fas fa-ruler-vertical" aria-hidden="true"></i>
+                                                                    <span>{r.instrumento || '—'}</span>
+                                                                </span>
+                                                            </header>
+
+                                                            <div className="cota-referencia">
+                                                                <span className="cota-rotulo">Referência</span>
+                                                                <span className="cota-referencia-valor">
+                                                                    {r.cota_nominal || '—'}
+                                                                </span>
+                                                            </div>
+
+                                                            <div className="cota-campo">
+                                                                <label htmlFor={`medido-${i}`}>Valor medido</label>
+                                                                <input id={`medido-${i}`} type="text" className="form-control"
+                                                                    value={r.valor_medido}
+                                                                    onChange={(e) => updateResultado(i, 'valor_medido', e.target.value)} />
+                                                            </div>
+
+                                                            <div className="cota-status" role="group"
+                                                                aria-label={`Status da posição ${r.posicao}`}>
+                                                                <button type="button"
+                                                                    className={`ok ${r.status === 'ok' ? 'is-ativo' : ''}`}
+                                                                    onClick={() => updateResultado(i, 'status', r.status === 'ok' ? '' : 'ok')}
+                                                                    aria-pressed={r.status === 'ok'}>
+                                                                    Conforme
+                                                                </button>
+                                                                <button type="button"
+                                                                    className={`nok ${r.status === 'nok' ? 'is-ativo' : ''}`}
+                                                                    onClick={() => updateResultado(i, 'status', r.status === 'nok' ? '' : 'nok')}
+                                                                    aria-pressed={r.status === 'nok'}>
+                                                                    NC
+                                                                </button>
+                                                            </div>
+
+                                                            <div className="cota-campo cota-campo-final">
+                                                                <label htmlFor={`obs-res-${i}`}>Observação</label>
+                                                                <input id={`obs-res-${i}`} type="text" className="form-control"
+                                                                    value={r.observacao}
+                                                                    onChange={(e) => updateResultado(i, 'observacao', e.target.value)}
+                                                                    placeholder={r.observacoes_cota || ''} />
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                {/* Fica na aba de Resultados, logo depois dos cards e
+                                                    antes dos botões: é a conclusão da medição que
+                                                    acabou de ser lançada. */}
+                                                <div className={`status-final ${erroStatusFinal ? 'tem-erro' : ''}`}>
+                                                    <label htmlFor="status-final">Status final da inspeção *</label>
+                                                    <select
+                                                        id="status-final"
+                                                        className="form-control"
+                                                        value={formData.status}
+                                                        onChange={(e) => {
+                                                            setCampo('status', e.target.value);
+                                                            if (erroStatusFinal) setErroStatusFinal('');
+                                                        }}
+                                                        aria-required="true"
+                                                        aria-invalid={!!erroStatusFinal}
+                                                    >
+                                                        <option value="" disabled>Selecione</option>
+                                                        <option value="aprovado">Aprovado</option>
+                                                        <option value="reprovado">Reprovado</option>
+                                                    </select>
+                                                    {erroStatusFinal ? (
+                                                        <span className="status-final-erro" role="alert">
+                                                            <i className="fas fa-triangle-exclamation" aria-hidden="true"></i>
+                                                            {erroStatusFinal}
+                                                        </span>
+                                                    ) : (
+                                                        <small className="campo-ajuda">
+                                                            Pelas medições lançadas, a inspeção está{' '}
+                                                            <strong>{STATUS_LABEL[statusPrevisto]}</strong>.
+                                                        </small>
+                                                    )}
                                                 </div>
                                             </>
                                         )}

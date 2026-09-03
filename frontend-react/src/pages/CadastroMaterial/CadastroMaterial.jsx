@@ -649,50 +649,58 @@ export default function CadastroMaterial() {
                                             </button>
                                         </div>
 
-                                        <div className="table-container">
-                                            <table className="ficha-table tabela-cotas">
-                                                <thead>
-                                                    <tr>
-                                                        <th style={{ width: 110 }}>Posição *</th>
-                                                        <th style={{ width: 160 }}>Cota</th>
-                                                        <th style={{ width: 180 }}>Instrumento</th>
-                                                        <th>Observações</th>
-                                                        <th style={{ width: 44 }}></th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {posicoes.map((p, i) => (
-                                                        <tr key={i}>
-                                                            <td>
-                                                                <input type="text" className="field-upper" value={p.posicao}
-                                                                    onChange={(e) => updatePosicao(i, 'posicao', e.target.value)}
-                                                                    placeholder="1" />
-                                                            </td>
-                                                            <td>
-                                                                <input type="text" value={p.cota}
-                                                                    onChange={(e) => updatePosicao(i, 'cota', e.target.value)}
-                                                                    placeholder="25,00 ± 0,20" />
-                                                            </td>
-                                                            <td>
-                                                                <input type="text" list="lista-instrumentos" value={p.instrumento}
-                                                                    onChange={(e) => updatePosicao(i, 'instrumento', e.target.value)}
-                                                                    placeholder="Paquímetro" />
-                                                            </td>
-                                                            <td>
-                                                                <input type="text" value={p.observacoes}
-                                                                    onChange={(e) => updatePosicao(i, 'observacoes', e.target.value)} />
-                                                            </td>
-                                                            <td>
-                                                                <button type="button" className="btn-row-del" title="Remover"
-                                                                    onClick={() => removePosicao(i)}
-                                                                    disabled={posicoes.length === 1}>
-                                                                    <i className="fas fa-trash"></i>
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
+                                        {/* Um card por posição. A cota é editável aqui porque é
+                                            nesta tela que ela é definida; na inspeção o mesmo card
+                                            a mostra travada, como referência. */}
+                                        <div className="cotas-grid">
+                                            {posicoes.map((p, i) => (
+                                                <div className="cota-card" key={i}>
+                                                    <header className="cota-card-topo">
+                                                        <span className="cota-posicao">
+                                                            <i className="fas fa-location-dot" aria-hidden="true"></i>
+                                                            Posição {i + 1}
+                                                        </span>
+                                                        <button type="button" className="cota-remover"
+                                                            title="Remover posição"
+                                                            aria-label={`Remover posição ${i + 1}`}
+                                                            onClick={() => removePosicao(i)}
+                                                            disabled={posicoes.length === 1}>
+                                                            <i className="fas fa-trash" aria-hidden="true"></i>
+                                                        </button>
+                                                    </header>
+
+                                                    <div className="cota-campo">
+                                                        <label htmlFor={`pos-${i}`}>Identificação no desenho *</label>
+                                                        <input id={`pos-${i}`} type="text"
+                                                            className="form-control field-upper" value={p.posicao}
+                                                            onChange={(e) => updatePosicao(i, 'posicao', e.target.value)}
+                                                            placeholder="26-01" />
+                                                    </div>
+
+                                                    <div className="cota-referencia">
+                                                        <span className="cota-rotulo">Referência</span>
+                                                        <input type="text" value={p.cota}
+                                                            onChange={(e) => updatePosicao(i, 'cota', e.target.value)}
+                                                            placeholder="1450 +50/-10"
+                                                            aria-label={`Cota de referência da posição ${i + 1}`} />
+                                                    </div>
+
+                                                    <div className="cota-campo">
+                                                        <label htmlFor={`inst-${i}`}>Instrumento</label>
+                                                        <input id={`inst-${i}`} type="text" className="form-control"
+                                                            list="lista-instrumentos" value={p.instrumento}
+                                                            onChange={(e) => updatePosicao(i, 'instrumento', e.target.value)}
+                                                            placeholder="Paquímetro" />
+                                                    </div>
+
+                                                    <div className="cota-campo cota-campo-final">
+                                                        <label htmlFor={`obs-${i}`}>Observações</label>
+                                                        <input id={`obs-${i}`} type="text" className="form-control"
+                                                            value={p.observacoes}
+                                                            onChange={(e) => updatePosicao(i, 'observacoes', e.target.value)} />
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
 
                                         {/* Lista sugerida, mas o campo aceita texto livre: cada setor

@@ -191,9 +191,277 @@
     margin: 0;
 }
 
-.tabela-cotas input {
+/* ══════════════════════════════════════════════════════════════════════
+   Cards de cota
+   ══════════════════════════════════════════════════════════════════════
+   Um card por posição, no lugar da tabela. A tabela obrigava rolagem
+   horizontal no celular e escondia as últimas colunas; o card mantém os
+   quatro campos de uma posição visíveis juntos.
+
+   Compartilhado com a Inspeção de Recebimento, que importa este arquivo:
+   lá o card mostra a cota como referência travada e recebe as medições. */
+.cotas-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-4);
+}
+
+.cota-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    min-width: 0;
+    padding: var(--space-4);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+}
+
+/* ── Cabeçalho: posição à esquerda, instrumento à direita ── */
+.cota-card-topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    min-width: 0;
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--border);
+}
+
+.cota-posicao {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    font-family: var(--font-mono, inherit);
+    font-size: var(--text-sm);
+    font-weight: var(--fw-semibold);
+    color: var(--fg);
+}
+
+.cota-instrumento {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: var(--text-xs);
+    color: var(--fg-muted);
+}
+
+.cota-instrumento span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cota-remover {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    border: 1px solid transparent;
+    border-radius: var(--r-md);
+    background: transparent;
+    color: var(--fg-muted);
+    cursor: pointer;
+    transition: var(--transition-base);
+}
+
+.cota-remover:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--danger, #ef4444) 12%, transparent);
+    color: var(--danger, #ef4444);
+}
+
+.cota-remover:disabled {
+    opacity: .35;
+    cursor: default;
+}
+
+.cota-remover:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+/* ── Bloco de referência ──
+   Fundo próprio para separar o que o desenho manda do que foi medido. */
+.cota-referencia {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 12px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+}
+
+.cota-rotulo {
+    font-size: var(--text-xs);
+    font-weight: var(--fw-semibold);
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+}
+
+.cota-referencia-valor {
+    font-family: var(--font-mono, inherit);
+    font-size: 1.05rem;
+    font-weight: var(--fw-semibold);
+    line-height: 1.3;
+    color: var(--fg);
+    overflow-wrap: anywhere;
+}
+
+/* No cadastro a cota é digitada aqui mesmo: é onde ela nasce. */
+.cota-referencia input {
+    width: 100%;
+    padding: 4px 0;
+    border: none;
+    background: transparent;
+    color: var(--fg);
+    font-family: var(--font-mono, inherit);
+    font-size: 1.05rem;
+    font-weight: var(--fw-semibold);
+}
+
+.cota-referencia input:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* ── Campos do card ── */
+.cota-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.cota-campo > label {
+    font-size: var(--text-xs);
+    font-weight: var(--fw-medium);
+    color: var(--fg-muted);
+}
+
+.cota-campo input,
+.cota-campo textarea {
     width: 100%;
     min-width: 0;
+}
+
+/* Empurra a observação para o fim, para os cards da linha alinharem os
+   blocos mesmo quando um deles tem instrumento de nome mais longo. */
+.cota-campo-final {
+    margin-top: auto;
+}
+
+/* ── Botões de status dentro do card ── */
+.cota-status {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+
+.cota-status button {
+    /* Base no conteúdo, não em zero: com flex-basis 0 o rótulo é cortado por
+       dentro e a quebra nunca acontece — foi o que aconteceu nos Critérios
+       de Inspeção. */
+    flex: 1 1 auto;
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    color: var(--fg-muted);
+    font-family: inherit;
+    font-size: var(--text-sm);
+    font-weight: var(--fw-semibold);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: var(--transition-base);
+}
+
+.cota-status button:hover {
+    color: var(--fg);
+}
+
+.cota-status button:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+.cota-status button.ok.is-ativo {
+    background: var(--success, #22c55e);
+    border-color: var(--success, #22c55e);
+    color: #fff;
+}
+
+.cota-status button.nok.is-ativo {
+    background: var(--danger, #ef4444);
+    border-color: var(--danger, #ef4444);
+    color: #fff;
+}
+
+/* Card com NC ganha marca na borda: a cor do botão sozinha se perde numa
+   grade de nove cards. */
+.cota-card.is-nok {
+    border-color: color-mix(in srgb, var(--danger, #ef4444) 55%, var(--border));
+    box-shadow: inset 3px 0 0 var(--danger, #ef4444);
+}
+
+/* ── Status final da inspeção ── */
+.status-final {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: var(--gap);
+    padding: var(--space-4);
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+}
+
+.status-final > label {
+    font-size: var(--text-sm);
+    font-weight: var(--fw-semibold);
+    color: var(--fg);
+}
+
+.status-final select {
+    max-width: 320px;
+}
+
+.status-final.tem-erro select {
+    border-color: var(--danger, #ef4444);
+}
+
+.status-final-erro {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--text-xs);
+    font-weight: var(--fw-medium);
+    color: var(--danger, #ef4444);
+}
+
+/* ── Responsivo ── */
+/* 1023 e não 1024: o iPad em paisagem tem 1024px e ainda rende três colunas
+   de ~305px, que acomodam o card inteiro sem corte — medido. */
+@media (max-width: 1023px) {
+    .cotas-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .cotas-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .status-final select {
+        max-width: none;
+    }
 }
 
 .validacao-alerta {
@@ -234,9 +502,6 @@
         padding-left: var(--space-3);
     }
 
-    /* A tabela de cotas tem quatro campos por linha: rolagem horizontal
-       preserva a leitura em vez de espremer cada um a 60px. */
-    .tabela-cotas {
-        min-width: 620px;
-    }
+    /* A rolagem horizontal da tabela de cotas saiu junto com a tabela: o card
+       empilha os campos e dispensa rolagem lateral. */
 }

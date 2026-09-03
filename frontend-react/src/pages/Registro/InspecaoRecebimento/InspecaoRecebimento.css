@@ -201,59 +201,9 @@
     vertical-align: middle;
 }
 
-.tabela-resultados input {
-    width: 100%;
-    min-width: 0;
-}
-
-.celula-referencia {
-    color: var(--fg-muted);
-}
-
-/* Linha reprovada some do padrão: a cor é reforço, o texto NOK no botão é
-   quem carrega a informação. */
-.tabela-resultados .linha-nok {
-    background: color-mix(in srgb, var(--danger, #ef4444) 8%, transparent);
-}
-
-.status-toggle {
-    display: inline-flex;
-    gap: 4px;
-}
-
-.status-btn {
-    padding: 5px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--r-sm);
-    background: var(--surface);
-    color: var(--fg-muted);
-    font-family: inherit;
-    font-size: var(--text-xs);
-    font-weight: var(--fw-semibold);
-    cursor: pointer;
-    transition: var(--transition-base);
-}
-
-.status-btn:hover {
-    color: var(--fg);
-}
-
-.status-btn:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
-}
-
-.status-btn.ok.active {
-    background: var(--success, #22c55e);
-    border-color: var(--success, #22c55e);
-    color: #fff;
-}
-
-.status-btn.nok.active {
-    background: var(--danger, #ef4444);
-    border-color: var(--danger, #ef4444);
-    color: #fff;
-}
+/* As regras da tabela de resultados saíram: os resultados agora são cards, e
+   o estilo deles mora em CadastroMaterial.css, importado no topo — as duas
+   telas mostram a mesma lista de cotas. */
 
 /* ── Status na listagem ── */
 .badge.status-aprovado {
@@ -289,11 +239,7 @@
         grid-template-columns: 1fr;
     }
 
-    /* Seis colunas não cabem: rolagem horizontal preserva a leitura de cada
-       posição em vez de espremer todas. */
-    .tabela-resultados {
-        min-width: 720px;
-    }
+    /* A rolagem horizontal saiu com a tabela: os cards empilham em uma coluna. */
 
     .section-header-linha {
         flex-direction: column;

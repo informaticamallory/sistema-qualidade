@@ -12,6 +12,7 @@ import './CadastroMaterial.css';
    uma vez serve a todas as inspeções daquele material. */
 
 const INSTRUMENTOS = [
+    'Trena métrica',
     'Paquímetro',
     'Micrômetro',
     'Relógio comparador',
@@ -22,16 +23,25 @@ const INSTRUMENTOS = [
     'Visual'
 ];
 
+/* Padrões do fluxo de recebimento. Ficam como valor inicial, não travado: são
+   o caso mais comum, e o campo continua editável para as exceções. */
+const INSTRUMENTO_PADRAO = 'Trena métrica';
+const SETOR_PADRAO = 'Recebimento';
+
 const hoje = () => new Date().toISOString().slice(0, 10);
 
-const posicaoVazia = () => ({ posicao: '', cota: '', instrumento: '', observacoes: '' });
+const posicaoVazia = () => ({
+    posicao: '',
+    cota: '',
+    instrumento: INSTRUMENTO_PADRAO,
+    observacoes: ''
+});
 
 const formVazio = () => ({
     codigo_sap: '',
     componente: '',
     aplicacao: '',
-    setor: '',
-    fornecedor: '',
+    setor: SETOR_PADRAO,
     revisao_desenho: '',
     data: hoje(),
     observacoes: ''
@@ -45,6 +55,8 @@ export default function CadastroMaterial() {
 
     const [modalAberto, setModalAberto] = useState(false);
     const [activeTab, setActiveTab] = useState('dados');
+    /* 'tabs' | 'geral' — mesmo alternador das telas de Injeção e Montagem. */
+    const [formViewMode, setFormViewMode] = useState('tabs');
     const [formData, setFormData] = useState(formVazio());
     const [posicoes, setPosicoes] = useState([posicaoVazia()]);
     const [salvando, setSalvando] = useState(false);
@@ -215,8 +227,7 @@ export default function CadastroMaterial() {
             codigo_sap: material.codigo_sap,
             componente: material.componente || '',
             aplicacao: material.aplicacao || '',
-            setor: material.setor || '',
-            fornecedor: material.fornecedor || ''
+            setor: material.setor || SETOR_PADRAO
         });
         setPosicoes([posicaoVazia()]);
         setActiveTab('dados');
@@ -235,8 +246,7 @@ export default function CadastroMaterial() {
                 codigo_sap: material.codigo_sap,
                 componente: material.componente || '',
                 aplicacao: material.aplicacao || '',
-                setor: material.setor || '',
-                fornecedor: material.fornecedor || '',
+                setor: material.setor || SETOR_PADRAO,
                 revisao_desenho: dados.revisao || '',
                 data: dados.data || '',
                 observacoes: dados.observacoes || ''
@@ -244,7 +254,10 @@ export default function CadastroMaterial() {
             setPosicoes(dados.posicoes?.length
                 ? dados.posicoes.map((p) => ({
                     posicao: p.posicao || '', cota: p.cota || '',
-                    instrumento: p.instrumento || '', observacoes: p.observacoes || ''
+                    /* Posição gravada sem instrumento recebe o padrão; o que já
+                       tem instrumento próprio é preservado. */
+                    instrumento: p.instrumento || INSTRUMENTO_PADRAO,
+                    observacoes: p.observacoes || ''
                 }))
                 : [posicaoVazia()]);
             setActiveTab('dados');
@@ -281,18 +294,21 @@ export default function CadastroMaterial() {
             const payload = upperFields({
                 ...formData,
                 posicoes: posicoesPreenchidas()
-            }, ['codigo_sap', 'componente', 'aplicacao', 'setor', 'fornecedor', 'revisao_desenho']);
+            }, ['codigo_sap', 'componente', 'aplicacao', 'setor', 'revisao_desenho']);
 
             if (revisaoEmEdicao) {
                 /* O cadastro do material e a revisão são recursos distintos:
                    editar a revisão não deve alterar silenciosamente o material,
-                   então os dois vão em chamadas separadas. */
+                   então os dois vão em chamadas separadas.
+
+                   `fornecedor` não é enviado de propósito: saiu desta tela, e
+                   mandar vazio apagaria o valor de materiais antigos. A coluna
+                   segue no banco e a API continua aceitando o campo. */
                 await materiaisAPI.update(revisaoEmEdicao.material_id, {
                     codigo_sap: payload.codigo_sap,
                     componente: payload.componente,
                     aplicacao: payload.aplicacao,
-                    setor: payload.setor,
-                    fornecedor: payload.fornecedor
+                    setor: payload.setor
                 });
                 await revisoesAPI.update(revisaoEmEdicao.id, {
                     revisao_desenho: payload.revisao_desenho,
@@ -335,7 +351,7 @@ export default function CadastroMaterial() {
 
     const termo = busca.trim().toLowerCase();
     const visiveis = termo
-        ? materiais.filter((m) => [m.codigo_sap, m.componente, m.fornecedor, m.setor]
+        ? materiais.filter((m) => [m.codigo_sap, m.componente, m.setor]
             .some((v) => String(v || '').toLowerCase().includes(termo)))
         : materiais;
 
@@ -391,7 +407,7 @@ export default function CadastroMaterial() {
                         <input
                             type="search"
                             className="form-control"
-                            placeholder="Buscar por código SAP, componente, fornecedor ou setor"
+                            placeholder="Buscar por código SAP, componente ou setor"
                             value={busca}
                             onChange={(e) => setBusca(e.target.value)}
                             aria-label="Buscar material"
@@ -418,7 +434,6 @@ export default function CadastroMaterial() {
                                         <th>Componente</th>
                                         <th className="col-hide">Aplicação</th>
                                         <th className="col-hide">Setor</th>
-                                        <th>Fornecedor</th>
                                         <th className="col-num">Revisões</th>
                                         <th className="col-acoes">Ações</th>
                                     </tr>
@@ -445,7 +460,6 @@ export default function CadastroMaterial() {
                                                 <td>{material.componente || '—'}</td>
                                                 <td className="col-hide">{material.aplicacao || '—'}</td>
                                                 <td className="col-hide">{material.setor || '—'}</td>
-                                                <td>{material.fornecedor || '—'}</td>
                                                 <td className="col-num">
                                                     <span className={`badge ${revisoes.length ? 'badge-info' : 'badge-warning'}`}>
                                                         {revisoes.length}
@@ -516,27 +530,46 @@ export default function CadastroMaterial() {
                                 </button>
                             </div>
 
+                            <div className="form-view-switcher" role="group"
+                                aria-label="Modo de exibição do formulário">
+                                <button type="button"
+                                    className={`view-switch-option ${formViewMode === 'tabs' ? 'active' : ''}`}
+                                    onClick={() => setFormViewMode('tabs')}
+                                    aria-pressed={formViewMode === 'tabs'}>
+                                    <i className="fas fa-layer-group" aria-hidden="true"></i> Abas
+                                </button>
+                                <button type="button"
+                                    className={`view-switch-option ${formViewMode === 'geral' ? 'active' : ''}`}
+                                    onClick={() => setFormViewMode('geral')}
+                                    aria-pressed={formViewMode === 'geral'}>
+                                    <i className="fas fa-list-check" aria-hidden="true"></i> Visão geral
+                                </button>
+                            </div>
+
                             {/* Tabs do UI Kit: já trazem o padrão ARIA de tablist,
-                                com navegação por setas do teclado. */}
-                            <Tabs
-                                className="modal-tabs"
-                                ariaLabel="Seções do cadastro"
-                                activeId={activeTab}
-                                onChange={setActiveTab}
-                                items={[
-                                    {
-                                        id: 'dados',
-                                        label: 'Dados do Material / Revisão',
-                                        icon: <i className="fas fa-file-lines" aria-hidden="true"></i>
-                                    },
-                                    {
-                                        id: 'cotas',
-                                        label: 'Cotas Dimensionais',
-                                        count: posicoesPreenchidas().length,
-                                        icon: <i className="fas fa-ruler-combined" aria-hidden="true"></i>
-                                    }
-                                ]}
-                            />
+                                com navegação por setas do teclado. Na visão geral
+                                somem, porque não há mais o que navegar. */}
+                            {formViewMode === 'tabs' && (
+                                <Tabs
+                                    className="modal-tabs"
+                                    ariaLabel="Seções do cadastro"
+                                    activeId={activeTab}
+                                    onChange={setActiveTab}
+                                    items={[
+                                        {
+                                            id: 'dados',
+                                            label: 'Dados do Material / Revisão',
+                                            icon: <i className="fas fa-file-lines" aria-hidden="true"></i>
+                                        },
+                                        {
+                                            id: 'cotas',
+                                            label: 'Cotas Dimensionais',
+                                            count: posicoesPreenchidas().length,
+                                            icon: <i className="fas fa-ruler-combined" aria-hidden="true"></i>
+                                        }
+                                    ]}
+                                />
+                            )}
 
                             <div className="modal-body">
                                 {alerta && (
@@ -546,7 +579,7 @@ export default function CadastroMaterial() {
                                     </div>
                                 )}
 
-                                {activeTab === 'dados' && (
+                                {(formViewMode === 'geral' || activeTab === 'dados') && (
                                     <div className="form-section">
                                         <div className="form-row-material">
                                             <div className="form-group">
@@ -612,22 +645,15 @@ export default function CadastroMaterial() {
                                             </div>
                                         </div>
 
-                                        {/* Mesma grade da linha acima. Antes o Fornecedor ocupava
-                                            duas das três colunas, e entre 561px e 900px — onde a
-                                            grade cai para duas — ele não cabia ao lado do Setor e
-                                            descia de linha. */}
+                                        {/* O Fornecedor saiu daqui: ele pertence ao lote recebido,
+                                            não ao material, e vive na tela de Inspeção de
+                                            Recebimento. O Setor ficou com a linha. */}
                                         <div className="form-row-material duas-colunas">
                                             <div className="form-group">
                                                 <label>Setor</label>
                                                 <input type="text" className="form-control field-upper"
                                                     value={formData.setor}
                                                     onChange={(e) => setCampo('setor', e.target.value)} />
-                                            </div>
-                                            <div className="form-group">
-                                                <label>Fornecedor</label>
-                                                <input type="text" className="form-control field-upper"
-                                                    value={formData.fornecedor}
-                                                    onChange={(e) => setCampo('fornecedor', e.target.value)} />
                                             </div>
                                         </div>
 
@@ -640,7 +666,7 @@ export default function CadastroMaterial() {
                                     </div>
                                 )}
 
-                                {activeTab === 'cotas' && (
+                                {(formViewMode === 'geral' || activeTab === 'cotas') && (
                                     <div className="form-section">
                                         <div className="section-header-linha">
                                             <h3 className="section-title">Cotas Dimensionais da Revisão</h3>

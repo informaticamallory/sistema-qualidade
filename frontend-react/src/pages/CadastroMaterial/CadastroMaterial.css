@@ -126,6 +126,62 @@
     overflow-x: auto;
 }
 
+/* ── Alternador Abas / Visão geral ──
+   Mesmas classes das telas de Injeção e Montagem, redeclaradas porque o CSS
+   daquelas páginas não é importado aqui. Valores em token, não literais. */
+.form-view-switcher {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: var(--space-3) var(--space-6);
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+}
+
+.view-switch-option {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    color: var(--fg-muted);
+    font-family: inherit;
+    font-size: .88rem;
+    font-weight: var(--fw-semibold);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: var(--transition-base);
+}
+
+.view-switch-option:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.view-switch-option:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+.view-switch-option.active {
+    background: var(--primary-soft);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+/* Na visão geral as seções entram em sequência: a linha separa uma da outra,
+   já que não há mais aba delimitando. */
+.modal-body .form-section + .form-section {
+    margin-top: var(--gap);
+    padding-top: var(--gap);
+    border-top: 1px solid var(--border);
+}
+
 /* ── Formulário ──
    Classe própria, sem `.form-row` no nome: em telas de até 480px o
    responsive.css declara `.form-row { grid-template-columns: 1fr !important }`,
@@ -237,6 +293,15 @@
     font-size: var(--text-sm);
     font-weight: var(--fw-semibold);
     color: var(--fg);
+}
+
+/* Marca de medição registrada. Aparece só quando há valor medido, então é
+   informação nova na tela — não decoração fixa. O title e o aria-label vêm do
+   JSX, porque a forma sozinha não diz o que significa. */
+.cota-medida {
+    color: var(--success, #22c55e);
+    font-size: .7rem;
+    line-height: 1;
 }
 
 .cota-instrumento {

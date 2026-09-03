@@ -50,6 +50,8 @@ export default function InspecaoRecebimento() {
 
     const [modalAberto, setModalAberto] = useState(false);
     const [activeTab, setActiveTab] = useState('identificacao');
+    /* 'tabs' | 'geral' — mesmo alternador das telas de Injeção e Montagem. */
+    const [formViewMode, setFormViewMode] = useState('tabs');
     const [formData, setFormData] = useState(formVazio());
     const [resultados, setResultados] = useState([]);
     const [revisoesDisponiveis, setRevisoesDisponiveis] = useState([]);
@@ -446,8 +448,26 @@ export default function InspecaoRecebimento() {
                                 </button>
                             </div>
 
+                            <div className="form-view-switcher" role="group"
+                                aria-label="Modo de exibição do formulário">
+                                <button type="button"
+                                    className={`view-switch-option ${formViewMode === 'tabs' ? 'active' : ''}`}
+                                    onClick={() => setFormViewMode('tabs')}
+                                    aria-pressed={formViewMode === 'tabs'}>
+                                    <i className="fas fa-layer-group" aria-hidden="true"></i> Abas
+                                </button>
+                                <button type="button"
+                                    className={`view-switch-option ${formViewMode === 'geral' ? 'active' : ''}`}
+                                    onClick={() => setFormViewMode('geral')}
+                                    aria-pressed={formViewMode === 'geral'}>
+                                    <i className="fas fa-list-check" aria-hidden="true"></i> Visão geral
+                                </button>
+                            </div>
+
                             {/* Tabs do UI Kit: já trazem o padrão ARIA de tablist,
-                                com navegação por setas do teclado. */}
+                                com navegação por setas do teclado. Na visão geral
+                                somem, porque não há mais o que navegar. */}
+                            {formViewMode === 'tabs' && (
                             <Tabs
                                 className="modal-tabs"
                                 ariaLabel="Seções da inspeção"
@@ -472,6 +492,7 @@ export default function InspecaoRecebimento() {
                                     }
                                 ]}
                             />
+                            )}
 
                             <div className="modal-body">
                                 {alerta && (
@@ -481,7 +502,7 @@ export default function InspecaoRecebimento() {
                                     </div>
                                 )}
 
-                                {activeTab === 'identificacao' && (
+                                {(formViewMode === 'geral' || activeTab === 'identificacao') && (
                                     <div className="form-section">
                                         <div className="form-row-recb">
                                             <div className="form-group recb-autocomplete">
@@ -558,7 +579,7 @@ export default function InspecaoRecebimento() {
                                     </div>
                                 )}
 
-                                {activeTab === 'dados' && (
+                                {(formViewMode === 'geral' || activeTab === 'dados') && (
                                     <div className="form-section">
                                         <div className="form-row-recb">
                                             <div className="form-group">
@@ -615,7 +636,7 @@ export default function InspecaoRecebimento() {
                                     </div>
                                 )}
 
-                                {activeTab === 'resultados' && (
+                                {(formViewMode === 'geral' || activeTab === 'resultados') && (
                                     <div className="form-section">
                                         {!resultados.length ? (
                                             <p className="recb-vazio">
@@ -653,6 +674,16 @@ export default function InspecaoRecebimento() {
                                                                 <span className="cota-posicao">
                                                                     <i className="fas fa-location-dot" aria-hidden="true"></i>
                                                                     {r.posicao}
+                                                                    {/* Marca de medição registrada, como na tabela
+                                                                        técnica. Só aparece com valor lançado, então
+                                                                        vale como leitura rápida do que já foi medido
+                                                                        numa grade de nove cards. O título carrega o
+                                                                        significado: a forma sozinha não diz nada. */}
+                                                                    {String(r.valor_medido || '').trim() && (
+                                                                        <span className="cota-medida" title="Medição registrada">
+                                                                            ▲<span className="sr-only"> medição registrada</span>
+                                                                        </span>
+                                                                    )}
                                                                 </span>
                                                                 <span className="cota-instrumento">
                                                                     <i className="fas fa-ruler-vertical" aria-hidden="true"></i>

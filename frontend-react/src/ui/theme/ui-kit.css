@@ -537,6 +537,35 @@ h5,
   border-bottom: 0;
 }
 
+/* Compactação da tabela em tablet e abaixo.
+
+   Estas regras nasceram no CSS da Inspeção de Injeção e valiam só para as
+   telas que importam aquele arquivo — Injeção, Cartões e Recebimento. Quem
+   não importava, como o Cadastro de Material, ficava com a tabela larga ao
+   lado de telas compactas. Subiram para cá para virar o padrão do sistema.
+
+   Ficou de fora, de propósito, o `display: none` que a Injeção aplica em
+   .col-hide e .col-acoes: esconder a coluna de ações é comportamento, não
+   estilo, e só funciona onde existe alternativa para editar e excluir — na
+   Injeção é a folha de ações do celular. Numa tela sem essa alternativa,
+   herdar a regra tiraria do usuário o acesso a essas operações. */
+@media (max-width: 1024px) {
+  .table-card {
+    border-radius: 12px;
+  }
+
+  .table th {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+
+  .table td {
+    padding: 0.6rem;
+    font-size: 0.82rem;
+  }
+}
+
 /* Badges */
 .badge {
   display: inline-flex;

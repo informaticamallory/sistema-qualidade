@@ -140,38 +140,31 @@
         display: block;
     }
 
+    /* border-radius, padding e font-size da tabela passaram para
+       ui/theme/ui-kit.css: valem para todas as listagens do sistema, e não só
+       para as telas que importam este arquivo. */
     .table-card {
-        border-radius: 12px;
         margin: 0 0 1rem 0;
         width: 100%;
     }
 
-    .table {
-        border-collapse: collapse;
-        border-spacing: 0;
-    }
+    /* Escopadas em .injecao-page de propósito.
 
-    .table th.col-hide,
-    .table td.col-hide {
+       Sem o escopo elas alcançavam toda tela que importa este arquivo, e a
+       Inspeção de Recebimento importa: ela tem coluna de ações e não tem
+       folha de ações no celular, então em tablet perdia os botões de abrir e
+       excluir sem nenhum caminho alternativo. Esconder a coluna só é
+       aceitável onde existe esse caminho, que aqui é o .mobile-action-sheet. */
+    .injecao-page .table th.col-hide,
+    .injecao-page .table td.col-hide {
         display: none;
     }
 
-    .table th.col-acoes,
-    .table td.col-acoes,
-    .table th.actions-column,
-    .table td.actions-column {
+    .injecao-page .table th.col-acoes,
+    .injecao-page .table td.col-acoes,
+    .injecao-page .table th.actions-column,
+    .injecao-page .table td.actions-column {
         display: none;
-    }
-
-    .table th {
-        font-size: 0.72rem;
-        padding: 0.5rem 0.6rem;
-        white-space: nowrap;
-    }
-
-    .table td {
-        font-size: 0.82rem;
-        padding: 0.6rem 0.6rem;
     }
 
     .table th.col-semana,

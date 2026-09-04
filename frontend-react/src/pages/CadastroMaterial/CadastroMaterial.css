@@ -181,12 +181,8 @@
     grid-column: span 2;
 }
 
-/* Linha de dois campos equivalentes, cada um com metade da largura. Sem isto,
-   dois `form-group-largo` (span 2) num grid de três colunas não caberiam na
-   mesma linha e o segundo caía para a linha de baixo. */
-.form-row-material.duas-colunas {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-}
+/* A modificadora `duas-colunas` saiu: as duas linhas do formulário passaram a
+   ter três campos cada, e nenhuma tela usava mais a classe. */
 
 /* ── Campo com spinner ── */
 .campo-com-status {
@@ -575,8 +571,7 @@
    inteiro passou de 758px para menos, e mais campos aparecem sem rolar — que
    era o real problema, já que a rolagem existia mas não se anunciava. */
 @media (max-width: 560px) {
-    .form-row-material,
-    .form-row-material.duas-colunas {
+    .form-row-material {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: var(--space-3);
     }
@@ -590,7 +585,6 @@
    rótulos como "Revisão do Desenho". Aí sim empilha. */
 @media (max-width: 359px) {
     .form-row-material,
-    .form-row-material.duas-colunas,
     .form-row-material .form-group-largo {
         grid-column: auto;
         grid-template-columns: 1fr;

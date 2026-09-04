@@ -667,6 +667,9 @@ export default function CadastroMaterial() {
                                             rótulo curto. Serve também à visão geral, onde as
                                             seções vêm em sequência e precisam se identificar. */}
                                         <h3 className="section-title">Dados do Material / Revisão</h3>
+                                        {/* Identificação do material na primeira linha: digitar o
+                                            Cód. SAP preenche o Componente ao lado, então os dois
+                                            juntos deixam a resposta da busca à vista. */}
                                         <div className="form-row-material">
                                             <div className="form-group">
                                                 <label>Cód. SAP *</label>
@@ -680,22 +683,6 @@ export default function CadastroMaterial() {
                                                     }}
                                                     aria-required="true" />
                                             </div>
-                                            <div className="form-group">
-                                                <label>Revisão do Desenho *</label>
-                                                <input type="text" className="form-control field-upper"
-                                                    value={formData.revisao_desenho}
-                                                    onChange={(e) => setCampo('revisao_desenho', e.target.value)}
-                                                    placeholder="Ex: A, REV01" aria-required="true" />
-                                            </div>
-                                            <div className="form-group">
-                                                <label>Data da Revisão</label>
-                                                <input type="date" className="form-control"
-                                                    value={formData.data || ''}
-                                                    onChange={(e) => setCampo('data', e.target.value)} />
-                                            </div>
-                                        </div>
-
-                                        <div className="form-row-material duas-colunas">
                                             <div className="form-group">
                                                 <label>Componente</label>
                                                 <div className="campo-com-status">
@@ -731,10 +718,24 @@ export default function CadastroMaterial() {
                                             </div>
                                         </div>
 
-                                        {/* O Fornecedor saiu daqui: ele pertence ao lote recebido,
-                                            não ao material, e vive na tela de Inspeção de
-                                            Recebimento. O Setor ficou com a linha. */}
-                                        <div className="form-row-material duas-colunas">
+                                        {/* Dados da revisão na segunda linha, com o Setor, que antes
+                                            ocupava uma linha inteira sozinho. O Fornecedor não está
+                                            aqui de propósito: pertence ao lote recebido, e vive na
+                                            tela de Inspeção de Recebimento. */}
+                                        <div className="form-row-material">
+                                            <div className="form-group">
+                                                <label>Revisão do Desenho *</label>
+                                                <input type="text" className="form-control field-upper"
+                                                    value={formData.revisao_desenho}
+                                                    onChange={(e) => setCampo('revisao_desenho', e.target.value)}
+                                                    placeholder="Ex: A, REV01" aria-required="true" />
+                                            </div>
+                                            <div className="form-group">
+                                                <label>Data da Revisão</label>
+                                                <input type="date" className="form-control"
+                                                    value={formData.data || ''}
+                                                    onChange={(e) => setCampo('data', e.target.value)} />
+                                            </div>
                                             <div className="form-group">
                                                 <label htmlFor="setor">Setor</label>
                                                 {/* Fixo: este cadastro serve ao fluxo de recebimento, e o

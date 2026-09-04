@@ -203,6 +203,29 @@ def garantir_schema_fichas_recebimento(app):
             db.session.rollback()
             app.logger.error(f"Erro ao atualizar schema de fichas_recebimento: {str(e)}")
 
+def garantir_schema_revisoes_desenho(app):
+    """Garante o campo de link do desenho nas revisões.
+
+    create_all() cria tabela nova, mas não acrescenta coluna a tabela que já
+    existe — e 'revisoes_desenho' já foi criada no deploy anterior."""
+    from sqlalchemy import inspect
+
+    with app.app_context():
+        try:
+            inspector = inspect(db.engine)
+            if not inspector.has_table('revisoes_desenho'):
+                return
+
+            colunas = {col['name'] for col in inspector.get_columns('revisoes_desenho')}
+            if 'link_desenho' not in colunas:
+                db.session.execute(db.text(
+                    "ALTER TABLE revisoes_desenho ADD COLUMN link_desenho VARCHAR(1000)"))
+                db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Erro ao atualizar schema de revisoes_desenho: {str(e)}")
+
+
 def garantir_schema_equipamentos(app):
     """Garante campos da lista de calibração em bancos existentes."""
     from sqlalchemy import inspect
@@ -350,6 +373,7 @@ def criar_admin_padrao(app):
     garantir_schema_usuarios(app)
     garantir_schema_injecao(app)
     garantir_schema_fichas_recebimento(app)
+    garantir_schema_revisoes_desenho(app)
     garantir_schema_equipamentos(app)
     garantir_schema_registros_inspecao(app)
     garantir_schema_checklist_testes(app)

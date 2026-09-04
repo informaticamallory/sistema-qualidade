@@ -72,6 +72,10 @@ class RevisaoDesenho(db.Model):
     data = db.Column(db.Date)
     observacoes = db.Column(db.Text)
 
+    # Link para o desenho técnico (Drive, SharePoint, storage interno). Fica na
+    # revisão e não na posição: um desenho cobre todas as cotas da revisão.
+    link_desenho = db.Column(db.String(1000))
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -93,6 +97,7 @@ class RevisaoDesenho(db.Model):
             'revisao': self.revisao,
             'data': self.data.isoformat() if self.data else None,
             'observacoes': self.observacoes,
+            'link_desenho': self.link_desenho,
             'total_posicoes': len(self.posicoes),
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None

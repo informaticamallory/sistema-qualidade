@@ -1,4 +1,5 @@
 # routes/materiais.py - Cadastro de material, revisões de desenho e cotas
+import re
 from flask import Blueprint, request
 from datetime import datetime
 
@@ -35,6 +36,22 @@ def _parse_date(value):
 def _texto(valor, limite=None):
     texto = str(valor).strip() if valor is not None else ''
     return texto[:limite] if limite else texto
+
+
+def _link(valor):
+    """Aceita só http e https.
+
+    O valor vai para um href no navegador, e `javascript:` ali executaria
+    script no contexto de quem abrisse a revisão. A tela também valida, mas
+    validação de cliente não protege quem chama a API direto.
+
+    Devolve (link, erro): erro preenchido significa entrada rejeitada."""
+    link = _texto(valor, 1000)
+    if not link:
+        return '', None
+    if not re.match(r'^https?://[^\s/$.?#].[^\s]*$', link, re.IGNORECASE):
+        return '', 'Informe um link válido começando com http:// ou https://'
+    return link, None
 
 
 def _aplicar_posicoes(revisao, posicoes):
@@ -144,11 +161,16 @@ def handle_materiais():
                 message=f'A revisão "{revisao_nome}" já existe para o código {codigo_sap}',
                 status_code=409)
 
+        link, erro_link = _link(dados.get('link_desenho'))
+        if erro_link:
+            return create_response(success=False, message=erro_link, status_code=400)
+
         revisao = RevisaoDesenho(
             material=material,
             revisao=revisao_nome,
             data=_parse_date(dados.get('data')),
-            observacoes=_texto(dados.get('observacoes'))
+            observacoes=_texto(dados.get('observacoes')),
+            link_desenho=link or None
         )
         db.session.add(revisao)
         _aplicar_posicoes(revisao, posicoes)
@@ -257,11 +279,16 @@ def handle_revisoes_do_material(id):
                                    message=f'A revisão "{revisao_nome}" já existe para este material',
                                    status_code=409)
 
+        link, erro_link = _link(dados.get('link_desenho'))
+        if erro_link:
+            return create_response(success=False, message=erro_link, status_code=400)
+
         revisao = RevisaoDesenho(
             material=material,
             revisao=revisao_nome,
             data=_parse_date(dados.get('data')),
-            observacoes=_texto(dados.get('observacoes'))
+            observacoes=_texto(dados.get('observacoes')),
+            link_desenho=link or None
         )
         db.session.add(revisao)
         _aplicar_posicoes(revisao, posicoes)
@@ -314,6 +341,12 @@ def handle_revisao(rev_id):
                 revisao.data = _parse_date(dados.get('data'))
             if 'observacoes' in dados:
                 revisao.observacoes = _texto(dados.get('observacoes'))
+            if 'link_desenho' in dados:
+                link, erro_link = _link(dados.get('link_desenho'))
+                if erro_link:
+                    return create_response(success=False, message=erro_link, status_code=400)
+                # Campo vazio remove o link, que e como a tela apaga um anexo.
+                revisao.link_desenho = link or None
 
             if 'posicoes' in dados:
                 posicoes = dados.get('posicoes') or []

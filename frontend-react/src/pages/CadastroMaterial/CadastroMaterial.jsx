@@ -47,8 +47,32 @@ const formVazio = () => ({
     setor: SETOR_PADRAO,
     revisao_desenho: '',
     data: hoje(),
-    observacoes: ''
+    observacoes: '',
+    link_desenho: ''
 });
+
+/* Só http e https. O valor vai para um href, e `javascript:` ali executaria
+   script no contexto de quem abrisse a revisão — o servidor recusa igual, mas
+   é aqui que o usuário recebe o aviso antes de tentar salvar. */
+const linkValido = (valor) => {
+    const texto = String(valor || '').trim();
+    if (!texto) return true;
+    try {
+        return ['http:', 'https:'].includes(new URL(texto).protocol);
+    } catch {
+        return false;
+    }
+};
+
+/* Extensão de imagem no fim do caminho, ignorando query e fragmento. Link de
+   Drive e SharePoint não expõe a imagem direto, então cai no botão de abrir. */
+const ehImagemDireta = (valor) => {
+    try {
+        return /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(new URL(valor).pathname);
+    } catch {
+        return false;
+    }
+};
 
 export default function CadastroMaterial() {
     const [materiais, setMateriais] = useState([]);
@@ -68,6 +92,10 @@ export default function CadastroMaterial() {
        campo por campo, para nenhum campo novo escapar por esquecimento. */
     const [formDirty, setFormDirty] = useState(false);
     const [confirmarSaida, setConfirmarSaida] = useState(false);
+    const [erroLink, setErroLink] = useState('');
+    /* A previa some se a imagem nao carregar: link pode apontar para arquivo
+       que exige login, e um icone quebrado nao ajuda ninguem. */
+    const [previaFalhou, setPreviaFalhou] = useState(false);
 
     /* Quando preenchido, o modal está editando esta revisão em vez de criar. */
     const [revisaoEmEdicao, setRevisaoEmEdicao] = useState(null);
@@ -121,6 +149,8 @@ export default function CadastroMaterial() {
         setModalAberto(false);
         setFormDirty(false);
         setConfirmarSaida(false);
+        setErroLink('');
+        setPreviaFalhou(false);
     };
 
     /* Único caminho de fechamento: o X, o Cancelar, o clique no fundo e o Esc
@@ -294,7 +324,8 @@ export default function CadastroMaterial() {
                 setor: material.setor || SETOR_PADRAO,
                 revisao_desenho: dados.revisao || '',
                 data: dados.data || '',
-                observacoes: dados.observacoes || ''
+                observacoes: dados.observacoes || '',
+                link_desenho: dados.link_desenho || ''
             });
             setPosicoes(dados.posicoes?.length
                 ? dados.posicoes.map((p) => ({
@@ -325,6 +356,11 @@ export default function CadastroMaterial() {
         if (!posicoesPreenchidas().length) {
             setActiveTab('cotas');
             return 'Cadastre ao menos uma posição na aba Cotas Dimensionais';
+        }
+        if (!linkValido(formData.link_desenho)) {
+            setActiveTab('cotas');
+            setErroLink('Informe um link válido começando com http:// ou https://');
+            return 'O link do desenho não é válido';
         }
         return '';
     };
@@ -359,6 +395,9 @@ export default function CadastroMaterial() {
                     revisao_desenho: payload.revisao_desenho,
                     data: payload.data || null,
                     observacoes: payload.observacoes,
+                    /* Enviado sempre, inclusive vazio: e assim que a tela
+                       remove um link que existia. */
+                    link_desenho: payload.link_desenho,
                     posicoes: payload.posicoes
                 });
             } else {
@@ -395,6 +434,13 @@ export default function CadastroMaterial() {
             setErro(e.response?.data?.message || 'Não foi possível excluir o material');
         }
     };
+
+    /* Link em condicao de ser aberto: preenchido e no formato certo. Serve de
+       guarda do href, para o botao nunca navegar para valor invalido. */
+    const linkPronto = (() => {
+        const texto = String(formData.link_desenho || '').trim();
+        return texto && linkValido(texto) ? texto : '';
+    })();
 
     const termo = busca.trim().toLowerCase();
     const visiveis = termo
@@ -834,6 +880,70 @@ export default function CadastroMaterial() {
                                             ))}
                                         </div>
 
+                                        {/* Desenho da revisão, depois dos cards: é a referência que
+                                            cobre todas as cotas acima, e fica à mão para consultar
+                                            enquanto se preenche. Opcional. */}
+                                        <div className="desenho-bloco">
+                                            <div className="cota-campo">
+                                                <label htmlFor="link-desenho">
+                                                    <i className="fas fa-paperclip" aria-hidden="true"></i> Link do desenho técnico
+                                                </label>
+                                                <div className="desenho-linha">
+                                                    <input
+                                                        id="link-desenho"
+                                                        type="url"
+                                                        inputMode="url"
+                                                        className={`form-control ${erroLink ? 'campo-com-erro' : ''}`}
+                                                        value={formData.link_desenho}
+                                                        onChange={(e) => {
+                                                            setCampo('link_desenho', e.target.value);
+                                                            if (erroLink) setErroLink('');
+                                                            /* Link novo merece nova tentativa de previa. */
+                                                            if (previaFalhou) setPreviaFalhou(false);
+                                                        }}
+                                                        placeholder="https://drive.google.com/..."
+                                                        aria-invalid={!!erroLink}
+                                                        aria-describedby="link-desenho-ajuda"
+                                                    />
+                                                    {/* rel noopener e noreferrer: sem eles a página aberta
+                                                        recebe referência a esta janela e pode redirecioná-la. */}
+                                                    <a
+                                                        className={`btn btn-outline desenho-abrir ${linkPronto ? '' : 'is-inativo'}`}
+                                                        href={linkPronto || undefined}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        aria-disabled={!linkPronto}
+                                                        onClick={(e) => { if (!linkPronto) e.preventDefault(); }}
+                                                        title={linkPronto ? 'Abrir o desenho em outra aba' : 'Informe um link válido para abrir'}
+                                                    >
+                                                        <i className="fas fa-up-right-from-square" aria-hidden="true"></i>
+                                                        <span>Abrir desenho</span>
+                                                    </a>
+                                                </div>
+                                                {erroLink ? (
+                                                    <span className="campo-erro" role="alert">
+                                                        <i className="fas fa-triangle-exclamation" aria-hidden="true"></i> {erroLink}
+                                                    </span>
+                                                ) : (
+                                                    <small className="campo-ajuda" id="link-desenho-ajuda">
+                                                        Opcional. Cole o link do Drive, SharePoint ou do storage interno.
+                                                    </small>
+                                                )}
+                                            </div>
+
+                                            {/* Prévia só para link que aponta a imagem direto. Drive e
+                                                SharePoint devolvem página HTML, não a imagem, então
+                                                ali sobra o botão de abrir — e o onError cobre o caso
+                                                de a imagem existir mas não carregar. */}
+                                            {linkPronto && ehImagemDireta(linkPronto) && !previaFalhou && (
+                                                <a className="desenho-previa" href={linkPronto}
+                                                    target="_blank" rel="noopener noreferrer"
+                                                    title="Abrir o desenho em outra aba">
+                                                    <img src={linkPronto} alt="Prévia do desenho técnico"
+                                                        loading="lazy" onError={() => setPreviaFalhou(true)} />
+                                                </a>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                             </div>

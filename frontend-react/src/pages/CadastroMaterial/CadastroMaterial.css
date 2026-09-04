@@ -107,6 +107,15 @@
     overflow-x: auto;
 }
 
+/* No celular o recuo lateral cai de 24px para 10px de cada lado. Com três
+   abas somando 351px numa barra de 369px, os 48px de recuo empurravam a
+   última para fora da área visível, e ela aparecia cortada pela borda. */
+@media (max-width: 600px) {
+    .modal-tabs {
+        padding: 6px 10px;
+    }
+}
+
 /* ── Alternador Abas / Visão geral ──
    Mesmas classes das telas de Injeção e Montagem, redeclaradas porque o CSS
    daquelas páginas não é importado aqui. Valores em token, não literais. */

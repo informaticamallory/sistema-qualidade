@@ -545,8 +545,11 @@ export default function InspecaoRecebimento() {
                                         icon: <i className="fas fa-fingerprint" aria-hidden="true"></i>
                                     },
                                     {
+                                        /* "Dados" e não "Dados Gerais": o título por extenso está
+                                           no conteúdo, e o rótulo curto é o que faz as três abas
+                                           caberem na largura do celular. */
                                         id: 'dados',
-                                        label: 'Dados Gerais',
+                                        label: 'Dados',
                                         icon: <i className="fas fa-box" aria-hidden="true"></i>
                                     },
                                     {
@@ -569,6 +572,10 @@ export default function InspecaoRecebimento() {
 
                                 {(formViewMode === 'geral' || activeTab === 'identificacao') && (
                                     <div className="form-section">
+                                        {/* Titulo por extenso aqui porque a aba usa rotulo curto;
+                                            serve tambem a visao geral, onde as secoes vem em
+                                            sequencia e precisam se identificar. */}
+                                        <h3 className="section-title">Identificação do Material</h3>
                                         <div className="form-row-recb">
                                             <div className="form-group recb-autocomplete">
                                                 <label>Cód. SAP *</label>
@@ -646,6 +653,7 @@ export default function InspecaoRecebimento() {
 
                                 {(formViewMode === 'geral' || activeTab === 'dados') && (
                                     <div className="form-section">
+                                        <h3 className="section-title">Dados Gerais do Lote</h3>
                                         <div className="form-row-recb">
                                             <div className="form-group">
                                                 <label>Lote *</label>

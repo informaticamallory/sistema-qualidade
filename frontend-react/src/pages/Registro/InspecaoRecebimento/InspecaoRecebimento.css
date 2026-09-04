@@ -152,13 +152,17 @@
 }
 
 /* ── Responsivo ── */
+/* De 561px a 900px a grade tem duas colunas, e é onde o campo largo tem de
+   deixar de pedir duas: com `span 2` ele tomava a linha inteira e o par ao
+   lado descia — Cód. SAP e Componente ficavam um sob o outro também no
+   tablet, não só no celular. */
 @media (max-width: 900px) {
     .form-row-recb {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .form-row-recb .form-group-largo {
-        grid-column: span 2;
+        grid-column: auto;
     }
 }
 
@@ -170,8 +174,12 @@
         gap: var(--space-3);
     }
 
+    /* `auto` e não `span 2`: numa grade de duas colunas o span ocupava a linha
+       inteira, e o par ao lado nunca caía junto — Cód. SAP e Componente ficavam
+       um sob o outro. O span 2 continua valendo no desktop, onde a grade tem
+       três colunas e o campo largo aproveita duas. */
     .form-row-recb .form-group-largo {
-        grid-column: span 2;
+        grid-column: auto;
     }
 }
 

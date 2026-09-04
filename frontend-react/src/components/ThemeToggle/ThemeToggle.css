@@ -58,3 +58,33 @@
     border-color: rgba(255, 255, 255, 0.28);
     transform: translateY(-1px);
 }
+
+/* ── Variante da barra superior ──
+   Discreta por padrão, ganhando fundo só no hover: na topbar ela convive com
+   o breadcrumb e com o botão de ação da página, e não deve competir com eles.
+   Só tokens, para acompanhar o tema que ela mesma alterna. */
+.theme-toggle-topbar {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--r-md, 10px);
+    background: transparent;
+    color: var(--fg-muted);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+
+.theme-toggle-topbar:hover {
+    background: var(--bg-2);
+    color: var(--fg);
+}
+
+.theme-toggle-topbar:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}

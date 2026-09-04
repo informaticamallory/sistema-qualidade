@@ -18,6 +18,14 @@ const STATUS_LABEL = {
     pendente: 'Pendente'
 };
 
+/* As mesmas classes de badge da Inspecao de Injecao, definidas no UI Kit.
+   Antes esta tela tinha `.badge.status-*` proprio, com as cores repetidas. */
+const STATUS_BADGE = {
+    aprovado: 'badge-success',
+    reprovado: 'badge-danger',
+    pendente: 'badge-warning'
+};
+
 const hoje = () => new Date().toISOString().slice(0, 10);
 
 const formVazio = () => ({
@@ -474,7 +482,7 @@ export default function InspecaoRecebimento() {
                                             <td className="col-hide">{i.nota_fiscal || '—'}</td>
                                             <td className="col-hide">{i.inspetor_nome || '—'}</td>
                                             <td>
-                                                <span className={`badge status-${i.status}`}>
+                                                <span className={`badge ${STATUS_BADGE[i.status] || 'badge-warning'}`}>
                                                     {STATUS_LABEL[i.status] || i.status}
                                                 </span>
                                             </td>
@@ -720,7 +728,7 @@ export default function InspecaoRecebimento() {
                                                 <div className="section-header-linha">
                                                     <h3 className="section-title">
                                                         Resultados
-                                                        <span className={`badge status-${statusPrevisto} badge-previa`}>
+                                                        <span className={`badge ${STATUS_BADGE[statusPrevisto] || 'badge-warning'} badge-previa`}>
                                                             {STATUS_LABEL[statusPrevisto]}
                                                         </span>
                                                     </h3>

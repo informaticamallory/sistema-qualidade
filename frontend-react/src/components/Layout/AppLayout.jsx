@@ -81,7 +81,9 @@ export default function AppLayout({
 
                     <div className="app-topbar-right">
                         {actions}
-                        <ThemeToggle />
+                        {/* Variante própria da barra: a da sidebar traz fundo e
+                            borda laranja, feitos para o cabeçalho escuro dela. */}
+                        <ThemeToggle variant="topbar" />
                     </div>
                 </header>
 

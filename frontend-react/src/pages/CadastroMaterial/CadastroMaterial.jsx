@@ -526,30 +526,34 @@ export default function CadastroMaterial() {
                 </div>
 
                 <div className="table-card">
-                    {loading ? (
-                        <p className="material-vazio">Carregando…</p>
-                    ) : !visiveis.length ? (
-                        <p className="material-vazio">
-                            {materiais.length
-                                ? 'Nenhum material corresponde à busca.'
-                                : 'Nenhum material cadastrado ainda.'}
-                        </p>
-                    ) : (
-                        <div className="table-container">
-                            <table className="table">
-                                <thead>
-                                    <tr>
-                                        <th style={{ width: 40 }}></th>
-                                        <th>Cód. SAP</th>
-                                        <th>Componente</th>
-                                        <th className="col-hide">Aplicação</th>
-                                        <th className="col-hide">Setor</th>
-                                        <th className="col-num">Revisões</th>
-                                        <th className="col-acoes">Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {visiveis.map((material) => {
+                    {/* A tabela é renderizada sempre, inclusive vazia: o aviso vai
+                        numa linha com colSpan, como na Inspeção de Injeção. Trocar
+                        a tabela por um parágrafo fazia o cabeçalho e o container
+                        desaparecerem justamente quando não há dados. */}
+                    <div className="table-container">
+                        <table className="table">
+                            <thead>
+                                <tr>
+                                    <th style={{ width: 40 }}></th>
+                                    <th>Cód. SAP</th>
+                                    <th>Componente</th>
+                                    <th className="col-hide">Aplicação</th>
+                                    <th className="col-hide">Setor</th>
+                                    <th className="col-num">Revisões</th>
+                                    <th className="col-acoes">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loading ? (
+                                    <tr><td colSpan="7" style={{ textAlign: 'center' }}>Carregando...</td></tr>
+                                ) : !visiveis.length ? (
+                                    <tr><td colSpan="7" style={{ textAlign: 'center' }}>
+                                        {materiais.length
+                                            ? 'Nenhum material corresponde à busca'
+                                            : 'Nenhum material encontrado'}
+                                    </td></tr>
+                                ) : (
+                                    visiveis.map((material) => {
                                         const aberto = !!expandido[material.id];
                                         const revisoes = material.revisoes || [];
                                         return [
@@ -597,8 +601,11 @@ export default function CadastroMaterial() {
                                             </tr>,
                                             aberto && (
                                                 <tr key={`${material.id}-revisoes`} className="linha-revisoes">
-                                                    <td colSpan={8}>
-                                                        <table className="tabela-revisoes">
+                                                    <td colSpan={7}>
+                                                        {/* Classe `table` também aqui: a sub-tabela herda
+                                                            cabeçalho, padding e divisores da tabela
+                                                            principal, em vez de ter estilo próprio. */}
+                                                        <table className="table tabela-revisoes">
                                                             <thead>
                                                                 <tr>
                                                                     <th>Revisão</th>
@@ -637,11 +644,11 @@ export default function CadastroMaterial() {
                                                 </tr>
                                             )
                                         ];
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 {modalAberto && (

@@ -22,12 +22,8 @@
     padding-left: 38px;
 }
 
-.material-vazio {
-    margin: 0;
-    padding: var(--space-8) var(--space-4);
-    text-align: center;
-    color: var(--fg-muted);
-}
+/* `.material-vazio` saiu: o aviso de lista vazia virou uma linha dentro da
+   tabela, com colSpan, como na Inspeção de Injeção. */
 
 /* ── Revisões dentro da linha do material ── */
 .btn-expandir {
@@ -58,29 +54,11 @@
     background: var(--bg-2);
 }
 
+/* A sub-tabela agora leva a classe `table`, então cabeçalho, padding e
+   divisores vêm do mesmo lugar da tabela principal. Sobra só o recuo, que a
+   diferencia como conteúdo aninhado. */
 .tabela-revisoes {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.tabela-revisoes th,
-.tabela-revisoes td {
-    padding: 8px 12px;
-    text-align: left;
-    font-size: var(--text-sm);
-    border-bottom: 1px solid var(--border);
-}
-
-.tabela-revisoes th {
-    font-size: var(--text-xs);
-    font-weight: var(--fw-semibold);
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    color: var(--fg-muted);
-}
-
-.tabela-revisoes tr:last-child td {
-    border-bottom: none;
+    margin: 0;
 }
 
 /* ── Modal ──

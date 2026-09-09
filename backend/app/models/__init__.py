@@ -13,7 +13,8 @@ from app.models.q49 import Q49Registro
 from app.models.resumo_bloqueio import ResumoBloqueio, ResumoBloqueioLinha
 from app.models.ficha_nc import FichaNC
 from app.models.material import Material, RevisaoDesenho, PosicaoRevisao
-from app.models.inspecao_recebimento import InspecaoRecebimento, ResultadoInspecao
+from app.models.inspecao_recebimento import (InspecaoRecebimento, LoteInspecao,
+                                            ResultadoInspecao)
 
 __all__ = [
     'Usuario',
@@ -39,5 +40,6 @@ __all__ = [
     'RevisaoDesenho',
     'PosicaoRevisao',
     'InspecaoRecebimento',
+    'LoteInspecao',
     'ResultadoInspecao'
 ]

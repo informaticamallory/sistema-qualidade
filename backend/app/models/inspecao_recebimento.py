@@ -48,12 +48,30 @@ class InspecaoRecebimento(db.Model):
 
     material = db.relationship('Material')
     revisao = db.relationship('RevisaoDesenho')
+    lotes = db.relationship(
+        'LoteInspecao',
+        back_populates='inspecao',
+        cascade='all, delete-orphan',
+        order_by='LoteInspecao.ordem'
+    )
     resultados = db.relationship(
         'ResultadoInspecao',
         back_populates='inspecao',
         cascade='all, delete-orphan',
         order_by='ResultadoInspecao.ordem'
     )
+
+    def sincronizar_resumo_dos_lotes(self):
+        """Reflete a lista de lotes nas colunas escalares da inspeção.
+
+        Elas continuam existindo porque a listagem exibe lote e nota fiscal em
+        colunas, e a busca filtra por elas. Guardam o primeiro lote, e a
+        quantidade vira a soma — que é o número que interessa para o lote
+        inteiro recebido."""
+        primeiro = self.lotes[0] if self.lotes else None
+        self.lote = primeiro.lote if primeiro else None
+        self.nota_fiscal = primeiro.nota_fiscal if primeiro else None
+        self.quantidade_total = sum((l.quantidade_total or 0) for l in self.lotes)
 
     def calcular_status(self):
         """Reprovado quando qualquer posição estiver NOK; pendente enquanto
@@ -86,6 +104,9 @@ class InspecaoRecebimento(db.Model):
             'data_inspecao': self.data_inspecao.isoformat() if self.data_inspecao else None,
             'nota_fiscal': self.nota_fiscal,
             'quantidade_total': self.quantidade_total,
+            # Lista completa, mais os escalares acima como resumo: a tela de
+            # edição usa esta, a listagem usa aqueles.
+            'lotes': [l.to_dict() for l in self.lotes],
             'inspetor_id': self.inspetor_id,
             'inspetor_nome': self.inspetor_nome,
             'status': self.status,
@@ -96,6 +117,44 @@ class InspecaoRecebimento(db.Model):
         if incluir_resultados:
             dados['resultados'] = [r.to_dict() for r in self.resultados]
         return dados
+
+
+class LoteInspecao(db.Model):
+    """Um lote recebido dentro da inspeção.
+
+    Uma entrega pode chegar partida em vários lotes ou notas fiscais, e antes
+    isso não cabia: a inspeção tinha um lote, uma nota e uma quantidade.
+    As colunas escalares continuam na inspeção, alimentadas a partir daqui,
+    porque a listagem e a busca dependem delas."""
+    __tablename__ = 'lotes_inspecao'
+
+    __table_args__ = (
+        {'mysql_engine': 'InnoDB', 'mysql_charset': 'utf8mb4'}
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    inspecao_id = db.Column(db.Integer, db.ForeignKey('inspecoes_recebimento.id', ondelete='CASCADE'),
+                            nullable=False, index=True)
+
+    ordem = db.Column(db.Integer, default=0)
+    lote = db.Column(db.String(100), index=True)
+    nota_fiscal = db.Column(db.String(50))
+    quantidade_total = db.Column(db.Integer, default=0)
+
+    inspecao = db.relationship('InspecaoRecebimento', back_populates='lotes')
+
+    def __repr__(self):
+        return f'<LoteInspecao {self.lote} nf={self.nota_fiscal}>'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'inspecao_id': self.inspecao_id,
+            'ordem': self.ordem,
+            'lote': self.lote,
+            'nota_fiscal': self.nota_fiscal,
+            'quantidade_total': self.quantidade_total
+        }
 
 
 class ResultadoInspecao(db.Model):

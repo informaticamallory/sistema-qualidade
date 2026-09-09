@@ -226,6 +226,52 @@ def garantir_schema_revisoes_desenho(app):
             app.logger.error(f"Erro ao atualizar schema de revisoes_desenho: {str(e)}")
 
 
+def garantir_lotes_das_inspecoes(app):
+    """Passa as inspeções antigas para a tabela de lotes.
+
+    Cada inspeção lançada antes desta mudança tinha um lote, uma nota e uma
+    quantidade em colunas próprias. Aqui cada uma vira a primeira linha da
+    lista, para o histórico continuar aparecendo na tela de edição.
+
+    Só toca em inspeção que ainda não tem nenhuma linha, então rodar de novo
+    não duplica nada."""
+    from sqlalchemy import inspect
+
+    with app.app_context():
+        try:
+            inspector = inspect(db.engine)
+            if not (inspector.has_table('inspecoes_recebimento')
+                    and inspector.has_table('lotes_inspecao')):
+                return
+
+            from app.models.inspecao_recebimento import InspecaoRecebimento, LoteInspecao
+
+            com_lote = {row[0] for row in db.session.query(LoteInspecao.inspecao_id).distinct()}
+            pendentes = (InspecaoRecebimento.query
+                         .filter(~InspecaoRecebimento.id.in_(com_lote) if com_lote else db.true())
+                         .all())
+
+            criados = 0
+            for inspecao in pendentes:
+                # Inspeção sem nenhum dos três não gera linha vazia.
+                if not (inspecao.lote or inspecao.nota_fiscal or inspecao.quantidade_total):
+                    continue
+                db.session.add(LoteInspecao(
+                    inspecao_id=inspecao.id,
+                    ordem=0,
+                    lote=inspecao.lote,
+                    nota_fiscal=inspecao.nota_fiscal,
+                    quantidade_total=inspecao.quantidade_total or 0))
+                criados += 1
+
+            if criados:
+                db.session.commit()
+                app.logger.info(f'Lotes migrados de inspeções antigas: {criados}')
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Erro ao migrar lotes das inspeções: {str(e)}")
+
+
 def garantir_schema_equipamentos(app):
     """Garante campos da lista de calibração em bancos existentes."""
     from sqlalchemy import inspect
@@ -374,6 +420,7 @@ def criar_admin_padrao(app):
     garantir_schema_injecao(app)
     garantir_schema_fichas_recebimento(app)
     garantir_schema_revisoes_desenho(app)
+    garantir_lotes_das_inspecoes(app)
     garantir_schema_equipamentos(app)
     garantir_schema_registros_inspecao(app)
     garantir_schema_checklist_testes(app)

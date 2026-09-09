@@ -45,6 +45,8 @@ const formVazio = () => ({
     status: ''
 });
 
+const loteVazio = () => ({ lote: '', nota_fiscal: '', quantidade_total: '' });
+
 const formatarData = (iso) => (iso ? iso.split('-').reverse().join('/') : '—');
 
 export default function InspecaoRecebimento() {
@@ -85,6 +87,9 @@ export default function InspecaoRecebimento() {
        o inspetor pode manter várias abertas ao mesmo tempo — comparar duas
        cotas é caso comum. Todas começam fechadas. */
     const [posicoesAbertas, setPosicoesAbertas] = useState({});
+    /* Lotes da inspeção. Lista e não campos soltos: a mesma entrega pode vir
+       em notas diferentes. Começa com uma linha, que é o caso comum. */
+    const [lotes, setLotes] = useState([loteVazio()]);
 
     /* Autocomplete de material */
     const [sugestoes, setSugestoes] = useState([]);
@@ -230,6 +235,27 @@ export default function InspecaoRecebimento() {
         }
     };
 
+    const updateLote = (i, campo, valor) => {
+        setLotes((prev) => prev.map((l, idx) => (idx === i ? { ...l, [campo]: valor } : l)));
+        setFormDirty(true);
+    };
+
+    const addLote = () => {
+        setLotes((prev) => [...prev, loteVazio()]);
+        setFormDirty(true);
+    };
+
+    const removeLote = (i) => {
+        setLotes((prev) => (prev.length === 1 ? prev : prev.filter((_, idx) => idx !== i)));
+        setFormDirty(true);
+    };
+
+    /* Soma das quantidades. O campo é o único lugar onde esse número existe —
+       não há outro consumidor na tela —, então serve de conferência do que foi
+       lançado por linha. */
+    const totalQuantidade = lotes.reduce(
+        (soma, l) => soma + (Number(l.quantidade_total) || 0), 0);
+
     const alternarPosicao = (chave) => setPosicoesAbertas((prev) => (
         { ...prev, [chave]: !prev[chave] }
     ));
@@ -265,6 +291,7 @@ export default function InspecaoRecebimento() {
         setFornecedoresDoMaterial([]);
         setFornecedoresAbertos(false);
         setPosicoesAbertas({});
+        setLotes([loteVazio()]);
         setActiveTab('identificacao');
         setAlerta('');
         setErroStatusFinal('');
@@ -318,6 +345,19 @@ export default function InspecaoRecebimento() {
             carregarFornecedores(dados.material_id);
             setFornecedoresAbertos(false);
             setPosicoesAbertas({});
+            /* Inspeção antiga, gravada antes da lista, tem só os campos soltos:
+               viram uma linha para poder ser editada. */
+            setLotes(dados.lotes?.length
+                ? dados.lotes.map((l) => ({
+                    lote: l.lote || '',
+                    nota_fiscal: l.nota_fiscal || '',
+                    quantidade_total: l.quantidade_total ?? ''
+                }))
+                : [{
+                    lote: dados.lote || '',
+                    nota_fiscal: dados.nota_fiscal || '',
+                    quantidade_total: dados.quantidade_total ?? ''
+                }]);
             setActiveTab('identificacao');
             /* Carregar do banco não é alteração do usuário: sem zerar aqui,
                abrir e fechar uma inspeção já pediria confirmação. */
@@ -338,9 +378,9 @@ export default function InspecaoRecebimento() {
             setActiveTab('identificacao');
             return 'Selecione a revisão do desenho';
         }
-        if (!String(formData.lote).trim()) {
+        if (!lotes.some((l) => String(l.lote || '').trim())) {
             setActiveTab('dados');
-            return 'Informe o lote';
+            return 'Informe ao menos um lote';
         }
         if (!formData.data_inspecao) {
             setActiveTab('dados');
@@ -364,11 +404,17 @@ export default function InspecaoRecebimento() {
             const payload = upperFields({
                 revisao_id: Number(formData.revisao_id),
                 fornecedor: formData.fornecedor,
-                lote: formData.lote,
+                lotes: lotes
+                    .map((l) => ({
+                        lote: String(l.lote || '').trim().toUpperCase(),
+                        nota_fiscal: String(l.nota_fiscal || '').trim().toUpperCase(),
+                        quantidade_total: Number(l.quantidade_total) || 0
+                    }))
+                    /* Linha em branco não vai: a tela mantém sempre uma visível. */
+                    .filter((l) => l.lote || l.nota_fiscal || l.quantidade_total),
                 data_entrada: formData.data_entrada || null,
                 data_inspecao: formData.data_inspecao,
-                nota_fiscal: formData.nota_fiscal,
-                quantidade_total: Number(formData.quantidade_total) || 0,
+
                 observacao: formData.observacao,
                 /* Enviado explicitamente: o servidor só calcula o status pelas
                    medições quando o campo vem vazio. */
@@ -379,7 +425,7 @@ export default function InspecaoRecebimento() {
                     observacao: r.observacao,
                     status: r.status
                 }))
-            }, ['fornecedor', 'lote', 'nota_fiscal']);
+            }, ['fornecedor']);
 
             if (editandoId) {
                 await inspecoesRecebimentoAPI.update(editandoId, payload);
@@ -793,28 +839,64 @@ export default function InspecaoRecebimento() {
                                 {(formViewMode === 'geral' || activeTab === 'dados') && (
                                     <div className="form-section">
                                         <h3 className="section-title">Dados Gerais do Lote</h3>
-                                        <div className="form-row-recb">
-                                            <div className="form-group">
-                                                <label>Lote *</label>
-                                                <input type="text" className="form-control field-upper"
-                                                    value={formData.lote}
-                                                    onChange={(e) => setCampo('lote', e.target.value)}
-                                                    aria-required="true" />
+
+                                        {/* Uma linha por lote recebido: a mesma entrega pode chegar
+                                            partida em notas diferentes, e antes só cabia uma. */}
+                                        {lotes.map((l, i) => (
+                                            <div className="form-row-recb linha-lote" key={i}>
+                                                <div className="form-group">
+                                                    <label htmlFor={`lote-${i}`}>
+                                                        Lote {i === 0 ? '*' : ''}
+                                                    </label>
+                                                    <input id={`lote-${i}`} type="text"
+                                                        className="form-control field-upper"
+                                                        value={l.lote}
+                                                        onChange={(e) => updateLote(i, 'lote', e.target.value)}
+                                                        aria-required={i === 0} />
+                                                </div>
+                                                <div className="form-group">
+                                                    <label htmlFor={`nf-${i}`}>Nota Fiscal</label>
+                                                    <input id={`nf-${i}`} type="text"
+                                                        className="form-control field-upper"
+                                                        value={l.nota_fiscal}
+                                                        onChange={(e) => updateLote(i, 'nota_fiscal', e.target.value)} />
+                                                </div>
+                                                <div className="form-group">
+                                                    <label htmlFor={`qtd-${i}`}>Quantidade</label>
+                                                    <input id={`qtd-${i}`} type="text" inputMode="numeric"
+                                                        pattern="[0-9]*" className="form-control"
+                                                        value={l.quantidade_total}
+                                                        onChange={(e) => updateLote(i, 'quantidade_total',
+                                                            e.target.value.replace(/\D/g, ''))} />
+                                                </div>
+                                                {/* A primeira linha não tem remover: ao menos um lote é
+                                                    obrigatório, e removê-la deixaria o formulário sem
+                                                    onde digitar. */}
+                                                <button type="button" className="lote-remover"
+                                                    onClick={() => removeLote(i)}
+                                                    disabled={lotes.length === 1}
+                                                    title={lotes.length === 1
+                                                        ? 'A inspeção precisa de ao menos um lote'
+                                                        : 'Remover este lote'}
+                                                    aria-label={`Remover lote ${i + 1}`}>
+                                                    <i className="fas fa-trash" aria-hidden="true"></i>
+                                                </button>
                                             </div>
-                                            <div className="form-group">
-                                                <label>Nota Fiscal</label>
-                                                <input type="text" className="form-control field-upper"
-                                                    value={formData.nota_fiscal}
-                                                    onChange={(e) => setCampo('nota_fiscal', e.target.value)} />
-                                            </div>
-                                            <div className="form-group">
-                                                <label>Quantidade Total</label>
-                                                <input type="text" inputMode="numeric" pattern="[0-9]*"
-                                                    className="form-control"
-                                                    value={formData.quantidade_total}
-                                                    onChange={(e) => setCampo('quantidade_total',
-                                                        e.target.value.replace(/\D/g, ''))} />
-                                            </div>
+                                        ))}
+
+                                        <div className="lotes-rodape">
+                                            <button type="button" className="btn btn-outline btn-sm"
+                                                onClick={addLote}>
+                                                <i className="fas fa-plus" aria-hidden="true"></i> Adicionar lote/nota fiscal
+                                            </button>
+                                            {/* Soma só aparece com mais de uma linha: com uma só ela
+                                                repetiria o número que já está no campo ao lado. */}
+                                            {lotes.length > 1 && (
+                                                <span className="lotes-total">
+                                                    Quantidade total: <strong>{totalQuantidade}</strong>
+                                                    {' '}em {lotes.length} lotes
+                                                </span>
+                                            )}
                                         </div>
 
                                         <div className="form-row-recb">

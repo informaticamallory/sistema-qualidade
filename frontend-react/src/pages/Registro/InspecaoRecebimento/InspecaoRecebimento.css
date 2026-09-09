@@ -132,6 +132,76 @@
     color: var(--primary);
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   Linhas de lote
+   ══════════════════════════════════════════════════════════════════════
+   A lixeira ganha uma quarta coluna estreita ao lado dos três campos. */
+.linha-lote {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 40px;
+    align-items: end;
+}
+
+.lote-remover {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    /* Mesma altura dos campos, para alinhar pela base. */
+    height: 40px;
+    border: 1px solid transparent;
+    border-radius: var(--r-md);
+    background: transparent;
+    color: var(--fg-muted);
+    cursor: pointer;
+    transition: var(--transition-base);
+}
+
+.lote-remover:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--danger, #ef4444) 12%, transparent);
+    color: var(--danger, #ef4444);
+}
+
+.lote-remover:disabled {
+    opacity: .3;
+    cursor: default;
+}
+
+.lote-remover:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+.lotes-rodape {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-4);
+}
+
+.lotes-total {
+    font-size: var(--text-sm);
+    color: var(--fg-muted);
+}
+
+.lotes-total strong {
+    font-family: var(--font-mono, inherit);
+    color: var(--fg);
+}
+
+/* Até 900px os campos já caem para duas colunas; a lixeira passa a ocupar a
+   linha inteira, senão uma coluna de 40px roubaria largura dos campos. */
+@media (max-width: 900px) {
+    .linha-lote {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .linha-lote .lote-remover {
+        grid-column: 1 / -1;
+        justify-self: end;
+    }
+}
+
 /* ── Resultados ── */
 .resultados-acoes {
     display: flex;

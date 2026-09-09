@@ -4,7 +4,8 @@ from datetime import datetime
 
 from app.extensions import db, limiter
 from app.models.material import Material, RevisaoDesenho
-from app.models.inspecao_recebimento import InspecaoRecebimento, ResultadoInspecao
+from app.models.inspecao_recebimento import (InspecaoRecebimento, LoteInspecao,
+                                            ResultadoInspecao)
 from app.utils.responses import create_response
 from app.utils.auth_decorators import auth_required, check_permission, _current_user
 
@@ -44,6 +45,39 @@ def _inteiro(valor, padrao=0):
         return int(valor)
     except (TypeError, ValueError):
         return padrao
+
+
+def _aplicar_lotes(inspecao, lotes):
+    """Grava as linhas de lote e atualiza o resumo da inspeção.
+
+    Aceita também o formato antigo, de campos soltos, para uma inspeção
+    lançada antes desta mudança continuar podendo ser salva."""
+    inspecao.lotes.clear()
+    for indice, item in enumerate(lotes or []):
+        if not isinstance(item, dict):
+            continue
+        lote = _texto(item.get('lote'), 100)
+        nota = _texto(item.get('nota_fiscal'), 50)
+        quantidade = _inteiro(item.get('quantidade_total'))
+        # Linha totalmente em branco é descarte: a tela sempre mantém uma
+        # visível, e ela não deve virar registro.
+        if not lote and not nota and not quantidade:
+            continue
+        inspecao.lotes.append(LoteInspecao(
+            ordem=indice, lote=lote, nota_fiscal=nota, quantidade_total=quantidade))
+    inspecao.sincronizar_resumo_dos_lotes()
+
+
+def _lotes_do_payload(dados):
+    """Lista de lotes vinda do corpo, aceitando o formato antigo."""
+    if isinstance(dados.get('lotes'), list):
+        return dados['lotes']
+    # Compatibilidade: campos soltos viram uma linha só.
+    if any(k in dados for k in ('lote', 'nota_fiscal', 'quantidade_total')):
+        return [{'lote': dados.get('lote'),
+                 'nota_fiscal': dados.get('nota_fiscal'),
+                 'quantidade_total': dados.get('quantidade_total')}]
+    return None
 
 
 def _aplicar_resultados(inspecao, revisao, resultados):
@@ -101,12 +135,20 @@ def handle_inspecoes():
             query = InspecaoRecebimento.query.join(Material)
             if search:
                 like = f'%{search}%'
+                # O exists alcança qualquer lote da inspeção, e não só o
+                # primeiro, que é o que as colunas de resumo guardam.
+                por_lote = LoteInspecao.query.filter(
+                    LoteInspecao.inspecao_id == InspecaoRecebimento.id,
+                    db.or_(LoteInspecao.lote.like(like),
+                           LoteInspecao.nota_fiscal.like(like))
+                ).exists()
                 query = query.filter(db.or_(
                     Material.codigo_sap.like(like),
                     Material.componente.like(like),
                     InspecaoRecebimento.lote.like(like),
                     InspecaoRecebimento.nota_fiscal.like(like),
-                    InspecaoRecebimento.fornecedor.like(like)
+                    InspecaoRecebimento.fornecedor.like(like),
+                    por_lote
                 ))
             if status:
                 query = query.filter(InspecaoRecebimento.status == status)
@@ -151,17 +193,17 @@ def handle_inspecoes():
             # Herda do material, mas aceita divergir: o mesmo item pode chegar
             # de outro fornecedor sem alterar o cadastro.
             fornecedor=_texto(dados.get('fornecedor'), 255) or (revisao.material.fornecedor if revisao.material else None),
-            lote=_texto(dados.get('lote'), 100),
+
             data_entrada=_parse_date(dados.get('data_entrada')),
             data_inspecao=_parse_date(dados.get('data_inspecao')) or datetime.utcnow().date(),
-            nota_fiscal=_texto(dados.get('nota_fiscal'), 50),
-            quantidade_total=_inteiro(dados.get('quantidade_total')),
+
             # Vem da sessão, não do corpo: o inspetor é quem está logado.
             inspetor_id=usuario.id if usuario else None,
             inspetor_nome=usuario.nome if usuario else None,
             observacao=_texto(dados.get('observacao'))
         )
         db.session.add(inspecao)
+        _aplicar_lotes(inspecao, _lotes_do_payload(dados) or [])
         _aplicar_resultados(inspecao, revisao, dados.get('resultados'))
 
         status_informado = _texto(dados.get('status')).lower()
@@ -207,14 +249,15 @@ def handle_inspecao(id):
                 inspecao.revisao = nova
                 inspecao.material_id = nova.material_id
 
-            for campo, limite in (('fornecedor', 255), ('lote', 100),
-                                  ('nota_fiscal', 50)):
-                if campo in dados:
-                    setattr(inspecao, campo, _texto(dados.get(campo), limite))
+            if 'fornecedor' in dados:
+                inspecao.fornecedor = _texto(dados.get('fornecedor'), 255)
+
+            lotes = _lotes_do_payload(dados)
+            if lotes is not None:
+                _aplicar_lotes(inspecao, lotes)
             if 'observacao' in dados:
                 inspecao.observacao = _texto(dados.get('observacao'))
-            if 'quantidade_total' in dados:
-                inspecao.quantidade_total = _inteiro(dados.get('quantidade_total'))
+
             for campo in ('data_entrada', 'data_inspecao'):
                 if campo in dados:
                     setattr(inspecao, campo, _parse_date(dados.get(campo)))

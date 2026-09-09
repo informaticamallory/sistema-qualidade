@@ -261,6 +261,9 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-4);
+    /* Cada card com a própria altura. Sem isto, abrir um card esticaria os
+       vizinhos da mesma linha até a altura dele. */
+    align-items: start;
 }
 
 .cota-card {
@@ -274,6 +277,18 @@
     border-radius: var(--r-lg);
 }
 
+/* Colapsado o card é só o cabeçalho: some o respiro interno e a borda que
+   separava do corpo, para virar um balão compacto. */
+.cota-card.is-colapsado {
+    gap: 0;
+    padding: var(--space-3) var(--space-4);
+}
+
+.cota-card.is-colapsado .cota-card-topo {
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
 /* ── Cabeçalho: posição à esquerda, instrumento à direita ── */
 .cota-card-topo {
     display: flex;
@@ -283,6 +298,67 @@
     min-width: 0;
     padding-bottom: var(--space-3);
     border-bottom: 1px solid var(--border);
+}
+
+/* ── Abrir e fechar ──
+   O gatilho é um botão só com a posição: a lixeira e o instrumento ficam
+   fora dele, porque botão dentro de botão é inválido e deixaria a lixeira
+   inalcançável pelo teclado. */
+.cota-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.cota-toggle:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 3px;
+    border-radius: var(--r-sm);
+}
+
+.cota-toggle-seta {
+    flex: 0 0 auto;
+    width: 14px;
+    font-size: .7rem;
+    color: var(--fg-subtle);
+    transition: transform var(--transition-base);
+}
+
+.cota-card.is-aberto .cota-toggle-seta {
+    transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cota-toggle-seta {
+        transition: none;
+    }
+}
+
+/* ── Tom do balão conforme a medição ──
+   Serve para varrer a grade e ver o que já foi medido sem abrir nada. A cor
+   é reforço: a marca ▲ e o texto do botão continuam dizendo o mesmo. */
+.cota-card.tom-ok {
+    border-color: color-mix(in srgb, var(--success, #22c55e) 55%, var(--border));
+    background: color-mix(in srgb, var(--success, #22c55e) 6%, var(--surface));
+}
+
+.cota-card.tom-nok {
+    border-color: color-mix(in srgb, var(--danger, #ef4444) 55%, var(--border));
+    background: color-mix(in srgb, var(--danger, #ef4444) 6%, var(--surface));
+}
+
+/* Medido, mas sem Conforme nem NC ainda: nem neutro nem resolvido. */
+.cota-card.tom-medido {
+    border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
 }
 
 .cota-posicao {
@@ -469,11 +545,14 @@
     color: #fff;
 }
 
-/* Card com NC ganha marca na borda: a cor do botão sozinha se perde numa
-   grade de nove cards. */
-.cota-card.is-nok {
-    border-color: color-mix(in srgb, var(--danger, #ef4444) 55%, var(--border));
+/* A marca lateral do NC ficou, agora ligada ao tom: a cor do botão sozinha
+   se perde numa grade de nove cards, e colapsados nem botão há. */
+.cota-card.tom-nok {
     box-shadow: inset 3px 0 0 var(--danger, #ef4444);
+}
+
+.cota-card.tom-ok {
+    box-shadow: inset 3px 0 0 var(--success, #22c55e);
 }
 
 /* ══════════════════════════════════════════════════════════════════════

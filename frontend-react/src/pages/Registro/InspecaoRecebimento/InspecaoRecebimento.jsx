@@ -81,6 +81,10 @@ export default function InspecaoRecebimento() {
        nao de um cadastro: quem aparece aqui e quem ja entregou a peca. */
     const [fornecedoresDoMaterial, setFornecedoresDoMaterial] = useState([]);
     const [fornecedoresAbertos, setFornecedoresAbertos] = useState(false);
+    /* Quais posições estão abertas, por chave. Mapa e não índice único porque
+       o inspetor pode manter várias abertas ao mesmo tempo — comparar duas
+       cotas é caso comum. Todas começam fechadas. */
+    const [posicoesAbertas, setPosicoesAbertas] = useState({});
 
     /* Autocomplete de material */
     const [sugestoes, setSugestoes] = useState([]);
@@ -218,11 +222,27 @@ export default function InspecaoRecebimento() {
             })));
             /* Chega junto das cotas, na mesma resposta. */
             setLinkDesenho(dados.link_desenho || '');
+            /* Posições novas, nenhuma aberta: as chaves antigas não valem mais. */
+            setPosicoesAbertas({});
             setAlerta(posicoes.length ? '' : 'A revisão selecionada não tem posições cadastradas.');
         } catch (e) {
             setAlerta(e.response?.data?.message || 'Não foi possível carregar as cotas da revisão');
         }
     };
+
+    const alternarPosicao = (chave) => setPosicoesAbertas((prev) => (
+        { ...prev, [chave]: !prev[chave] }
+    ));
+
+    const definirTodasPosicoes = (aberto) => setPosicoesAbertas(
+        aberto
+            ? Object.fromEntries(resultados.map((r, i) => [r.posicao_revisao_id || i, true]))
+            : {}
+    );
+
+    const totalAbertas = resultados.filter(
+        (r, i) => posicoesAbertas[r.posicao_revisao_id || i]
+    ).length;
 
     const updateResultado = (i, campo, valor) => {
         setResultados((prev) => prev.map((r, idx) => (idx === i ? { ...r, [campo]: valor } : r)));
@@ -244,6 +264,7 @@ export default function InspecaoRecebimento() {
         setLinkDesenho('');
         setFornecedoresDoMaterial([]);
         setFornecedoresAbertos(false);
+        setPosicoesAbertas({});
         setActiveTab('identificacao');
         setAlerta('');
         setErroStatusFinal('');
@@ -296,6 +317,7 @@ export default function InspecaoRecebimento() {
             setLinkDesenho(dados.link_desenho || '');
             carregarFornecedores(dados.material_id);
             setFornecedoresAbertos(false);
+            setPosicoesAbertas({});
             setActiveTab('identificacao');
             /* Carregar do banco não é alteração do usuário: sem zerar aqui,
                abrir e fechar uma inspeção já pediria confirmação. */
@@ -867,6 +889,15 @@ export default function InspecaoRecebimento() {
                                                             onClick={() => marcarTodos('')}>
                                                             Limpar status
                                                         </button>
+                                                        {/* Com tudo fechado, preencher posição a posição
+                                                            exigiria um clique extra por cota; este botão
+                                                            devolve a visão completa de uma vez. */}
+                                                        <button type="button" className="btn btn-outline btn-sm"
+                                                            onClick={() => definirTodasPosicoes(totalAbertas !== resultados.length)}>
+                                                            <i className={`fas fa-chevron-${totalAbertas === resultados.length ? 'up' : 'down'}`}
+                                                                aria-hidden="true"></i>
+                                                            {totalAbertas === resultados.length ? ' Recolher todas' : ' Abrir todas'}
+                                                        </button>
                                                     </div>
                                                 </div>
 
@@ -874,10 +905,25 @@ export default function InspecaoRecebimento() {
                                                     é o que o desenho manda, e alterá-la aqui seria
                                                     mexer na referência durante a medição. */}
                                                 <div className="cotas-grid">
-                                                    {resultados.map((r, i) => (
-                                                        <div key={r.posicao_revisao_id || i}
-                                                            className={`cota-card ${r.status === 'nok' ? 'is-nok' : ''}`}>
+                                                    {resultados.map((r, i) => {
+                                                        const chave = r.posicao_revisao_id || i;
+                                                        const aberto = !!posicoesAbertas[chave];
+                                                        const medido = !!String(r.valor_medido || '').trim();
+                                                        /* Tom do balão: verde conforme, vermelho NC, e um
+                                                           terceiro para "medido mas ainda sem decisão" — sem
+                                                           ele esse caso ficaria igual ao não medido. */
+                                                        const tom = r.status === 'ok' ? 'tom-ok'
+                                                            : r.status === 'nok' ? 'tom-nok'
+                                                                : (medido ? 'tom-medido' : '');
+                                                        return (
+                                                        <div key={chave}
+                                                            className={`cota-card ${aberto ? 'is-aberto' : 'is-colapsado'} ${tom}`}>
                                                             <header className="cota-card-topo">
+                                                                <button type="button" className="cota-toggle"
+                                                                    onClick={() => alternarPosicao(chave)}
+                                                                    aria-expanded={aberto}
+                                                                    aria-controls={`cota-corpo-${chave}`}>
+                                                                <i className="fas fa-chevron-right cota-toggle-seta" aria-hidden="true"></i>
                                                                 <span className="cota-posicao">
                                                                     <i className="fas fa-location-dot" aria-hidden="true"></i>
                                                                     {r.posicao}
@@ -886,18 +932,27 @@ export default function InspecaoRecebimento() {
                                                                         vale como leitura rápida do que já foi medido
                                                                         numa grade de nove cards. O título carrega o
                                                                         significado: a forma sozinha não diz nada. */}
-                                                                    {String(r.valor_medido || '').trim() && (
+                                                                    {medido && (
                                                                         <span className="cota-medida" title="Medição registrada">
                                                                             ▲<span className="sr-only"> medição registrada</span>
                                                                         </span>
                                                                     )}
+                                                                    {/* Resultado por extenso para leitor de tela e
+                                                                        para quem não distingue as cores. */}
+                                                                    {r.status && (
+                                                                        <span className="sr-only">
+                                                                            {r.status === 'ok' ? ' conforme' : ' não conforme'}
+                                                                        </span>
+                                                                    )}
                                                                 </span>
+                                                                </button>
                                                                 <span className="cota-instrumento">
                                                                     <i className="fas fa-ruler-vertical" aria-hidden="true"></i>
                                                                     <span>{r.instrumento || '—'}</span>
                                                                 </span>
                                                             </header>
 
+                                                            {aberto && (<div className="cota-corpo" id={`cota-corpo-${chave}`}>
                                                             <div className="cota-referencia">
                                                                 <span className="cota-rotulo">Referência</span>
                                                                 <span className="cota-referencia-valor">
@@ -935,8 +990,10 @@ export default function InspecaoRecebimento() {
                                                                     onChange={(e) => updateResultado(i, 'observacao', e.target.value)}
                                                                     placeholder={r.observacoes_cota || ''} />
                                                             </div>
+                                                            </div>)}
                                                         </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                                 {/* Fica na aba de Resultados, logo depois dos cards e
                                                     antes dos botões: é a conclusão da medição que

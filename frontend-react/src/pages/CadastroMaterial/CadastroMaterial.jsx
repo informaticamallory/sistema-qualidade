@@ -96,6 +96,9 @@ export default function CadastroMaterial() {
     /* A previa some se a imagem nao carregar: link pode apontar para arquivo
        que exige login, e um icone quebrado nao ajuda ninguem. */
     const [previaFalhou, setPreviaFalhou] = useState(false);
+    /* Quais posições estão abertas, por índice. Várias podem ficar abertas ao
+       mesmo tempo. Todas começam fechadas. */
+    const [posicoesAbertas, setPosicoesAbertas] = useState({});
 
     /* Quando preenchido, o modal está editando esta revisão em vez de criar. */
     const [revisaoEmEdicao, setRevisaoEmEdicao] = useState(null);
@@ -151,6 +154,7 @@ export default function CadastroMaterial() {
         setConfirmarSaida(false);
         setErroLink('');
         setPreviaFalhou(false);
+        setPosicoesAbertas({});
     };
 
     /* Único caminho de fechamento: o X, o Cancelar, o clique no fundo e o Esc
@@ -259,13 +263,33 @@ export default function CadastroMaterial() {
         setFormDirty(true);
     };
 
+    const alternarPosicao = (indice) => setPosicoesAbertas((prev) => (
+        { ...prev, [indice]: !prev[indice] }
+    ));
+
     const addPosicao = () => {
-        setPosicoes((prev) => [...prev, posicaoVazia()]);
+        setPosicoes((prev) => {
+            /* A posição recém-criada abre sozinha: ela nasce vazia, e o passo
+               seguinte é sempre preencher. */
+            setPosicoesAbertas((abertas) => ({ ...abertas, [prev.length]: true }));
+            return [...prev, posicaoVazia()];
+        });
         setFormDirty(true);
     };
 
     const removePosicao = (i) => {
         setPosicoes((prev) => (prev.length === 1 ? prev : prev.filter((_, idx) => idx !== i)));
+        /* As chaves são índices, então remover do meio desloca as seguintes:
+           sem reindexar, o card errado apareceria aberto. */
+        setPosicoesAbertas((prev) => {
+            const novo = {};
+            Object.keys(prev).forEach((k) => {
+                const idx = Number(k);
+                if (idx < i) novo[idx] = prev[k];
+                else if (idx > i) novo[idx - 1] = prev[k];
+            });
+            return novo;
+        });
         setFormDirty(true);
     };
 
@@ -815,22 +839,51 @@ export default function CadastroMaterial() {
                                     <div className="form-section">
                                         <div className="section-header-linha">
                                             <h3 className="section-title">Cotas Dimensionais da Revisão</h3>
-                                            <button type="button" className="btn btn-outline btn-sm" onClick={addPosicao}>
-                                                <i className="fas fa-plus"></i> Adicionar posição
-                                            </button>
+                                            <div className="resultados-acoes">
+                                                {/* Com tudo fechado, conferir as cotas exigiria abrir uma a
+                                                    uma; este botão devolve a visão completa. */}
+                                                <button type="button" className="btn btn-outline btn-sm"
+                                                    onClick={() => setPosicoesAbertas(
+                                                        posicoes.every((_, i) => posicoesAbertas[i])
+                                                            ? {}
+                                                            : Object.fromEntries(posicoes.map((_, i) => [i, true]))
+                                                    )}>
+                                                    <i className={`fas fa-chevron-${posicoes.every((_, i) => posicoesAbertas[i]) ? 'up' : 'down'}`}
+                                                        aria-hidden="true"></i>
+                                                    {posicoes.every((_, i) => posicoesAbertas[i]) ? ' Recolher todas' : ' Abrir todas'}
+                                                </button>
+                                                <button type="button" className="btn btn-outline btn-sm" onClick={addPosicao}>
+                                                    <i className="fas fa-plus"></i> Adicionar posição
+                                                </button>
+                                            </div>
                                         </div>
 
                                         {/* Um card por posição. A cota é editável aqui porque é
                                             nesta tela que ela é definida; na inspeção o mesmo card
                                             a mostra travada, como referência. */}
                                         <div className="cotas-grid">
-                                            {posicoes.map((p, i) => (
-                                                <div className="cota-card" key={i}>
+                                            {posicoes.map((p, i) => {
+                                                const aberto = !!posicoesAbertas[i];
+                                                /* Aqui não há medição: o tom marca se a posição já foi
+                                                   identificada, que é o que falta para poder salvar. */
+                                                const identificada = !!String(p.posicao || '').trim();
+                                                return (
+                                                <div className={`cota-card ${aberto ? 'is-aberto' : 'is-colapsado'} ${identificada ? 'tom-medido' : ''}`}
+                                                    key={i}>
                                                     <header className="cota-card-topo">
-                                                        <span className="cota-posicao">
-                                                            <i className="fas fa-location-dot" aria-hidden="true"></i>
-                                                            Posição {i + 1}
-                                                        </span>
+                                                        <button type="button" className="cota-toggle"
+                                                            onClick={() => alternarPosicao(i)}
+                                                            aria-expanded={aberto}
+                                                            aria-controls={`cota-corpo-cad-${i}`}>
+                                                            <i className="fas fa-chevron-right cota-toggle-seta" aria-hidden="true"></i>
+                                                            <span className="cota-posicao">
+                                                                <i className="fas fa-location-dot" aria-hidden="true"></i>
+                                                                {/* Colapsada, mostra a identificação do desenho, que
+                                                                    é o que distingue uma posição da outra; sem ela,
+                                                                    cai no número de ordem. */}
+                                                                {String(p.posicao || '').trim() || `Posição ${i + 1}`}
+                                                            </span>
+                                                        </button>
                                                         <button type="button" className="cota-remover"
                                                             title="Remover posição"
                                                             aria-label={`Remover posição ${i + 1}`}
@@ -840,6 +893,7 @@ export default function CadastroMaterial() {
                                                         </button>
                                                     </header>
 
+                                                    {aberto && (<div className="cota-corpo" id={`cota-corpo-cad-${i}`}>
                                                     <div className="cota-campo">
                                                         <label htmlFor={`pos-${i}`}>Identificação no desenho *</label>
                                                         <input id={`pos-${i}`} type="text"
@@ -883,8 +937,10 @@ export default function CadastroMaterial() {
                                                             value={p.observacoes}
                                                             onChange={(e) => updatePosicao(i, 'observacoes', e.target.value)} />
                                                     </div>
+                                                    </div>)}
                                                 </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
 
                                         {/* Desenho da revisão, depois dos cards: é a referência que

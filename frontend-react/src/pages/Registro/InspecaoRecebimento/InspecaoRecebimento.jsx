@@ -77,6 +77,10 @@ export default function InspecaoRecebimento() {
        referencia enquanto o inspetor mede -- por isso vive fora do formData:
        nao e um campo da inspecao, e sim um dado da revisao. */
     const [linkDesenho, setLinkDesenho] = useState('');
+    /* Fornecedores ja usados neste material. Vem do historico de inspecoes,
+       nao de um cadastro: quem aparece aqui e quem ja entregou a peca. */
+    const [fornecedoresDoMaterial, setFornecedoresDoMaterial] = useState([]);
+    const [fornecedoresAbertos, setFornecedoresAbertos] = useState(false);
 
     /* Autocomplete de material */
     const [sugestoes, setSugestoes] = useState([]);
@@ -172,9 +176,24 @@ export default function InspecaoRecebimento() {
         /* Material novo, revisao ainda nao escolhida: o desenho do anterior
            nao vale mais. */
         setLinkDesenho('');
+        carregarFornecedores(material.id);
         setSugestoesAbertas(false);
         setFormDirty(true);
         setAlerta(revisoes.length ? '' : 'Este material ainda não tem revisão de desenho cadastrada.');
+    };
+
+    /* Lista de sugestoes do material. Falha em silencio de proposito: sem
+       sugestao o campo continua aceitando digitacao, que e o caminho normal
+       para um fornecedor novo. */
+    const carregarFornecedores = async (materialId) => {
+        if (!materialId) { setFornecedoresDoMaterial([]); return; }
+        try {
+            const resp = await materiaisAPI.getFornecedores(materialId);
+            const dados = resp.data?.data || resp.data || {};
+            setFornecedoresDoMaterial(dados.fornecedores || []);
+        } catch {
+            setFornecedoresDoMaterial([]);
+        }
     };
 
     /* ── Revisão escolhida: as posições viram as linhas de Resultados ── */
@@ -223,6 +242,8 @@ export default function InspecaoRecebimento() {
         setRevisoesDisponiveis([]);
         setSugestoes([]);
         setLinkDesenho('');
+        setFornecedoresDoMaterial([]);
+        setFornecedoresAbertos(false);
         setActiveTab('identificacao');
         setAlerta('');
         setErroStatusFinal('');
@@ -273,6 +294,8 @@ export default function InspecaoRecebimento() {
                 status: r.status || ''
             })));
             setLinkDesenho(dados.link_desenho || '');
+            carregarFornecedores(dados.material_id);
+            setFornecedoresAbertos(false);
             setActiveTab('identificacao');
             /* Carregar do banco não é alteração do usuário: sem zerar aqui,
                abrir e fechar uma inspeção já pediria confirmação. */
@@ -384,6 +407,20 @@ export default function InspecaoRecebimento() {
         { chave: 'pendente', rotulo: 'Pendentes', valor: contar('pendente'),
             classe: 'pending', icone: 'fa-clock', descricao: 'Medição incompleta' }
     ];
+
+    /* Sugestoes filtradas pelo que ja foi digitado. Comparacao sem caixa e sem
+       espaco nas pontas, porque o campo e field-upper e o historico guarda o
+       que foi gravado antes. */
+    const termoFornecedor = String(formData.fornecedor || '').trim().toUpperCase();
+    const fornecedoresFiltrados = fornecedoresDoMaterial.filter((nome) => (
+        !termoFornecedor || nome.toUpperCase().includes(termoFornecedor)
+    ));
+
+    /* Oferece registrar o que foi digitado quando nao existe igual no
+       historico. Nao cria nada por si: salvar a inspecao e que passa a incluir
+       o nome nas sugestoes das proximas. */
+    const podeAdicionarFornecedor = !!termoFornecedor
+        && !fornecedoresDoMaterial.some((nome) => nome.trim().toUpperCase() === termoFornecedor);
 
     /* Prévia do status enquanto o inspetor preenche, com a mesma regra do
        servidor — para ele não descobrir o resultado só depois de salvar. */
@@ -658,11 +695,71 @@ export default function InspecaoRecebimento() {
                                                 </select>
                                             </div>
 
-                                            <div className="form-group form-group-largo">
-                                                <label>Fornecedor</label>
-                                                <input type="text" className="form-control field-upper"
+                                            {/* Combobox: sugere quem já forneceu este material e aceita
+                                                nome novo. Não é um select, porque a lista é histórico e
+                                                não catálogo — travar impediria o primeiro lote de um
+                                                fornecedor. */}
+                                            <div className="form-group form-group-largo recb-autocomplete">
+                                                <label htmlFor="fornecedor">Fornecedor</label>
+                                                <input
+                                                    id="fornecedor"
+                                                    type="text"
+                                                    className="form-control field-upper"
                                                     value={formData.fornecedor}
-                                                    onChange={(e) => setCampo('fornecedor', e.target.value)} />
+                                                    onChange={(e) => {
+                                                        setCampo('fornecedor', e.target.value);
+                                                        setFornecedoresAbertos(true);
+                                                    }}
+                                                    onFocus={() => setFornecedoresAbertos(true)}
+                                                    /* Fecha depois do clique na sugestão, que usa
+                                                       onMouseDown para chegar antes deste blur. */
+                                                    onBlur={() => setTimeout(() => setFornecedoresAbertos(false), 120)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Escape') setFornecedoresAbertos(false);
+                                                    }}
+                                                    placeholder={formData.material_id
+                                                        ? 'Digite ou escolha um fornecedor'
+                                                        : 'Selecione o material antes'}
+                                                    autoComplete="off"
+                                                    role="combobox"
+                                                    aria-expanded={fornecedoresAbertos}
+                                                    aria-autocomplete="list"
+                                                />
+                                                {fornecedoresAbertos && (fornecedoresFiltrados.length > 0 || podeAdicionarFornecedor) && (
+                                                    <ul className="autocomplete-lista" role="listbox">
+                                                        {fornecedoresFiltrados.map((nome) => (
+                                                            <li key={nome}>
+                                                                <button type="button" className="autocomplete-item"
+                                                                    onMouseDown={(e) => {
+                                                                        e.preventDefault();
+                                                                        setCampo('fornecedor', nome);
+                                                                        setFornecedoresAbertos(false);
+                                                                    }}>
+                                                                    <span className="autocomplete-cod">{nome}</span>
+                                                                    <span className="autocomplete-desc"></span>
+                                                                    <span className="autocomplete-meta">já usado</span>
+                                                                </button>
+                                                            </li>
+                                                        ))}
+                                                        {podeAdicionarFornecedor && (
+                                                            <li>
+                                                                <button type="button"
+                                                                    className="autocomplete-item autocomplete-novo"
+                                                                    onMouseDown={(e) => {
+                                                                        e.preventDefault();
+                                                                        setFornecedoresAbertos(false);
+                                                                    }}>
+                                                                    <span className="autocomplete-cod">
+                                                                        <i className="fas fa-plus" aria-hidden="true"></i>{' '}
+                                                                        Usar “{formData.fornecedor.trim()}”
+                                                                    </span>
+                                                                    <span className="autocomplete-desc"></span>
+                                                                    <span className="autocomplete-meta">novo</span>
+                                                                </button>
+                                                            </li>
+                                                        )}
+                                                    </ul>
+                                                )}
                                                 <small className="campo-ajuda">
                                                     Vem do cadastro do material e pode ser alterado para este lote.
                                                 </small>

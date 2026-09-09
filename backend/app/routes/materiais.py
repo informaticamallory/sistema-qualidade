@@ -244,6 +244,61 @@ def handle_material(id):
         return create_response(success=False, message=f'Erro ao excluir material: {str(e)}', status_code=500)
 
 
+@materiais_bp.route('/<int:id>/fornecedores', methods=['GET', 'OPTIONS'])
+@limiter.limit("200 per minute")
+@auth_required()
+def listar_fornecedores_do_material(id):
+    """Fornecedores já usados em inspeções deste material.
+
+    Não há tabela de vínculo: a lista sai das próprias inspeções, então um
+    fornecedor novo passa a ser sugerido assim que a primeira inspeção com ele
+    é salva. Sem cadastro paralelo para manter em dia.
+
+    Permissão de 'registros', não de 'materiais': quem lança a inspeção
+    precisa da lista, e nem sempre pode mexer no cadastro."""
+    if request.method == 'OPTIONS':
+        return '', 200
+
+    if not (check_permission('registros', 'visualizar') or check_permission('materiais', 'visualizar')):
+        return create_response(success=False, message='Acesso negado: permissão insuficiente', status_code=403)
+
+    material = Material.query.get(id)
+    if not material:
+        return create_response(success=False, message='Material não encontrado', status_code=404)
+
+    from app.models.inspecao_recebimento import InspecaoRecebimento
+
+    # Mais recentes primeiro: o fornecedor do último lote é o palpite mais
+    # provável para o próximo. DISTINCT do banco perderia essa ordem, então a
+    # deduplicação é feita aqui, preservando a primeira ocorrência.
+    linhas = (InspecaoRecebimento.query
+              .with_entities(InspecaoRecebimento.fornecedor)
+              .filter(InspecaoRecebimento.material_id == id)
+              .filter(InspecaoRecebimento.fornecedor.isnot(None))
+              .filter(InspecaoRecebimento.fornecedor != '')
+              .order_by(InspecaoRecebimento.data_inspecao.desc(),
+                        InspecaoRecebimento.id.desc())
+              .limit(300)
+              .all())
+
+    fornecedores = []
+    vistos = set()
+    for (nome,) in linhas:
+        limpo = (nome or '').strip()
+        chave = limpo.upper()
+        if limpo and chave not in vistos:
+            vistos.add(chave)
+            fornecedores.append(limpo)
+
+    # O do cadastro entra no fim, se ainda não apareceu: é sugestão válida
+    # mesmo antes da primeira inspeção do material.
+    do_cadastro = (material.fornecedor or '').strip()
+    if do_cadastro and do_cadastro.upper() not in vistos:
+        fornecedores.append(do_cadastro)
+
+    return create_response(data={'fornecedores': fornecedores})
+
+
 @materiais_bp.route('/<int:id>/revisoes', methods=['GET', 'POST', 'OPTIONS'])
 @limiter.limit("120 per minute")
 @auth_required()

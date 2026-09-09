@@ -172,6 +172,9 @@ export const materiaisAPI = {
     update: (id, data) => api.put(`/materiais/${id}`, data),
     delete: (id) => api.delete(`/materiais/${id}`),
     getRevisoes: (id) => dedupedGet(`/materiais/${id}/revisoes`),
+    /* Fornecedores já usados em inspeções deste material, do mais recente para
+       o mais antigo. Derivado das próprias inspeções: não há cadastro à parte. */
+    getFornecedores: (id) => dedupedGet(`/materiais/${id}/fornecedores`),
     addRevisao: (id, data) => api.post(`/materiais/${id}/revisoes`, data),
 };
 

@@ -141,6 +141,14 @@
     align-items: end;
 }
 
+/* Adicionar em cima, remover embaixo, na mesma coluna. */
+.lote-acoes {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.lote-add,
 .lote-remover {
     display: grid;
     place-items: center;
@@ -155,6 +163,11 @@
     transition: var(--transition-base);
 }
 
+.lote-add:hover {
+    background: var(--primary-soft);
+    color: var(--primary);
+}
+
 .lote-remover:hover:not(:disabled) {
     background: color-mix(in srgb, var(--danger, #ef4444) 12%, transparent);
     color: var(--danger, #ef4444);
@@ -165,6 +178,7 @@
     cursor: default;
 }
 
+.lote-add:focus-visible,
 .lote-remover:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
@@ -189,16 +203,19 @@
     color: var(--fg);
 }
 
-/* Até 900px os campos já caem para duas colunas; a lixeira passa a ocupar a
-   linha inteira, senão uma coluna de 40px roubaria largura dos campos. */
+/* Até 900px os campos já caem para duas colunas; os ícones passam a ocupar a
+   linha inteira, senão uma coluna de 40px roubaria largura dos campos. Lado a
+   lado aqui, porque na horizontal há espaço de sobra e empilhar só somaria
+   altura. */
 @media (max-width: 900px) {
     .linha-lote {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .linha-lote .lote-remover {
+    .linha-lote .lote-acoes {
         grid-column: 1 / -1;
-        justify-self: end;
+        flex-direction: row;
+        justify-content: flex-end;
     }
 }
 

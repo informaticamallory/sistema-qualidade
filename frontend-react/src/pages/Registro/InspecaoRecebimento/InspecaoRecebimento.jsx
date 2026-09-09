@@ -95,6 +95,7 @@ export default function InspecaoRecebimento() {
     const [sugestoes, setSugestoes] = useState([]);
     const [sugestoesAbertas, setSugestoesAbertas] = useState(false);
     const debounceRef = useRef(null);
+    const focarNovoLoteRef = useRef(false);
 
     const carregar = useCallback(async () => {
         setLoading(true);
@@ -121,6 +122,13 @@ export default function InspecaoRecebimento() {
     useEffect(() => { carregar(); }, [carregar]);
 
     useEffect(() => () => clearTimeout(debounceRef.current), []);
+
+    /* Foco no campo Lote da linha recém-adicionada. */
+    useEffect(() => {
+        if (!focarNovoLoteRef.current) return;
+        focarNovoLoteRef.current = false;
+        document.getElementById(`lote-${lotes.length - 1}`)?.focus();
+    }, [lotes.length]);
 
     /* Fechar a aba ou recarregar tambem e saida: o navegador mostra o proprio
        aviso, que o dialogo do sistema nao alcanca. */
@@ -242,6 +250,10 @@ export default function InspecaoRecebimento() {
 
     const addLote = () => {
         setLotes((prev) => [...prev, loteVazio()]);
+        /* O "+" vive na última linha, então clicar nele o desloca para a linha
+           nova e o foco do teclado ficaria órfão. Marca para levar o cursor ao
+           primeiro campo da linha recém-criada. */
+        focarNovoLoteRef.current = true;
         setFormDirty(true);
     };
 
@@ -869,35 +881,45 @@ export default function InspecaoRecebimento() {
                                                         onChange={(e) => updateLote(i, 'quantidade_total',
                                                             e.target.value.replace(/\D/g, ''))} />
                                                 </div>
-                                                {/* A primeira linha não tem remover: ao menos um lote é
-                                                    obrigatório, e removê-la deixaria o formulário sem
-                                                    onde digitar. */}
-                                                <button type="button" className="lote-remover"
-                                                    onClick={() => removeLote(i)}
-                                                    disabled={lotes.length === 1}
-                                                    title={lotes.length === 1
-                                                        ? 'A inspeção precisa de ao menos um lote'
-                                                        : 'Remover este lote'}
-                                                    aria-label={`Remover lote ${i + 1}`}>
-                                                    <i className="fas fa-trash" aria-hidden="true"></i>
-                                                </button>
+                                                <div className="lote-acoes">
+                                                    {/* O "+" fica só na última linha: é de lá que a
+                                                        próxima nasce, e repeti-lo em todas sugeriria
+                                                        inserir no meio. */}
+                                                    {i === lotes.length - 1 && (
+                                                        <button type="button" className="lote-add"
+                                                            onClick={addLote}
+                                                            title="Adicionar lote/nota fiscal"
+                                                            aria-label="Adicionar lote/nota fiscal">
+                                                            <i className="fas fa-plus" aria-hidden="true"></i>
+                                                        </button>
+                                                    )}
+                                                    {/* A primeira linha não remove: ao menos um lote é
+                                                        obrigatório, e removê-la deixaria o formulário
+                                                        sem onde digitar. */}
+                                                    <button type="button" className="lote-remover"
+                                                        onClick={() => removeLote(i)}
+                                                        disabled={lotes.length === 1}
+                                                        title={lotes.length === 1
+                                                            ? 'A inspeção precisa de ao menos um lote'
+                                                            : 'Remover este lote'}
+                                                        aria-label={`Remover lote ${i + 1}`}>
+                                                        <i className="fas fa-trash" aria-hidden="true"></i>
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))}
 
-                                        <div className="lotes-rodape">
-                                            <button type="button" className="btn btn-outline btn-sm"
-                                                onClick={addLote}>
-                                                <i className="fas fa-plus" aria-hidden="true"></i> Adicionar lote/nota fiscal
-                                            </button>
-                                            {/* Soma só aparece com mais de uma linha: com uma só ela
-                                                repetiria o número que já está no campo ao lado. */}
-                                            {lotes.length > 1 && (
+                                        {/* O botão de adicionar passou para a coluna de ações da
+                                            última linha; aqui ficou só a conferência da soma, que
+                                            aparece a partir da segunda linha. */}
+                                        {lotes.length > 1 && (
+                                            <div className="lotes-rodape">
                                                 <span className="lotes-total">
                                                     Quantidade total: <strong>{totalQuantidade}</strong>
                                                     {' '}em {lotes.length} lotes
                                                 </span>
-                                            )}
-                                        </div>
+                                            </div>
+                                        )}
 
                                         <div className="form-row-recb">
                                             <div className="form-group">
@@ -963,14 +985,14 @@ export default function InspecaoRecebimento() {
                                                                 {' '}Nenhum desenho anexado
                                                             </span>
                                                         )}
-                                                        <button type="button" className="btn btn-outline btn-sm"
+                                                        {/* <button type="button" className="btn btn-outline btn-sm"
                                                             onClick={() => marcarTodos('ok')}>
                                                             Marcar tudo OK
                                                         </button>
                                                         <button type="button" className="btn btn-outline btn-sm"
                                                             onClick={() => marcarTodos('')}>
                                                             Limpar status
-                                                        </button>
+                                                        </button> */}
                                                         {/* Com tudo fechado, preencher posição a posição
                                                             exigiria um clique extra por cota; este botão
                                                             devolve a visão completa de uma vez. */}

@@ -397,4 +397,11 @@ def listar_posicoes(rev_id):
     if not revisao:
         return create_response(success=False, message='Revisão não encontrada', status_code=404)
 
-    return create_response(data={'posicoes': [p.to_dict() for p in revisao.posicoes]})
+    # O link do desenho vai junto das cotas de propósito: é a mesma consulta que
+    # a tela de inspeção faz ao escolher a revisão, e o inspetor precisa do
+    # desenho à mão enquanto mede. Sem isto ele nunca chegava ao frontend.
+    return create_response(data={
+        'posicoes': [p.to_dict() for p in revisao.posicoes],
+        'revisao': revisao.revisao,
+        'link_desenho': revisao.link_desenho
+    })

@@ -77,6 +77,9 @@ class InspecaoRecebimento(db.Model):
             'codigo_sap': self.material.codigo_sap if self.material else None,
             'componente': self.material.componente if self.material else None,
             'revisao_desenho': self.revisao.revisao if self.revisao else None,
+            # Vem junto para a tela de inspeção mostrar o desenho ao reabrir um
+            # lançamento, sem precisar de uma segunda consulta à revisão.
+            'link_desenho': self.revisao.link_desenho if self.revisao else None,
             'fornecedor': self.fornecedor,
             'lote': self.lote,
             'data_entrada': self.data_entrada.isoformat() if self.data_entrada else None,

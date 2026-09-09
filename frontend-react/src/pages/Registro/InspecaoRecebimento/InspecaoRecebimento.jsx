@@ -73,6 +73,10 @@ export default function InspecaoRecebimento() {
        campo por campo, para nenhum campo novo escapar por esquecimento. */
     const [formDirty, setFormDirty] = useState(false);
     const [confirmarSaida, setConfirmarSaida] = useState(false);
+    /* Desenho tecnico da revisao escolhida. Vem do cadastro, e serve de
+       referencia enquanto o inspetor mede -- por isso vive fora do formData:
+       nao e um campo da inspecao, e sim um dado da revisao. */
+    const [linkDesenho, setLinkDesenho] = useState('');
 
     /* Autocomplete de material */
     const [sugestoes, setSugestoes] = useState([]);
@@ -165,6 +169,9 @@ export default function InspecaoRecebimento() {
         }));
         setRevisoesDisponiveis(revisoes);
         setResultados([]);
+        /* Material novo, revisao ainda nao escolhida: o desenho do anterior
+           nao vale mais. */
+        setLinkDesenho('');
         setSugestoesAbertas(false);
         setFormDirty(true);
         setAlerta(revisoes.length ? '' : 'Este material ainda não tem revisão de desenho cadastrada.');
@@ -174,6 +181,7 @@ export default function InspecaoRecebimento() {
     const selecionarRevisao = async (revId) => {
         setCampo('revisao_id', revId);
         setResultados([]);
+        setLinkDesenho('');
         if (!revId) return;
         try {
             const resp = await revisoesAPI.getPosicoes(revId);
@@ -189,6 +197,8 @@ export default function InspecaoRecebimento() {
                 observacao: '',
                 status: ''
             })));
+            /* Chega junto das cotas, na mesma resposta. */
+            setLinkDesenho(dados.link_desenho || '');
             setAlerta(posicoes.length ? '' : 'A revisão selecionada não tem posições cadastradas.');
         } catch (e) {
             setAlerta(e.response?.data?.message || 'Não foi possível carregar as cotas da revisão');
@@ -212,6 +222,7 @@ export default function InspecaoRecebimento() {
         setResultados([]);
         setRevisoesDisponiveis([]);
         setSugestoes([]);
+        setLinkDesenho('');
         setActiveTab('identificacao');
         setAlerta('');
         setErroStatusFinal('');
@@ -261,6 +272,7 @@ export default function InspecaoRecebimento() {
                 observacao: r.observacao || '',
                 status: r.status || ''
             })));
+            setLinkDesenho(dados.link_desenho || '');
             setActiveTab('identificacao');
             /* Carregar do banco não é alteração do usuário: sem zerar aqui,
                abrir e fechar uma inspeção já pediria confirmação. */
@@ -733,6 +745,23 @@ export default function InspecaoRecebimento() {
                                                         </span>
                                                     </h3>
                                                     <div className="resultados-acoes">
+                                                        {/* Desenho da revisão, à mão durante toda a medição.
+                                                            Fica aqui e não em cada card porque o link é da
+                                                            revisão inteira, não de uma posição. */}
+                                                        {linkDesenho ? (
+                                                            <a className="btn btn-outline btn-sm"
+                                                                href={linkDesenho}
+                                                                target="_blank" rel="noopener noreferrer"
+                                                                title="Abrir o desenho técnico em outra aba">
+                                                                <i className="fas fa-drafting-compass" aria-hidden="true"></i>
+                                                                {' '}Ver desenho técnico
+                                                            </a>
+                                                        ) : (
+                                                            <span className="sem-desenho">
+                                                                <i className="fas fa-link-slash" aria-hidden="true"></i>
+                                                                {' '}Nenhum desenho anexado
+                                                            </span>
+                                                        )}
                                                         <button type="button" className="btn btn-outline btn-sm"
                                                             onClick={() => marcarTodos('ok')}>
                                                             Marcar tudo OK

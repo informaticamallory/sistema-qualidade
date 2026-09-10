@@ -27,11 +27,19 @@
     padding-left: 38px;
 }
 
-.recb-vazio {
-    margin: 0;
-    padding: var(--space-8) var(--space-4);
-    text-align: center;
-    color: var(--fg-muted);
+/* `.recb-vazio` passou para CadastroMaterial.css: o Cadastro ganhou o mesmo
+   aviso de lista vazia no modal de leitura, e a importação vai daquele
+   arquivo para este — definida aqui, o Cadastro não a veria. */
+
+/* ── Folha de ações no celular ──
+   Abaixo de 1024px a coluna de ações sai e as três ações passam para o
+   painel de baixo. Escopado à página pelo mesmo motivo do Cadastro: esconder
+   `.col-acoes` só é aceitável onde existe o caminho alternativo. */
+@media (max-width: 1024px) {
+    .recebimento-page .table th.col-acoes,
+    .recebimento-page .table td.col-acoes {
+        display: none;
+    }
 }
 
 /* ── Modal ── */
@@ -58,79 +66,9 @@
    CadastroMaterial.css: as duas telas usam, e a importação vai naquela
    direção — daqui o Cadastro não as veria. */
 
-/* ── Autocomplete de material ── */
-.recb-autocomplete {
-    position: relative;
-}
-
-.autocomplete-lista {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    z-index: 30;
-    max-height: 260px;
-    margin: 4px 0 0;
-    padding: 4px;
-    list-style: none;
-    overflow-y: auto;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--r-md);
-    box-shadow: var(--shadow-md);
-}
-
-.autocomplete-lista .autocomplete-item {
-    display: grid;
-    grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto;
-    align-items: baseline;
-    gap: var(--space-3);
-    width: 100%;
-    padding: 8px 10px;
-    border: none;
-    border-radius: var(--r-sm);
-    background: transparent;
-    color: var(--fg);
-    font-family: inherit;
-    font-size: var(--text-sm);
-    text-align: left;
-    cursor: pointer;
-}
-
-.autocomplete-lista .autocomplete-item:hover,
-.autocomplete-lista .autocomplete-item:focus-visible {
-    background: var(--bg-2);
-    outline: none;
-}
-
-.autocomplete-cod {
-    font-weight: var(--fw-semibold);
-}
-
-.autocomplete-desc {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--fg-muted);
-}
-
-.autocomplete-meta {
-    font-size: var(--text-xs);
-    color: var(--fg-subtle);
-}
-
-/* Opção de usar um nome que ainda não está no histórico. Separada por uma
-   linha e marcada em cor de ação: é a única entrada da lista que não veio de
-   uma inspeção anterior. */
-.autocomplete-item.autocomplete-novo {
-    border-top: 1px solid var(--border);
-    border-radius: 0 0 var(--r-sm) var(--r-sm);
-    color: var(--primary);
-}
-
-.autocomplete-item.autocomplete-novo .autocomplete-cod {
-    color: var(--primary);
-}
+/* O autocomplete saiu daqui: virou `.campo-autocomplete` e `.autocomplete-*`
+   em CadastroMaterial.css, importado no topo. O Cadastro passou a ter o mesmo
+   campo de busca de Cód. SAP, e este arquivo não alcança aquele. */
 
 /* ══════════════════════════════════════════════════════════════════════
    Linhas de lote
@@ -139,6 +77,19 @@
 .linha-lote {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 40px;
     align-items: end;
+}
+
+/* O `margin-bottom` do `.form-group` somava ao `gap` da grade e, com
+   `align-items: end`, levava a base da célula 12px abaixo do input — medido:
+   os ícones pousavam ali, 12px mais baixos que o campo ao lado. A grade já
+   separa as linhas, então a margem aqui era dupla.
+
+   `!important` porque abaixo de 480px o responsive.css declara
+   `.form-group { margin-bottom: 12px !important }`, que este seletor (0,2,0)
+   não vence por especificidade. Trocar o nome da classe — o jeito preferido
+   no projeto — não serve aqui: `.form-group` é o que estiliza o campo. */
+.linha-lote .form-group {
+    margin-bottom: 0 !important;
 }
 
 /* Adicionar em cima, remover embaixo, na mesma coluna. */
@@ -203,9 +154,11 @@
     color: var(--fg);
 }
 
-/* Até 900px os campos já caem para duas colunas; os ícones passam a ocupar a
-   linha inteira, senão uma coluna de 40px roubaria largura dos campos. Lado a
-   lado aqui, porque na horizontal há espaço de sobra e empilhar só somaria
+/* Até 900px os campos caem para duas colunas: Lote e Nota Fiscal em cima,
+   Quantidade e os ícones embaixo. Os ícones ficam na célula ao lado de
+   Quantidade e encostados nela — antes tinham `grid-column: 1 / -1` e uma
+   linha inteira só deles, soltos à direita, sem parecer parte daquele lote.
+   Lado a lado, porque na horizontal há espaço de sobra e empilhar só somaria
    altura. */
 @media (max-width: 900px) {
     .linha-lote {
@@ -213,10 +166,32 @@
     }
 
     .linha-lote .lote-acoes {
-        grid-column: 1 / -1;
         flex-direction: row;
-        justify-content: flex-end;
+        justify-content: flex-start;
     }
+}
+
+/* ── Observação ──
+   Mora na mesma linha do Inspetor no JSX, mas no desktop ocupa a linha
+   inteira, como quando era um bloco separado: com três colunas ela ficaria
+   num terço da largura. No celular a regra sai e ela divide a linha de duas
+   colunas com o Inspetor. */
+.form-row-recb .form-group-observacao {
+    grid-column: 1 / -1;
+}
+
+/* A altura do textarea de Observação saiu daqui: o Cadastro de Material
+   ganhou o mesmo campo, e a regra passou para CadastroMaterial.css, que este
+   arquivo importa no topo. */
+
+/* ── Visualização somente leitura ──
+   `.section-title` não tem margem no topo: no formulário quem abre a folga é
+   o `margin-bottom` da linha de campos, e a grade de leitura não tem — medido,
+   a distância entre uma seção e o título da seguinte era 0. Escopado ao modal
+   desta tela: `.view-grid` também é usada por Calibração, Injeção e Montagem,
+   que já se espaçam de outro jeito. */
+.recb-modal .view-grid {
+    margin-bottom: var(--space-4);
 }
 
 /* ── Resultados ── */
@@ -275,6 +250,12 @@
     .form-row-recb .form-group-largo {
         grid-column: auto;
     }
+
+    /* Aqui a Observação deixa de tomar a linha inteira e sobe para o lado do
+       Inspetor. Vale de 900px para baixo, então cobre tablet e celular. */
+    .form-row-recb .form-group-observacao {
+        grid-column: auto;
+    }
 }
 
 /* Mesma decisão da grade do Cadastro: no celular ficam dois campos por linha
@@ -299,6 +280,31 @@
     .form-row-recb .form-group-largo {
         grid-column: auto;
         grid-template-columns: 1fr;
+    }
+}
+
+/* ── Identificação: um campo por linha no celular ──
+   Vale só para as duas linhas marcadas com `linha-identificacao` — Cód. SAP,
+   Componente, Revisão do Desenho e Fornecedor. As outras linhas do modal
+   (lote/nota/quantidade, datas, inspetor e observação) continuam em duas
+   colunas no celular, que foi o pedido anterior para encurtar a rolagem.
+
+   600px separa celular de tablet: os maiores celulares chegam a ~430px CSS e
+   os tablets começam em 768px, então nenhum aparelho real cai no meio. Acima
+   disso nada muda — tablet segue em duas colunas e o desktop em três, com o
+   campo largo ocupando duas.
+
+   Duas classes no seletor (0,2,0) para vencer `.form-row-recb` (0,1,0) por
+   especificidade, sem depender da ordem dos arquivos no bundle. */
+@media (max-width: 600px) {
+    .form-row-recb.linha-identificacao {
+        grid-template-columns: 1fr;
+    }
+
+    /* Numa grade de uma coluna o `span 2` não mudaria nada, mas deixa
+       explícito que aqui o campo largo não tem papel diferente dos outros. */
+    .form-row-recb.linha-identificacao .form-group-largo {
+        grid-column: auto;
     }
 }
 

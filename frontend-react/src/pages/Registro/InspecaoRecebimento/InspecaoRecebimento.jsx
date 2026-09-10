@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import AppLayout from '../../../components/Layout/AppLayout';
-import { Tabs, ConfirmarSaida } from '../../../components/ui';
+import { Tabs, ConfirmarSaida, MobileActionSheet } from '../../../components/ui';
 import { materiaisAPI, revisoesAPI, inspecoesRecebimentoAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
 import { upperFields } from '../../../utils/text';
@@ -90,6 +90,25 @@ export default function InspecaoRecebimento() {
     /* Lotes da inspeção. Lista e não campos soltos: a mesma entrega pode vir
        em notas diferentes. Começa com uma linha, que é o caso comum. */
     const [lotes, setLotes] = useState([loteVazio()]);
+
+    /* Visualização somente leitura, no padrão da Injeção e da Montagem.
+       Estado próprio, e não o formulário com os campos travados: em leitura
+       cabe mostrar lotes e cotas de uma vez, sem abas nem alternador. */
+    const [viewAberto, setViewAberto] = useState(false);
+    const [viewDados, setViewDados] = useState(null);
+    const [viewCarregando, setViewCarregando] = useState(false);
+
+    /* Linha tocada no celular: abre a folha de ações no lugar dos ícones da
+       coluna, que abaixo de 1024px fica escondida. */
+    const [sheetItem, setSheetItem] = useState(null);
+
+    /* Só abre onde a coluna de ações está escondida. Acima disso os ícones
+       estão à vista e o clique na linha não deve fazer nada. */
+    const aoClicarNaLinha = (inspecao) => {
+        if (typeof window === 'undefined') return;
+        if (!window.matchMedia('(max-width: 1024px)').matches) return;
+        setSheetItem(inspecao);
+    };
 
     /* Autocomplete de material */
     const [sugestoes, setSugestoes] = useState([]);
@@ -312,6 +331,29 @@ export default function InspecaoRecebimento() {
         setFormDirty(false);
         setConfirmarSaida(false);
         setModalAberto(true);
+    };
+
+    /* O parâmetro é a linha da tabela. A listagem não traz lotes nem
+       resultados — só o resumo —, então os detalhes vêm do mesmo GET que a
+       edição usa. */
+    const abrirVisualizacao = async (inspecao) => {
+        setViewDados(null);
+        setViewCarregando(true);
+        setViewAberto(true);
+        try {
+            const resp = await inspecoesRecebimentoAPI.getById(inspecao.id);
+            setViewDados(resp.data?.data || resp.data || {});
+        } catch (e) {
+            setViewAberto(false);
+            setErro(e.response?.data?.message || 'Não foi possível abrir a inspeção');
+        } finally {
+            setViewCarregando(false);
+        }
+    };
+
+    const fecharVisualizacao = () => {
+        setViewAberto(false);
+        setViewDados(null);
     };
 
     const abrirEdicao = async (inspecao) => {
@@ -602,7 +644,9 @@ export default function InspecaoRecebimento() {
                                 </thead>
                                 <tbody>
                                     {visiveis.map((i) => (
-                                        <tr key={i.id}>
+                                        <tr key={i.id}
+                                            className={`mobile-clickable-row ${sheetItem?.id === i.id ? 'mobile-row-active' : ''}`}
+                                            onClick={() => aoClicarNaLinha(i)}>
                                             <td>{formatarData(i.data_inspecao)}</td>
                                             <td><strong>{i.codigo_sap}</strong></td>
                                             <td>{i.componente || '—'}</td>
@@ -617,16 +661,26 @@ export default function InspecaoRecebimento() {
                                             </td>
                                             <td className="col-acoes">
                                                 <div className="acoes">
+                                                    {/* Visualizar → Editar → Excluir, a ordem das
+                                                        outras telas. `i` é a linha deste `map`; usar
+                                                        outro nome aqui daria o `ReferenceError` que o
+                                                        botão colado no Cadastro de Material dava. */}
+                                                    <button className="btn-icon btn-view"
+                                                        title="Visualizar inspeção"
+                                                        aria-label={`Visualizar inspeção do lote ${i.lote || i.codigo_sap}`}
+                                                        onClick={(e) => { e.stopPropagation(); abrirVisualizacao(i); }}>
+                                                        <i className="fas fa-eye" aria-hidden="true"></i>
+                                                    </button>
                                                     <button className="btn-icon btn-edit"
                                                         title="Abrir inspeção"
                                                         aria-label={`Abrir inspeção do lote ${i.lote || i.codigo_sap}`}
-                                                        onClick={() => abrirEdicao(i)}>
+                                                        onClick={(e) => { e.stopPropagation(); abrirEdicao(i); }}>
                                                         <i className="fas fa-pen" aria-hidden="true"></i>
                                                     </button>
                                                     <button className="btn-icon btn-delete"
                                                         title="Excluir inspeção"
                                                         aria-label={`Excluir inspeção do lote ${i.lote || i.codigo_sap}`}
-                                                        onClick={() => excluir(i)}>
+                                                        onClick={(e) => { e.stopPropagation(); excluir(i); }}>
                                                         <i className="fas fa-trash" aria-hidden="true"></i>
                                                     </button>
                                                 </div>
@@ -713,8 +767,11 @@ export default function InspecaoRecebimento() {
                                             serve tambem a visao geral, onde as secoes vem em
                                             sequencia e precisam se identificar. */}
                                         <h3 className="section-title">Identificação do Material</h3>
-                                        <div className="form-row-recb">
-                                            <div className="form-group recb-autocomplete">
+                                        {/* `linha-identificacao` só marca estas duas linhas: no
+                                            celular elas empilham um campo por linha, enquanto as
+                                            demais linhas do modal seguem em duas colunas. */}
+                                        <div className="form-row-recb linha-identificacao">
+                                            <div className="form-group campo-autocomplete">
                                                 <label>Cód. SAP *</label>
                                                 <input
                                                     type="text"
@@ -756,7 +813,7 @@ export default function InspecaoRecebimento() {
                                             </div>
                                         </div>
 
-                                        <div className="form-row-recb">
+                                        <div className="form-row-recb linha-identificacao">
                                             <div className="form-group">
                                                 <label>Revisão do Desenho *</label>
                                                 <select className="form-control"
@@ -779,7 +836,7 @@ export default function InspecaoRecebimento() {
                                                 nome novo. Não é um select, porque a lista é histórico e
                                                 não catálogo — travar impediria o primeiro lote de um
                                                 fornecedor. */}
-                                            <div className="form-group form-group-largo recb-autocomplete">
+                                            <div className="form-group form-group-largo campo-autocomplete">
                                                 <label htmlFor="fornecedor">Fornecedor</label>
                                                 <input
                                                     id="fornecedor"
@@ -941,13 +998,20 @@ export default function InspecaoRecebimento() {
                                                     value={user?.nome || ''} readOnly />
                                                 <small className="campo-ajuda">Usuário da sessão.</small>
                                             </div>
-                                        </div>
-
-                                        <div className="form-group">
-                                            <label>Observação</label>
-                                            <textarea className="form-control" rows="3"
-                                                value={formData.observacao}
-                                                onChange={(e) => setCampo('observacao', e.target.value)} />
+                                            {/* Dentro da mesma linha do Inspetor de propósito: no
+                                                celular a grade tem duas colunas e os dois dividem a
+                                                linha, em vez de a Observação empurrar o rodapé para
+                                                baixo. No desktop ela volta a ocupar a linha inteira,
+                                                pelo CSS. */}
+                                            <div className="form-group form-group-observacao">
+                                                <label htmlFor="observacao">Observação</label>
+                                                {/* Duas linhas, não três: ao lado do Inspetor no
+                                                    celular, três deixavam a Observação mais alta que
+                                                    o par e empurravam o rodapé. Abre ao focar. */}
+                                                <textarea id="observacao" className="form-control" rows="2"
+                                                    value={formData.observacao}
+                                                    onChange={(e) => setCampo('observacao', e.target.value)} />
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -1149,6 +1213,191 @@ export default function InspecaoRecebimento() {
                         </div>
                     </div>
                 )}
+
+                {/* Somente leitura. Sem `form`, sem input e sem Salvar: os
+                    dados são texto, então não há o que travar. */}
+                {viewAberto && (
+                    <div className="modal-overlay recb-modal" onClick={fecharVisualizacao}>
+                        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                            <div className="modal-header">
+                                <h2>Inspeção de Recebimento</h2>
+                                <button className="modal-close" onClick={fecharVisualizacao}
+                                    aria-label="Fechar">
+                                    <i className="fas fa-times"></i>
+                                </button>
+                            </div>
+
+                            {viewCarregando || !viewDados ? (
+                                <p className="recb-vazio">Carregando…</p>
+                            ) : (
+                                <div className="form-section">
+                                    <h3 className="section-title">Identificação do Material</h3>
+                                    <div className="view-grid">
+                                        <div className="view-item">
+                                            <span className="view-label">Cód. SAP</span>
+                                            <span className="view-value">{viewDados.codigo_sap || '—'}</span>
+                                        </div>
+                                        <div className="view-item">
+                                            <span className="view-label">Componente</span>
+                                            <span className="view-value">{viewDados.componente || '—'}</span>
+                                        </div>
+                                        <div className="view-item">
+                                            <span className="view-label">Revisão do Desenho</span>
+                                            <span className="view-value">{viewDados.revisao_desenho || '—'}</span>
+                                        </div>
+                                        <div className="view-item">
+                                            <span className="view-label">Fornecedor</span>
+                                            <span className="view-value">{viewDados.fornecedor || '—'}</span>
+                                        </div>
+                                        <div className="view-item">
+                                            <span className="view-label">Data de Entrada</span>
+                                            <span className="view-value">{formatarData(viewDados.data_entrada)}</span>
+                                        </div>
+                                        <div className="view-item">
+                                            <span className="view-label">Data da Inspeção</span>
+                                            <span className="view-value">{formatarData(viewDados.data_inspecao)}</span>
+                                        </div>
+                                        <div className="view-item">
+                                            <span className="view-label">Inspetor</span>
+                                            <span className="view-value">{viewDados.inspetor_nome || '—'}</span>
+                                        </div>
+                                        <div className="view-item">
+                                            <span className="view-label">Desenho Técnico</span>
+                                            <span className="view-value">
+                                                {viewDados.link_desenho ? (
+                                                    /* noreferrer junto de noopener: o destino é um
+                                                       link externo digitado no cadastro. */
+                                                    <a href={viewDados.link_desenho} target="_blank"
+                                                        rel="noopener noreferrer">
+                                                        <i className="fas fa-up-right-from-square" aria-hidden="true"></i> Abrir desenho
+                                                    </a>
+                                                ) : '—'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <h3 className="section-title">Dados Gerais do Lote</h3>
+                                    {(viewDados.lotes?.length ? viewDados.lotes : [{
+                                        /* Inspeção gravada antes da lista de lotes existir: os
+                                           campos soltos viram uma linha, como na edição. */
+                                        lote: viewDados.lote,
+                                        nota_fiscal: viewDados.nota_fiscal,
+                                        quantidade_total: viewDados.quantidade_total
+                                    }]).map((l, idx) => (
+                                        <div className="view-grid" key={l.id ?? idx}>
+                                            <div className="view-item">
+                                                <span className="view-label">Lote</span>
+                                                <span className="view-value">{l.lote || '—'}</span>
+                                            </div>
+                                            <div className="view-item">
+                                                <span className="view-label">Nota Fiscal</span>
+                                                <span className="view-value">{l.nota_fiscal || '—'}</span>
+                                            </div>
+                                            <div className="view-item">
+                                                <span className="view-label">Quantidade</span>
+                                                <span className="view-value">{l.quantidade_total ?? '—'}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {viewDados.lotes?.length > 1 && (
+                                        <p className="lotes-total">
+                                            Quantidade total:{' '}
+                                            <strong>
+                                                {viewDados.lotes.reduce(
+                                                    (s, l) => s + (Number(l.quantidade_total) || 0), 0)}
+                                            </strong>
+                                            {' '}em {viewDados.lotes.length} lotes
+                                        </p>
+                                    )}
+
+                                    <h3 className="section-title">Resultados</h3>
+                                    {!viewDados.resultados?.length ? (
+                                        <p className="recb-vazio">Nenhuma cota medida.</p>
+                                    ) : (
+                                        <div className="table-container">
+                                            <table className="table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Posição</th>
+                                                        <th>Cota nominal</th>
+                                                        <th className="col-hide">Instrumento</th>
+                                                        <th>Medido</th>
+                                                        <th>Status</th>
+                                                        <th className="col-hide">Observação</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {viewDados.resultados.map((r) => (
+                                                        <tr key={r.id}>
+                                                            <td><strong>{r.posicao || '—'}</strong></td>
+                                                            <td>{r.cota_nominal || '—'}</td>
+                                                            <td className="col-hide">{r.instrumento || '—'}</td>
+                                                            <td>{r.valor_medido || '—'}</td>
+                                                            <td>
+                                                                {r.status ? (
+                                                                    <span className={`badge ${r.status === 'ok' ? 'badge-success' : 'badge-danger'}`}>
+                                                                        {r.status === 'ok' ? 'Conforme' : 'Não conforme'}
+                                                                    </span>
+                                                                ) : '—'}
+                                                            </td>
+                                                            <td className="col-hide">{r.observacao || '—'}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+
+                                    <div className="view-section">
+                                        <h4>Status final</h4>
+                                        <p>
+                                            <span className={`badge ${STATUS_BADGE[viewDados.status] || 'badge-warning'}`}>
+                                                {STATUS_LABEL[viewDados.status] || viewDados.status || 'Pendente'}
+                                            </span>
+                                        </p>
+                                    </div>
+
+                                    {viewDados.observacao && (
+                                        <div className="view-section">
+                                            <h4>Observações</h4>
+                                            <p>{viewDados.observacao}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="modal-footer">
+                                <button className="btn btn-outline" onClick={fecharVisualizacao}>
+                                    Fechar
+                                </button>
+                                {/* Atalho para editar sem voltar à tabela, como na
+                                    Injeção. Guarda a linha antes de fechar, porque
+                                    `fecharVisualizacao` limpa `viewDados`. */}
+                                <button className="btn btn-primary"
+                                    disabled={!viewDados}
+                                    onClick={() => {
+                                        const alvo = viewDados;
+                                        fecharVisualizacao();
+                                        abrirEdicao(alvo);
+                                    }}>
+                                    <i className="fas fa-pen" aria-hidden="true"></i> Editar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Mesmas três ações da coluna, em tamanho de toque. */}
+                <MobileActionSheet
+                    item={sheetItem}
+                    titulo={sheetItem ? (sheetItem.lote || sheetItem.codigo_sap || 'Inspeção') : ''}
+                    onFechar={() => setSheetItem(null)}
+                    acoes={[
+                        { id: 'ver', rotulo: 'Ver', icone: 'fa-eye', className: 'btn-view', onClick: abrirVisualizacao },
+                        { id: 'editar', rotulo: 'Editar', icone: 'fa-edit', className: 'btn-edit', onClick: abrirEdicao },
+                        { id: 'excluir', rotulo: 'Excluir', icone: 'fa-trash', className: 'btn-delete', onClick: excluir }
+                    ]}
+                />
 
                 <ConfirmarSaida
                     aberto={confirmarSaida}

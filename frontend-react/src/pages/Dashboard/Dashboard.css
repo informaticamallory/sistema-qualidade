@@ -1662,6 +1662,63 @@ body.is-resizing-widget {
     font-style: italic;
 }
 
+/* ── Filtro de período fora do desktop ──
+   De 900px para baixo o cabeçalho vira coluna e `.dashboard-actions` passa a
+   alinhar pela esquerda. O painel é ancorado por `right: 0` do botão, que ali
+   fica a ~42px da borda esquerda: os 280px cresciam para fora da tela, e o
+   que aparecia por baixo era o card de indicador cortado. Ancorado à
+   esquerda, cresce para dentro. */
+@media (max-width: 900px) {
+    .calendar-dropdown {
+        left: 0;
+        right: auto;
+    }
+}
+
+/* No celular ele deixa de flutuar: ocupa a largura toda numa linha própria,
+   logo abaixo dos botões e acima dos cards, empurrando-os para baixo em vez
+   de cobri-los.
+
+   `display: contents` no wrapper para o painel virar item da mesma flex row
+   dos botões — o wrapper só existia para ancorar o `position: absolute`, que
+   aqui não é mais usado. O `order` manda o painel para o fim da row; sem ele
+   os outros três botões, que vêm depois no HTML, desceriam junto para a
+   segunda linha. */
+@media (max-width: 600px) {
+    .dashboard-actions {
+        flex-wrap: wrap;
+        /* `100%` e não o `auto` declarado acima: como item de largura
+           automática, o container crescia até caber o painel, e aí o
+           `width: 100%` do painel passava a medir esse tamanho inflado —
+           medido, 383px numa tela de 320px. Fixar o container na tela é o
+           que faz o painel ter uma referência real para encolher. */
+        width: 100%;
+        min-width: 0;
+    }
+
+    .calendar-filter-wrapper {
+        display: contents;
+    }
+
+    .calendar-dropdown {
+        position: static;
+        order: 1;
+        width: 100%;
+        /* O `min-width: 280px` do padrão é maior que a área útil de uma tela
+           de 320px depois das margens. */
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Uma data por linha: lado a lado sobravam ~124px por campo em 320px, e
+       o campo de data tem largura mínima própria maior que isso — era ele
+       que esticava o painel. */
+    .calendar-custom {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 /* Indicadores principais compactos no layout responsivo. */
 @media (max-width: 1200px) {
     .dashboard-builder-grid .dashboard-widget.metric-widget {

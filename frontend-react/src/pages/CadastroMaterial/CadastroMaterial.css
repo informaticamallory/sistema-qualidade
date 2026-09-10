@@ -160,7 +160,12 @@
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-4);
-    align-items: end;
+    /* `start` e não `end`: alinhado pela base, o campo que ganha um texto de
+       apoio embaixo (o Componente, quando a busca diz de onde veio a
+       descrição) empurrava os vizinhos para baixo, e os três inputs ficavam
+       em alturas diferentes. Pelo topo, o texto de apoio cresce só na célula
+       dele e a linha dos campos não se mexe. */
+    align-items: start;
     margin-bottom: var(--space-4);
 }
 
@@ -226,6 +231,69 @@
     color: var(--fg-muted);
 }
 
+/* Aviso de lista vazia. Veio de InspecaoRecebimento.css: as duas telas usam,
+   e a importação vai daquele arquivo para este. O nome ficou como estava
+   para não mexer no JSX da Inspeção, que a usa em vários pontos. */
+.recb-vazio {
+    margin: 0;
+    padding: var(--space-8) var(--space-4);
+    text-align: center;
+    color: var(--fg-muted);
+}
+
+/* ── Folha de ações no celular ──
+   Abaixo de 1024px a coluna de ações sai e as três ações passam para o
+   painel de baixo, onde os alvos de toque são grandes. Escopado à página:
+   `.col-acoes` é usada por várias telas, e escondê-la onde não há folha
+   deixaria a linha sem nenhum caminho para editar ou excluir — foi o que
+   aconteceu quando a regra da Injeção vazou para cá. */
+@media (max-width: 1024px) {
+    .cadastro-material-page .table th.col-acoes,
+    .cadastro-material-page .table td.col-acoes {
+        display: none;
+    }
+}
+
+/* ── Campos de texto que quebram linha ──
+   Componente e Aplicação eram `input`: descrições como "PORCA WT 1/4X4X11.1M"
+   corriam para fora do campo e só se lia o começo. Como textarea de duas
+   linhas, o texto inteiro fica visível.
+
+   `.campo-multilinha.form-control` (0,2,0) e não `textarea.campo-multilinha`
+   (0,1,1): existe uma regra global `textarea.form-control { min-height: 84px }`
+   (0,1,1) que empata com a segunda forma e vence pela ordem do bundle — com
+   ela no caminho, o `rows` não decide altura nenhuma. */
+.campo-multilinha.form-control {
+    min-height: 0;
+    /* A altura é calculada pelo conteúdo no JSX, então arrastar a alça não
+       teria efeito: a próxima renderização sobrescreveria. `overflow: hidden`
+       é parte da mesma receita — evita a barra de rolagem piscar enquanto o
+       campo é medido; o `scrollHeight` continua reportando o texto inteiro. */
+    resize: none;
+    overflow: hidden;
+}
+
+/* ── Observações ──
+   Vive na mesma linha do último campo (Setor aqui, Inspetor na Inspeção de
+   Recebimento), mas no desktop ocupa a linha inteira: com três colunas
+   ficaria num terço da largura. No celular a regra sai e ela divide a linha
+   de duas colunas.
+
+   Regra do textarea aqui, e não em InspecaoRecebimento.css, porque as duas
+   telas têm este campo e a importação vai daquele arquivo para este. */
+.form-row-material .form-group-observacao {
+    grid-column: 1 / -1;
+}
+
+.form-group-observacao textarea.form-control {
+    min-height: 0;
+    transition: min-height var(--transition-base);
+}
+
+.form-group-observacao textarea.form-control:focus {
+    min-height: 7.5em;
+}
+
 .campo-spinner {
     position: absolute;
     right: 12px;
@@ -234,6 +302,112 @@
     color: var(--primary);
     font-size: .9rem;
     pointer-events: none;
+}
+
+/* ── Autocomplete ──
+   Vieram de InspecaoRecebimento.css, onde se chamavam `.recb-*`: as duas
+   telas têm o mesmo campo de busca de Cód. SAP, e a importação vai daquele
+   arquivo para este — definidas lá, o Cadastro não as veria.
+
+   Tudo abaixo de `.campo-autocomplete` de propósito. `.autocomplete-desc`,
+   `.autocomplete-item` e `.autocomplete-lista` são nomes que Cartões, Fichas,
+   Q49, Injeção, Montagem e Relatório de Recebimento também usam, cada uma com
+   sua regra sem escopo — e o Vite junta tudo num arquivo só, onde a ordem dos
+   arquivos decide quem vence. Sem o prefixo, estas regras mudariam aquelas
+   seis telas, e um `white-space: nowrap` da Montagem vencia esta aqui. */
+.campo-autocomplete {
+    position: relative;
+}
+
+.campo-autocomplete .autocomplete-lista {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    max-height: 260px;
+    margin: 4px 0 0;
+    padding: 4px;
+    list-style: none;
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-md);
+}
+
+/* Duas linhas, e não código/descrição/rótulo lado a lado: a lista tem a
+   largura do campo, que é um terço do modal — medido, sobravam ~50px para a
+   descrição e até "ARRUELA LISA 1/4" virava reticências. A descrição é
+   justamente a prévia que faz a lista servir para alguma coisa, então ela
+   ganha a linha inteira embaixo. */
+.campo-autocomplete .autocomplete-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+        "cod  meta"
+        "desc desc";
+    align-items: baseline;
+    gap: 2px var(--space-3);
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--fg);
+    font-family: inherit;
+    font-size: var(--text-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.campo-autocomplete .autocomplete-item:hover,
+.campo-autocomplete .autocomplete-item:focus-visible {
+    background: var(--bg-2);
+    outline: none;
+}
+
+.campo-autocomplete .autocomplete-cod {
+    grid-area: cod;
+    font-weight: var(--fw-semibold);
+}
+
+.campo-autocomplete .autocomplete-desc {
+    grid-area: desc;
+    /* Quebra em vez de cortar: é a prévia do componente, e meia palavra não
+       ajuda a escolher. `normal` explícito porque a Montagem declara
+       `white-space: nowrap` no mesmo nome de classe, sem escopo. Nada de
+       `-webkit-line-clamp`: item de grid é blocado para `flow-root` e o
+       clamp não sobrevive — medido, cortava em uma linha só. */
+    white-space: normal;
+    overflow-wrap: anywhere;
+    color: var(--fg-muted);
+}
+
+/* O combobox de fornecedor da Inspeção de Recebimento usa a mesma lista sem
+   descrição; sem isto sobraria uma linha em branco em cada item. */
+.campo-autocomplete .autocomplete-desc:empty {
+    display: none;
+}
+
+.campo-autocomplete .autocomplete-meta {
+    grid-area: meta;
+    font-size: var(--text-xs);
+    color: var(--fg-subtle);
+    white-space: nowrap;
+}
+
+/* Opção de usar um nome que ainda não está no histórico. Separada por uma
+   linha e marcada em cor de ação: é a única entrada da lista que não veio de
+   um registro anterior. */
+.campo-autocomplete .autocomplete-item.autocomplete-novo {
+    border-top: 1px solid var(--border);
+    border-radius: 0 0 var(--r-sm) var(--r-sm);
+    color: var(--primary);
+}
+
+.campo-autocomplete .autocomplete-item.autocomplete-novo .autocomplete-cod {
+    color: var(--primary);
 }
 
 .section-header-linha {
@@ -749,6 +923,12 @@
     .form-row-material .form-group-largo {
         grid-column: span 2;
     }
+
+    /* Aqui a Observação deixa de tomar a linha inteira e sobe para o lado do
+       Setor. Vale de 900px para baixo, então cobre tablet e celular. */
+    .form-row-material .form-group-observacao {
+        grid-column: auto;
+    }
 }
 
 /* No celular a grade fica em duas colunas em vez de empilhar: o formulário
@@ -772,6 +952,27 @@
     .form-row-material .form-group-largo {
         grid-column: auto;
         grid-template-columns: 1fr;
+    }
+}
+
+/* ── Identificação: um campo por linha no celular ──
+   Vale só para a linha marcada com `linha-identificacao` — Cód. SAP,
+   Componente e Aplicação. A linha de baixo (revisão, data, setor,
+   observações) continua em duas colunas no celular.
+
+   Mesmos 600px da aba Identificação da Inspeção de Recebimento, para os dois
+   modais quebrarem no mesmo ponto: os maiores celulares chegam a ~430px CSS
+   e os tablets começam em 768px, então nenhum aparelho real cai no meio.
+
+   Duas classes no seletor (0,2,0) para vencer `.form-row-material` (0,1,0)
+   por especificidade, sem depender da ordem dos arquivos no bundle. */
+@media (max-width: 600px) {
+    .form-row-material.linha-identificacao {
+        grid-template-columns: 1fr;
+    }
+
+    .form-row-material.linha-identificacao .form-group-largo {
+        grid-column: auto;
     }
 }
 

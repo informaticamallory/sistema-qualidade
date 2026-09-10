@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import AppLayout from '../../components/Layout/AppLayout';
-import { Tabs, ConfirmarSaida } from '../../components/ui';
+import { Tabs, ConfirmarSaida, MobileActionSheet } from '../../components/ui';
 import { materiaisAPI, revisoesAPI, produtosAPI } from '../../services/api';
 import { upperFields } from '../../utils/text';
 import './CadastroMaterial.css';
@@ -103,9 +103,13 @@ export default function CadastroMaterial() {
     /* Quando preenchido, o modal está editando esta revisão em vez de criar. */
     const [revisaoEmEdicao, setRevisaoEmEdicao] = useState(null);
 
-    /* ── Auto-preenchimento do Componente pelo Cód. SAP ── */
+    /* ── Busca do Cód. SAP ── */
     const [buscandoComponente, setBuscandoComponente] = useState(false);
     const [origemComponente, setOrigemComponente] = useState('');
+    /* Códigos que casam com o que já foi digitado, para escolher da lista sem
+       ter de saber o código inteiro de cor. */
+    const [sugestoesSap, setSugestoesSap] = useState([]);
+    const [sugestoesAbertas, setSugestoesAbertas] = useState(false);
     /* O valor atual do Componente veio da busca? Só nesse caso uma busca
        seguinte pode substituí-lo ou limpá-lo. */
     const autoPreenchidoRef = useRef(false);
@@ -116,6 +120,106 @@ export default function CadastroMaterial() {
     const debounceSapRef = useRef(null);
 
     const [expandido, setExpandido] = useState({});
+
+    /* Folha de ações do celular. Esta tela tem DOIS níveis de ação, e a
+       folha precisa refletir os dois: a linha do material traz nova revisão
+       e excluir material; a linha de revisão, dentro da expansão, traz
+       editar e excluir aquela revisão. Um estado só, com o tipo dentro, em
+       vez de dois estados que poderiam abrir juntos. */
+    const [sheet, setSheet] = useState(null);
+    /* Material aberto em modo leitura. */
+    const [viewMaterial, setViewMaterial] = useState(null);
+
+    /* Só abre onde as colunas de ações estão escondidas. Acima disso os
+       ícones estão à vista e o clique na linha não deve fazer nada. */
+    const noCelular = () => typeof window !== 'undefined'
+        && window.matchMedia('(max-width: 1024px)').matches;
+
+    const abrirFolhaMaterial = (material) => {
+        if (noCelular()) setSheet({ tipo: 'material', material });
+    };
+
+    const abrirFolhaRevisao = (material, revisao) => {
+        if (noCelular()) setSheet({ tipo: 'revisao', material, revisao });
+    };
+
+    /* "Editar" no modal de leitura abre a revisão mais recente — o backend
+       devolve `revisoes` por id decrescente, então é a primeira. Sem nenhuma
+       revisão, o caminho útil é criar a primeira. */
+    const editarRevisaoMaisRecente = (material) => {
+        const revisoes = material.revisoes || [];
+        if (revisoes.length) abrirEdicao(material, revisoes[0]);
+        else abrirNovaRevisao(material);
+    };
+
+    /* Ações e título mudam com o nível tocado. */
+    const acoesDaFolha = sheet?.tipo === 'revisao'
+        ? [
+            {
+                id: 'editar', rotulo: 'Editar', icone: 'fa-edit', className: 'btn-edit',
+                onClick: (s) => abrirEdicao(s.material, s.revisao)
+            },
+            {
+                id: 'excluir', rotulo: 'Excluir', icone: 'fa-trash', className: 'btn-delete',
+                onClick: (s) => excluirRevisao(s.revisao)
+            }
+        ]
+        : [
+            {
+                id: 'ver', rotulo: 'Ver', icone: 'fa-eye', className: 'btn-view',
+                onClick: (s) => setViewMaterial(s.material)
+            },
+            {
+                /* O equivalente ao "+" da coluna: nesta tela não se edita o
+                   material, cria-se uma revisão nova dele. */
+                id: 'nova', rotulo: 'Nova revisão', icone: 'fa-plus', className: 'btn-edit',
+                onClick: (s) => abrirNovaRevisao(s.material)
+            },
+            {
+                id: 'excluir', rotulo: 'Excluir', icone: 'fa-trash', className: 'btn-delete',
+                onClick: (s) => excluirMaterial(s.material)
+            }
+        ];
+
+    const tituloDaFolha = !sheet ? ''
+        : sheet.tipo === 'revisao'
+            ? `${sheet.material.codigo_sap} — Rev. ${sheet.revisao.revisao}`
+            : (sheet.material.codigo_sap || 'Material');
+
+    /* Componente e Aplicação crescem até caber o texto. `rows` fixo não
+       resolve: medido, duas linhas cortavam uma descrição de 38 caracteres na
+       coluna de 178px do celular, e qualquer número escolhido erra para o
+       texto seguinte. A altura entra no style porque depende do conteúdo e da
+       largura da coluna, coisas que o CSS não mede. */
+    const componenteRef = useRef(null);
+    const aplicacaoRef = useRef(null);
+
+    const ajustarAltura = (el) => {
+        if (!el) return;
+        /* 'auto' antes de medir: sem isso o scrollHeight nunca diminui, e o
+           campo só cresceria. */
+        el.style.height = 'auto';
+        /* Somar as bordas: com `box-sizing: border-box` o `height` define a
+           caixa com borda, mas o `scrollHeight` mede só conteúdo + padding.
+           Sem isto sobravam ~2px de corte em toda largura — medido. */
+        const bordas = el.offsetHeight - el.clientHeight;
+        el.style.height = `${el.scrollHeight + bordas}px`;
+    };
+
+    useLayoutEffect(() => {
+        ajustarAltura(componenteRef.current);
+        ajustarAltura(aplicacaoRef.current);
+    }, [formData.componente, formData.aplicacao, modalAberto, formViewMode, activeTab]);
+
+    /* A largura da coluna muda com a tela, e com ela o número de linhas. */
+    useEffect(() => {
+        const aoRedimensionar = () => {
+            ajustarAltura(componenteRef.current);
+            ajustarAltura(aplicacaoRef.current);
+        };
+        window.addEventListener('resize', aoRedimensionar);
+        return () => window.removeEventListener('resize', aoRedimensionar);
+    }, []);
 
     const carregar = useCallback(async () => {
         setLoading(true);
@@ -176,41 +280,77 @@ export default function CadastroMaterial() {
 
        2. A base de produtos do SAP: para código ainda não cadastrado, traz a
           descrição oficial em vez de deixar o inspetor digitar de memória. */
-    const buscarComponentePorSap = async (codigo) => {
+    const buscarSugestoesSap = async (termo) => {
+        const achados = [];
+        const vistos = new Set();
+        /* Dedup por código: um material cadastrado costuma existir também na
+           base do SAP, e a entrada do cadastro é a que vale. */
+        const juntar = (codigo, descricao, origem) => {
+            const cod = String(codigo || '').trim().toUpperCase();
+            if (!cod || vistos.has(cod)) return;
+            vistos.add(cod);
+            achados.push({
+                codigo_sap: cod,
+                componente: String(descricao || '').trim(),
+                origem
+            });
+        };
+
         try {
-            const resp = await materiaisAPI.getAll({ codigo_sap: codigo, limit: 1 });
-            const material = (resp.data?.data || resp.data || {}).materiais?.[0];
-            if (material?.componente) {
-                return { componente: material.componente, origem: 'material' };
-            }
+            const resp = await materiaisAPI.search(termo);
+            const dados = resp.data?.data || resp.data || {};
+            (dados.materiais || []).forEach(
+                (m) => juntar(m.codigo_sap, m.componente, 'material'));
         } catch {
             /* Segue para o SAP. */
         }
 
         try {
-            const resp = await produtosAPI.getByCode(codigo);
-            const produto = resp.data?.data;
-            if (produto?.desc_material) {
-                return { componente: produto.desc_material, origem: 'produto' };
-            }
+            const resp = await produtosAPI.search(termo);
+            const lista = resp.data?.data;
+            (Array.isArray(lista) ? lista : []).forEach(
+                (p) => juntar(p.cod_material, p.desc_material, 'produto'));
         } catch {
-            /* 404 é resposta esperada para código novo, não erro a exibir. */
+            /* Nada encontrado é resposta esperada para código novo, e o
+               endpoint recusa termo com menos de dois caracteres: nenhum dos
+               dois é erro a exibir. */
         }
 
-        return null;
+        return achados;
+    };
+
+    /* Escolha na lista: o código vem inteiro e a descrição junto, então não há
+       mais o que buscar. Desligar `sapDigitadoRef` impede que a própria
+       mudança do campo reabra a lista logo em seguida; a próxima tecla no
+       campo religa a busca. */
+    const selecionarSugestao = (item) => {
+        sapDigitadoRef.current = false;
+        setSugestoesAbertas(false);
+        if (item.componente) {
+            autoPreenchidoRef.current = true;
+            setOrigemComponente(item.origem);
+        }
+        setFormData((prev) => ({
+            ...prev,
+            codigo_sap: item.codigo_sap,
+            componente: item.componente || prev.componente
+        }));
+        setFormDirty(true);
     };
 
     useEffect(() => {
         if (!modalAberto || !sapDigitadoRef.current) return;
 
-        const codigo = String(formData.codigo_sap || '').trim();
+        const codigo = String(formData.codigo_sap || '').trim().toUpperCase();
         clearTimeout(debounceSapRef.current);
 
-        /* Menos de três caracteres ainda não é um código: consultar aqui só
-           geraria chamada a cada tecla do começo da digitação. */
-        if (codigo.length < 3) {
+        /* Dois caracteres é o mínimo que a busca de produtos aceita, e abaixo
+           disso a lista traria a base inteira. */
+        if (codigo.length < 2) {
             setBuscandoComponente(false);
             setOrigemComponente('');
+            setSugestoesSap([]);
+            setSugestoesAbertas(false);
             return;
         }
 
@@ -218,8 +358,18 @@ export default function CadastroMaterial() {
         debounceSapRef.current = setTimeout(async () => {
             setBuscandoComponente(true);
             try {
-                const achado = await buscarComponentePorSap(codigo);
+                const achados = await buscarSugestoesSap(codigo);
                 if (cancelado) return;
+
+                setSugestoesSap(achados);
+                setSugestoesAbertas(achados.length > 0);
+
+                /* Uma consulta serve aos dois usos: enche a lista e, quando o
+                   código digitado é um dos resultados, preenche o Componente
+                   sem exigir o clique — que é como a tela funcionava antes de
+                   existir lista. */
+                const achado = achados.find(
+                    (a) => a.codigo_sap === codigo && a.componente);
 
                 if (achado) {
                     setFormData((prev) => ({ ...prev, componente: achado.componente }));
@@ -303,6 +453,8 @@ export default function CadastroMaterial() {
         autoPreenchidoRef.current = false;
         setBuscandoComponente(false);
         setOrigemComponente('');
+        setSugestoesSap([]);
+        setSugestoesAbertas(false);
         setFormDirty(false);
         setConfirmarSaida(false);
     };
@@ -581,12 +733,17 @@ export default function CadastroMaterial() {
                                         const aberto = !!expandido[material.id];
                                         const revisoes = material.revisoes || [];
                                         return [
-                                            <tr key={material.id}>
+                                            <tr key={material.id}
+                                                className={`mobile-clickable-row ${sheet?.tipo === 'material' && sheet.material.id === material.id ? 'mobile-row-active' : ''}`}
+                                                onClick={() => abrirFolhaMaterial(material)}>
                                                 <td>
+                                                    {/* stopPropagation: expandir as revisões é ação
+                                                        do próprio botão, e sem isto o toque também
+                                                        abriria a folha de ações da linha. */}
                                                     <button
                                                         type="button"
                                                         className="btn-expandir"
-                                                        onClick={() => setExpandido((p) => ({ ...p, [material.id]: !aberto }))}
+                                                        onClick={(e) => { e.stopPropagation(); setExpandido((p) => ({ ...p, [material.id]: !aberto })); }}
                                                         aria-expanded={aberto}
                                                         aria-label={aberto ? 'Ocultar revisões' : 'Ver revisões'}
                                                         disabled={!revisoes.length}
@@ -608,16 +765,20 @@ export default function CadastroMaterial() {
                                                         quebravam em coluna na célula estreita. As
                                                         variantes de cor são as do UI Kit. */}
                                                     <div className="acoes">
+                                                        {/* Sem botão de "visualizar" aqui: a seta da
+                                                            primeira coluna já abre as revisões, e os
+                                                            dados do material são as próprias colunas
+                                                            da linha. */}
                                                         <button className="btn-icon btn-edit"
                                                             title="Nova revisão deste material"
                                                             aria-label={`Nova revisão de ${material.codigo_sap}`}
-                                                            onClick={() => abrirNovaRevisao(material)}>
+                                                            onClick={(e) => { e.stopPropagation(); abrirNovaRevisao(material); }}>
                                                             <i className="fas fa-plus" aria-hidden="true"></i>
                                                         </button>
                                                         <button className="btn-icon btn-delete"
                                                             title="Excluir material"
                                                             aria-label={`Excluir ${material.codigo_sap}`}
-                                                            onClick={() => excluirMaterial(material)}>
+                                                            onClick={(e) => { e.stopPropagation(); excluirMaterial(material); }}>
                                                             <i className="fas fa-trash" aria-hidden="true"></i>
                                                         </button>
                                                     </div>
@@ -640,7 +801,12 @@ export default function CadastroMaterial() {
                                                             </thead>
                                                             <tbody>
                                                                 {revisoes.map((rev) => (
-                                                                    <tr key={rev.id}>
+                                                                    /* Segundo nível de ações: no celular
+                                                                       esta linha abre a folha com editar
+                                                                       e excluir daquela revisão. */
+                                                                    <tr key={rev.id}
+                                                                        className={`mobile-clickable-row ${sheet?.tipo === 'revisao' && sheet.revisao.id === rev.id ? 'mobile-row-active' : ''}`}
+                                                                        onClick={() => abrirFolhaRevisao(material, rev)}>
                                                                         <td><strong>{rev.revisao}</strong></td>
                                                                         <td>{rev.data ? rev.data.split('-').reverse().join('/') : '—'}</td>
                                                                         <td className="col-num">{rev.total_posicoes}</td>
@@ -649,13 +815,13 @@ export default function CadastroMaterial() {
                                                                                 <button className="btn-icon btn-edit"
                                                                                     title="Editar revisão"
                                                                                     aria-label={`Editar revisão ${rev.revisao}`}
-                                                                                    onClick={() => abrirEdicao(material, rev)}>
+                                                                                    onClick={(e) => { e.stopPropagation(); abrirEdicao(material, rev); }}>
                                                                                     <i className="fas fa-pen" aria-hidden="true"></i>
                                                                                 </button>
                                                                                 <button className="btn-icon btn-delete"
                                                                                     title="Excluir revisão"
                                                                                     aria-label={`Excluir revisão ${rev.revisao}`}
-                                                                                    onClick={() => excluirRevisao(rev)}>
+                                                                                    onClick={(e) => { e.stopPropagation(); excluirRevisao(rev); }}>
                                                                                     <i className="fas fa-trash" aria-hidden="true"></i>
                                                                                 </button>
                                                                             </div>
@@ -746,39 +912,90 @@ export default function CadastroMaterial() {
                                         <h3 className="section-title">Dados do Material / Revisão</h3>
                                         {/* Identificação do material na primeira linha: digitar o
                                             Cód. SAP preenche o Componente ao lado, então os dois
-                                            juntos deixam a resposta da busca à vista. */}
-                                        <div className="form-row-material">
-                                            <div className="form-group">
-                                                <label>Cód. SAP *</label>
-                                                <input type="text" className="form-control field-upper"
-                                                    value={formData.codigo_sap}
-                                                    onChange={(e) => {
-                                                        /* Libera a busca: a partir daqui o valor é do
-                                                           usuário, não o que o modal carregou. */
-                                                        sapDigitadoRef.current = true;
-                                                        setCampo('codigo_sap', e.target.value);
-                                                    }}
-                                                    aria-required="true" />
-                                            </div>
-                                            <div className="form-group">
-                                                <label>Componente</label>
+                                            juntos deixam a resposta da busca à vista.
+
+                                            `linha-identificacao` marca só esta linha: no celular os
+                                            três campos empilham, enquanto a linha de baixo (revisão,
+                                            data, setor, observações) segue em duas colunas. Mesmo
+                                            nome e mesmo breakpoint da aba Identificação da Inspeção
+                                            de Recebimento. */}
+                                        <div className="form-row-material linha-identificacao">
+                                            {/* onBlur no conjunto, não no input: clicar num item da
+                                                lista também é um blur do campo, e fechar ali
+                                                cancelaria a escolha antes de o clique valer. */}
+                                            <div className="form-group campo-autocomplete"
+                                                onBlur={(e) => {
+                                                    if (!e.currentTarget.contains(e.relatedTarget)) {
+                                                        setSugestoesAbertas(false);
+                                                    }
+                                                }}>
+                                                <label htmlFor="codigo-sap">Cód. SAP *</label>
                                                 <div className="campo-com-status">
-                                                    <input type="text" className="form-control field-upper"
-                                                        value={formData.componente}
+                                                    <input id="codigo-sap" type="text"
+                                                        className="form-control field-upper"
+                                                        value={formData.codigo_sap}
                                                         onChange={(e) => {
-                                                            /* Edição manual desliga o preenchimento
-                                                               automático: uma busca posterior não deve
-                                                               apagar o que o usuário escreveu. */
-                                                            autoPreenchidoRef.current = false;
-                                                            setCampo('componente', e.target.value);
-                                                        }} />
+                                                            /* Libera a busca: a partir daqui o valor é do
+                                                               usuário, não o que o modal carregou. */
+                                                            sapDigitadoRef.current = true;
+                                                            setCampo('codigo_sap', e.target.value);
+                                                        }}
+                                                        onFocus={() => sugestoesSap.length
+                                                            && setSugestoesAbertas(true)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Escape' && sugestoesAbertas) {
+                                                                e.stopPropagation();
+                                                                setSugestoesAbertas(false);
+                                                            }
+                                                        }}
+                                                        placeholder="Digite para buscar"
+                                                        autoComplete="off"
+                                                        role="combobox"
+                                                        aria-expanded={sugestoesAbertas}
+                                                        aria-autocomplete="list"
+                                                        aria-required="true" />
+                                                    {/* O spinner mora no campo que dispara a consulta.
+                                                        Antes ficava no Componente, que só recebe o
+                                                        resultado. */}
                                                     {buscandoComponente && (
                                                         <span className="campo-spinner" role="status"
-                                                            aria-label="Buscando componente">
+                                                            aria-label="Buscando código SAP">
                                                             <i className="fas fa-spinner fa-spin" aria-hidden="true"></i>
                                                         </span>
                                                     )}
                                                 </div>
+                                                {sugestoesAbertas && sugestoesSap.length > 0 && (
+                                                    <ul className="autocomplete-lista" role="listbox">
+                                                        {sugestoesSap.map((s) => (
+                                                            <li key={s.codigo_sap}>
+                                                                <button type="button" className="autocomplete-item"
+                                                                    onClick={() => selecionarSugestao(s)}>
+                                                                    <span className="autocomplete-cod">{s.codigo_sap}</span>
+                                                                    <span className="autocomplete-desc">
+                                                                        {s.componente || '—'}
+                                                                    </span>
+                                                                    <span className="autocomplete-meta">
+                                                                        {s.origem === 'material' ? 'cadastrado' : 'SAP'}
+                                                                    </span>
+                                                                </button>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                )}
+                                            </div>
+                                            <div className="form-group">
+                                                <label htmlFor="componente">Componente</label>
+                                                {/* readOnly: o valor vem sempre do Cód. SAP — do
+                                                    material já cadastrado ou da base do SAP. Como
+                                                    textarea e não input para a descrição quebrar em
+                                                    linha em vez de correr para fora do campo. Sem
+                                                    `tabIndex={-1}`: continua focável para selecionar
+                                                    e copiar o texto. */}
+                                                <textarea id="componente" rows="2" readOnly
+                                                    ref={componenteRef}
+                                                    aria-readonly="true"
+                                                    className="form-control field-upper campo-multilinha campo-lido"
+                                                    value={formData.componente} />
                                                 {origemComponente && (
                                                     <small className="campo-ajuda">
                                                         {origemComponente === 'material'
@@ -788,8 +1005,13 @@ export default function CadastroMaterial() {
                                                 )}
                                             </div>
                                             <div className="form-group">
-                                                <label>Aplicação</label>
-                                                <input type="text" className="form-control field-upper"
+                                                <label htmlFor="aplicacao">Aplicação</label>
+                                                {/* Editável, ao contrário do Componente: a mesma peça
+                                                    pode ter aplicação diferente. Também textarea,
+                                                    pelo mesmo motivo de leitura. */}
+                                                <textarea id="aplicacao" rows="2"
+                                                    ref={aplicacaoRef}
+                                                    className="form-control field-upper campo-multilinha"
                                                     value={formData.aplicacao}
                                                     onChange={(e) => setCampo('aplicacao', e.target.value)} />
                                             </div>
@@ -824,13 +1046,16 @@ export default function CadastroMaterial() {
                                                     value={formData.setor} readOnly
                                                     aria-readonly="true" tabIndex={-1} />
                                             </div>
-                                        </div>
-
-                                        <div className="form-group">
-                                            <label>Observações da revisão</label>
-                                            <textarea className="form-control" rows="2"
-                                                value={formData.observacoes}
-                                                onChange={(e) => setCampo('observacoes', e.target.value)} />
+                                            {/* Dentro da mesma linha do Setor de propósito: no
+                                                celular a grade tem duas colunas e os dois dividem a
+                                                linha. No desktop volta a ocupar a linha inteira,
+                                                pelo CSS. */}
+                                            <div className="form-group form-group-observacao">
+                                                <label htmlFor="obs-revisao">Observações da revisão</label>
+                                                <textarea id="obs-revisao" className="form-control" rows="2"
+                                                    value={formData.observacoes}
+                                                    onChange={(e) => setCampo('observacoes', e.target.value)} />
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -1023,6 +1248,99 @@ export default function CadastroMaterial() {
                         </div>
                     </div>
                 )}
+
+                {/* Somente leitura. Usa o que a listagem já traz — não há
+                    segunda consulta: `materiaisAPI.getAll` devolve o material
+                    com as revisões. No celular é o único caminho para ver
+                    Aplicação e Setor, que a tabela esconde nessa largura. */}
+                {viewMaterial && (
+                    <div className="modal-overlay material-modal" onClick={() => setViewMaterial(null)}>
+                        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                            <div className="modal-header">
+                                <h2>Material</h2>
+                                <button className="modal-close" onClick={() => setViewMaterial(null)}
+                                    aria-label="Fechar">
+                                    <i className="fas fa-times"></i>
+                                </button>
+                            </div>
+
+                            <div className="form-section">
+                                <h3 className="section-title">Dados do Material</h3>
+                                <div className="view-grid">
+                                    <div className="view-item">
+                                        <span className="view-label">Cód. SAP</span>
+                                        <span className="view-value">{viewMaterial.codigo_sap || '—'}</span>
+                                    </div>
+                                    <div className="view-item">
+                                        <span className="view-label">Componente</span>
+                                        <span className="view-value">{viewMaterial.componente || '—'}</span>
+                                    </div>
+                                    <div className="view-item">
+                                        <span className="view-label">Aplicação</span>
+                                        <span className="view-value">{viewMaterial.aplicacao || '—'}</span>
+                                    </div>
+                                    <div className="view-item">
+                                        <span className="view-label">Setor</span>
+                                        <span className="view-value">{viewMaterial.setor || '—'}</span>
+                                    </div>
+                                </div>
+
+                                <h3 className="section-title">Revisões do Desenho</h3>
+                                {!(viewMaterial.revisoes || []).length ? (
+                                    <p className="recb-vazio">Nenhuma revisão cadastrada.</p>
+                                ) : (
+                                    <div className="table-container">
+                                        <table className="table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Revisão</th>
+                                                    <th>Data</th>
+                                                    <th className="col-num">Cotas</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {viewMaterial.revisoes.map((rev) => (
+                                                    <tr key={rev.id}>
+                                                        <td><strong>{rev.revisao}</strong></td>
+                                                        <td>{rev.data ? rev.data.split('-').reverse().join('/') : '—'}</td>
+                                                        <td className="col-num">{rev.total_posicoes}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="modal-footer">
+                                <button className="btn btn-outline" onClick={() => setViewMaterial(null)}>
+                                    Fechar
+                                </button>
+                                {/* Atalho para editar sem voltar à tabela, como na
+                                    Inspeção de Recebimento. */}
+                                <button className="btn btn-primary"
+                                    onClick={() => {
+                                        const alvo = viewMaterial;
+                                        setViewMaterial(null);
+                                        editarRevisaoMaisRecente(alvo);
+                                    }}>
+                                    <i className="fas fa-pen" aria-hidden="true"></i> Editar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Uma folha só, com o conteúdo do nível tocado: material ou
+                    revisão. As duas colunas de ações somem abaixo de 1024px,
+                    e sem o segundo nível as ações de revisão ficariam sem
+                    nenhum caminho no celular. */}
+                <MobileActionSheet
+                    item={sheet}
+                    titulo={tituloDaFolha}
+                    onFechar={() => setSheet(null)}
+                    acoes={acoesDaFolha}
+                />
 
                 <ConfirmarSaida
                     aberto={confirmarSaida}

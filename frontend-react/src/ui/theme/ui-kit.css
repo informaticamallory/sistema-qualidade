@@ -592,6 +592,79 @@ body:has(.scanner-overlay) .mobile-toggle {
   background: var(--danger-soft-strong);
 }
 
+/* ── Modal de visualização (somente leitura) ──
+   Rótulo em cima, valor embaixo, dois por linha. Estava declarado só em
+   InspecaoMontagem.css, mas Calibração, Injeção e Recebimento também usam:
+   as três dependiam de o Vite juntar todo o CSS num arquivo só, e uma
+   mudança lá dentro alcançaria as outras sem aviso. */
+.view-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+}
+
+.view-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.view-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.view-value {
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.view-section {
+  margin-top: 20px;
+  padding: 15px;
+  background: var(--surface-2);
+  border-radius: 10px;
+}
+
+.view-section h4 {
+  margin: 0 0 10px;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.view-section p {
+  margin: 0;
+  color: var(--text-2);
+}
+
+/* Os dois breakpoints vieram junto, e têm de ficar depois do bloco acima:
+   moram no mesmo arquivo e a ordem é o que faz um vencer o outro. Deixados
+   na Montagem, o bundle passou a emiti-los ANTES destas regras-base — medido:
+   a grade parava de virar uma coluna no celular. */
+@media (max-width: 768px) {
+  .view-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Cada item ganha um divisor: sem ele, rótulo e valor de itens vizinhos se
+   misturam. */
+@media (max-width: 480px) {
+  .view-item {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .view-label {
+    font-size: 0.8rem;
+  }
+
+  .view-value {
+    font-size: 0.9rem;
+  }
+}
+
 /* ── Card de resumo da listagem ──
    Mesma anatomia dos cards da Inspeção de Injeção: título com ícone, valor
    grande, descrição e a faixa de tom no pé. O tom sai de uma classe

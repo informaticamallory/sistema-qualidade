@@ -196,6 +196,28 @@ export default function InspecaoInjecao() {
     const defeitoTextareaRef = useRef(null);
     const fotoPecaInputRef = useRef(null);
     const periodMenuRef = useRef(null);
+
+    /* Fecha o seletor de período ao clicar fora.
+       O ref já existia e estava preso ao wrapper, mas nunca era lido: sem
+       este efeito o painel só fechava pelos próprios botões, e continuava
+       aberto por cima do cabeçalho e da barra enquanto se usava o resto da
+       tela. Mesmo efeito que a tela de Cartões já tinha. */
+    useEffect(() => {
+        if (!showPeriodMenu) return;
+        const fechar = (evento) => {
+            if (periodMenuRef.current && !periodMenuRef.current.contains(evento.target)) {
+                setShowPeriodMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', fechar);
+        /* `touchstart` além de `mousedown`: no celular o mousedown sintético
+           só chega depois do toque terminar, e em alguns casos nem chega. */
+        document.addEventListener('touchstart', fechar);
+        return () => {
+            document.removeEventListener('mousedown', fechar);
+            document.removeEventListener('touchstart', fechar);
+        };
+    }, [showPeriodMenu]);
     const loadRequestRef = useRef(0);
 
     // Visualização (somente leitura)

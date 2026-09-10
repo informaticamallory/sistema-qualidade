@@ -678,6 +678,56 @@
     box-shadow: var(--shadow-lg);
 }
 
+/* ── Painel de período dentro da tela, no celular ──
+   O painel abre alinhado à esquerda do botão, mas a largura vinha de
+   `100vw`, que ignora o quanto o botão já está deslocado da borda. Medido
+   com o AppLayout montado: o botão começa em x=48 (trilho da sidebar mais os
+   paddings) e o painel de ~362px terminava em 410 numa tela de 390 — 20px
+   fora da tela e ~50px fora da área de conteúdo. É o corte que aparecia em
+   "Mês anterior" e nos campos de data.
+
+   `100cqi` mede a barra de filtros, que vira o container consultado, em vez
+   do viewport: o painel passa a terminar exatamente onde a barra termina.
+   Só no celular — medido, a 768px sobravam 299px e a 1280px, 14 a 25px, e
+   nessas larguras nada muda. Se o navegador não tiver unidades de container,
+   `cqi` cai para o viewport e o comportamento é o de antes: não piora.
+
+   Bloco igual ao de InspecaoMontagem.css, pelo mesmo motivo da seta abaixo. */
+@media (max-width: 600px) {
+    .header-actions:has(.period-filter-wrapper) {
+        container-type: inline-size;
+    }
+
+    .period-filter-menu {
+        width: min(380px, 100cqi);
+    }
+}
+
+/* Seta apontando para o botão que abriu o painel. No celular o botão é só o
+   ícone, com ~78px, e o painel tem ~360px: sem a seta ele não se lê como
+   pertencente àquele botão, e é isso que dá a impressão de que flutua solto.
+   Quadrado girado, e não um triângulo de bordas, porque assim herda o fundo
+   e a borda do painel e acompanha o tema.
+
+   Bloco igual ao de InspecaoMontagem.css: as duas telas declaram estas
+   classes sem escopo e a Cartões depende de uma delas pelo bundle. Mantidos
+   idênticos de propósito — divergir aqui mudaria a Cartões conforme a ordem
+   dos arquivos. */
+.period-filter-menu::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    /* 16px alinha a seta com o ícone do botão: o painel começa na mesma
+       borda esquerda do botão, e o ícone fica logo no começo dele. */
+    left: 16px;
+    width: 10px;
+    height: 10px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-left: 1px solid var(--border);
+    transform: rotate(45deg);
+}
+
 .period-filter-quick-actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));

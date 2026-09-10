@@ -755,47 +755,11 @@
     }
 }
 
-/* View Grid */
-.view-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
-}
-
-.view-item {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.view-label {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    font-weight: 600;
-}
-
-.view-value {
-    font-size: 1rem;
-    color: var(--text);
-}
-
-.view-section {
-    margin-top: 20px;
-    padding: 15px;
-    background: var(--surface-2);
-    border-radius: 10px;
-}
-
-.view-section h4 {
-    margin: 0 0 10px;
-    color: var(--text);
-    font-size: 0.95rem;
-}
-
-.view-section p {
-    margin: 0;
-    color: var(--text-2);
-}
+/* A grade do modal de visualização saiu daqui: virou `.view-grid`,
+   `.view-item`, `.view-label`, `.view-value` e `.view-section` em
+   ui/theme/ui-kit.css. Calibração, Injeção e Recebimento usam as mesmas
+   classes, e definidas nesta página elas só chegavam lá porque o Vite junta
+   todo o CSS num arquivo só. */
 
 /* Text Center */
 .text-center {
@@ -992,9 +956,8 @@
         margin: 10px;
     }
 
-    .view-grid {
-        grid-template-columns: 1fr;
-    }
+    /* `.view-grid` de uma coluna foi para o ui-kit.css, junto das regras-base
+       do modal de visualização. */
 
     .checklist-options {
         flex-direction: column;
@@ -1180,18 +1143,8 @@
         padding: 15px;
     }
 
-    .view-item {
-        padding: 8px 0;
-        border-bottom: 1px solid var(--border);
-    }
-
-    .view-label {
-        font-size: 0.8rem;
-    }
-
-    .view-value {
-        font-size: 0.9rem;
-    }
+    /* `.view-item` e `.view-label` deste breakpoint foram junto para o
+       ui-kit.css, com o mesmo 480px. */
 
     .print-card-preview {
         padding: 15px;
@@ -1594,6 +1547,49 @@
     border-radius: 12px;
     background: var(--surface);
     box-shadow: var(--shadow-lg);
+}
+
+/* ── Painel de período dentro da tela, no celular ──
+   O painel abre alinhado à esquerda do botão, mas a largura vinha de
+   `100vw`, que ignora o quanto o botão já está deslocado da borda. Medido
+   com o AppLayout montado: o botão começa em x=48 (trilho da sidebar mais os
+   paddings) e o painel de ~362px terminava em 410 numa tela de 390 — 20px
+   fora da tela e ~50px fora da área de conteúdo. É o corte que aparecia em
+   "Mês anterior" e nos campos de data.
+
+   `100cqi` mede a barra de filtros, que vira o container consultado, em vez
+   do viewport: o painel passa a terminar exatamente onde a barra termina.
+   Só no celular — medido, a 768px sobravam 299px e a 1280px, 14 a 25px, e
+   nessas larguras nada muda. Se o navegador não tiver unidades de container,
+   `cqi` cai para o viewport e o comportamento é o de antes: não piora. */
+@media (max-width: 600px) {
+    .header-actions:has(.period-filter-wrapper) {
+        container-type: inline-size;
+    }
+
+    .period-filter-menu {
+        width: min(380px, 100cqi);
+    }
+}
+
+/* Seta apontando para o botão que abriu o painel. No celular o botão é só o
+   ícone, com ~78px, e o painel tem ~360px: sem a seta ele não se lê como
+   pertencente àquele botão, e é isso que dá a impressão de que flutua solto.
+   Quadrado girado, e não um triângulo de bordas, porque assim herda o fundo
+   e a borda do painel e acompanha o tema. */
+.period-filter-menu::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    /* 16px alinha a seta com o ícone do botão: o painel começa na mesma
+       borda esquerda do botão, e o ícone fica logo no começo dele. */
+    left: 16px;
+    width: 10px;
+    height: 10px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-left: 1px solid var(--border);
+    transform: rotate(45deg);
 }
 
 .period-filter-quick-actions {

@@ -1,19 +1,24 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-/* Pasta em que a aplicação é publicada, contada a partir da raiz do domínio.
+/* Caminho da aplicação a partir da raiz do SITE — não da pasta no servidor.
 
-   Sem isto o Vite escreve no index.html caminhos absolutos da raiz
-   (`/assets/index-*.css`), que só funcionam se a pasta publicada FOR a raiz.
-   Publicada em `public_html/sistema-qualidade`, o navegador pedia
-   `https://dominio/assets/...` em vez de `https://dominio/sistema-qualidade/assets/...`
-   e não achava nem o CSS nem o JS — a página ficava com a `<div id="root">`
-   vazia, sem estilo e sem aplicação.
+   É `/` porque o subdomínio cqm.malloryapp.com.br aponta direto para
+   `public_html/sistema-qualidade`: aquela pasta é a raiz do site, e a URL
+   publicada não tem prefixo nenhum.
 
-   Se a pasta mudar de lugar, ou se o domínio/subdomínio passar a apontar
-   direto para ela, é esta linha que muda (`/` para raiz). O `basename` do
+   O que engana aqui é que a pasta no servidor tem nome. Usar
+   `/sistema-qualidade/` fez o HTML pedir `/sistema-qualidade/assets/...`, o
+   servidor procurar em `sistema-qualidade/sistema-qualidade/assets/...`, não
+   achar, e o `.htaccess` devolver o `index.html` — o navegador então recusa
+   o módulo por MIME `text/html`, e a página fica com a `<div id="root">`
+   vazia. O valor certo é o que aparece na barra de endereços, não o caminho
+   no FTP.
+
+   Só mudar daqui se a aplicação passar a ser servida dentro de um caminho,
+   por exemplo `https://dominio.com/sistema-qualidade/`. O `basename` do
    React Router acompanha sozinho, via `import.meta.env.BASE_URL`. */
-const BASE_PUBLICACAO = '/sistema-qualidade/';
+const BASE_PUBLICACAO = '/';
 
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({

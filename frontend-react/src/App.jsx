@@ -28,7 +28,12 @@ function App() {
   return (
     <ThemeProvider>
     <AuthProvider>
-      <Router>
+      {/* `basename` vem da mesma `base` do vite.config, então acompanha
+          sozinha se a pasta de publicação mudar. Sem ele, publicada em
+          subpasta, o roteador veria o caminho `/sistema-qualidade/` e não
+          casaria com rota nenhuma — tela em branco mesmo com o JS carregado.
+          Sem a barra final, que o React Router não espera no basename. */}
+      <Router basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
         <Routes>
           {/* Rota pública */}
           <Route path="/login" element={<Login />} />

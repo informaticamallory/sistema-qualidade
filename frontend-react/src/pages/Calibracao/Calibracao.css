@@ -388,6 +388,24 @@
     background: var(--surface);
 }
 
+/* O cabeçalho do modal — alternador e abas — não encolhe.
+
+   Os dois são itens do mesmo flex column do `form`, e item de flex tem
+   `flex-shrink: 1` por padrão. Com o formulário mais alto que o modal, o
+   alternador era espremido de 45px para 28px; e como ele tem `overflow-x:
+   auto`, que pela regra do CSS força `overflow-y: auto` também, os botões
+   passavam a rolar dentro da própria caixa encolhida — ficavam cortados, o
+   que se lê como "o conteúdo passou por cima deles".
+
+   Não é caso de `position: sticky` nem de `z-index`: o alternador é estático,
+   já tem fundo sólido e nada se sobrepõe a ele (medido). Quem rola é só o
+   `.equipment-sheet-form`, então com a altura preservada os dois ficam
+   sempre visíveis. */
+.modal-equipment-list .form-view-switcher,
+.modal-equipment-list .equipment-modal-tabs {
+    flex: 0 0 auto;
+}
+
 .equipment-sheet-form {
     display: flex;
     flex: 1 1 auto;
@@ -395,6 +413,11 @@
     flex-direction: column;
     gap: 1rem;
     overflow-y: auto;
+    /* O respiro no topo e nas laterais vem do `.modal-body`, que empata em
+       especificidade com esta classe e vence pela ordem do bundle: declarar
+       `padding-top` aqui não tem efeito — medido, fica nos 25px do
+       `.modal-body` de qualquer jeito. A folga entre a barra de abas e a
+       primeira seção já eram esses 25px. */
     padding-bottom: 1.25rem;
 }
 .equipment-form-section {

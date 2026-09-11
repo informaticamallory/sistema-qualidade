@@ -1,11 +1,25 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import ExcelJS from 'exceljs';
 import AppLayout from '../../components/Layout/AppLayout';
+import { ConfirmarSaida } from '../../components/ui';
 import { equipamentosAPI, calibracoesAPI, tiposEquipamentoAPI } from '../../services/api';
 import { useAuth } from '../../context/auth-context';
 import { toUpper, upperFields } from '../../utils/text';
-import { daysBetweenDates, formatDateBR, normalizeISODate, todayISO } from '../../utils/date';
+/* Os ajudantes de mês vêm de utils/date, e não redeclarados aqui como na
+   Inspeção de Injeção: são os mesmos e já estavam exportados. */
+import {
+    currentMonthISO, daysBetweenDates, formatDateBR, monthRangeISO,
+    normalizeISODate, previousMonthISO, todayISO
+} from '../../utils/date';
 import './Calibracao.css';
+
+/* As duas datas que o filtro de período pode usar. No escopo do módulo para
+   não ser recriado a cada renderização e virar dependência do useMemo. */
+const PERIODO_CAMPO = {
+    proxima: { chave: 'data_proxima_calibracao', rotulo: 'Próxima calibração' },
+    ultima: { chave: 'data_ultima_calibracao', rotulo: 'Última calibração' }
+};
 
 export default function Calibracao() {
     const { user } = useAuth();
@@ -26,6 +40,25 @@ export default function Calibracao() {
     const [error, setError] = useState(null);
     const [search, setSearch] = useState('');
 
+    /* ── Filtro de período ──
+       Mesmo painel da Inspeção de Injeção. A diferença é que ali existe uma
+       data só; aqui há duas, e qual delas o período filtra muda a pergunta
+       que a tela responde: "o que vence neste mês" ou "o que foi calibrado
+       neste mês". Por isso o campo é escolhido dentro do próprio painel.
+
+       A filtragem é no cliente, sobre a lista já carregada: a busca é que vai
+       ao backend, e `equipamentosAPI.getAll` não recebe intervalo de datas.
+       Não há contrato de API novo. */
+    const [periodField, setPeriodField] = useState('proxima');
+    const [monthFilter, setMonthFilter] = useState('');
+    const [dateFilter, setDateFilter] = useState('');
+    const [dateEndFilter, setDateEndFilter] = useState('');
+    const [rangeStartDraft, setRangeStartDraft] = useState('');
+    const [rangeEndDraft, setRangeEndDraft] = useState('');
+    const [showPeriodMenu, setShowPeriodMenu] = useState(false);
+    const periodMenuRef = useRef(null);
+    const [exporting, setExporting] = useState(false);
+
     // Modais
     const [showEquipamentoModal, setShowEquipamentoModal] = useState(false);
     const [showCalibracaoModal, setShowCalibracaoModal] = useState(false);
@@ -37,6 +70,13 @@ export default function Calibracao() {
     const [viewLoading, setViewLoading] = useState(false);
     const [openingCertificadoId, setOpeningCertificadoId] = useState(null);
     const [equipmentModalTab, setEquipmentModalTab] = useState('geral');
+    /* 'tabs' | 'geral' -- mesmo alternador do Cadastro de Material e da
+       Inspeção de Recebimento. Na visão geral as seções vêm em sequência. */
+    const [formViewMode, setFormViewMode] = useState('tabs');
+    /* Alterações pendentes, marcadas na função que muda o formulário e não
+       campo a campo, para nenhum campo novo escapar por esquecimento. */
+    const [formDirty, setFormDirty] = useState(false);
+    const [confirmarSaida, setConfirmarSaida] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [selectedEquipamento, setSelectedEquipamento] = useState(null);
     const [sheetData, setSheetData] = useState(null);
@@ -121,6 +161,139 @@ export default function Calibracao() {
         }
     }, [search]);
 
+    /* Exporta o que está na tela — a lista já filtrada por busca e período —
+       e não a base inteira: o arquivo tem de bater com o que o usuário vê. */
+    const exportarExcel = async () => {
+        if (!equipamentosVisiveis.length) return;
+        setExporting(true);
+        try {
+            const workbook = new ExcelJS.Workbook();
+            const planilha = workbook.addWorksheet('Equipamentos');
+            planilha.columns = [
+                { header: 'Código', key: 'codigo', width: 14 },
+                { header: 'Cód. SAP', key: 'codigo_sap', width: 14 },
+                { header: 'Equipamento', key: 'nome', width: 32 },
+                { header: 'Tipo', key: 'tipo', width: 18 },
+                { header: 'Marca', key: 'fabricante', width: 16 },
+                { header: 'Série/Modelo', key: 'numero_serie', width: 18 },
+                { header: 'Setor', key: 'setor', width: 16 },
+                { header: 'Responsável', key: 'responsavel', width: 20 },
+                { header: 'Aferição', key: 'tipo_afericao', width: 12 },
+                { header: 'Frequência', key: 'frequencia_calibracao', width: 14 },
+                { header: 'Última calibração', key: 'data_ultima_calibracao', width: 18 },
+                { header: 'Próxima calibração', key: 'data_proxima_calibracao', width: 18 },
+                { header: 'Situação', key: 'situacao', width: 16 }
+            ];
+
+            equipamentosVisiveis.forEach((equip) => {
+                const situacao = getStatusCalibracao(equip);
+                planilha.addRow({
+                    codigo: equip.codigo || '',
+                    codigo_sap: equip.codigo_sap || '',
+                    nome: equip.nome || '',
+                    tipo: equip.tipo || '',
+                    fabricante: equip.fabricante || '',
+                    numero_serie: equip.numero_serie || '',
+                    setor: equip.setor || '',
+                    responsavel: equip.responsavel || '',
+                    tipo_afericao: equip.tipo_afericao || '',
+                    frequencia_calibracao: equip.frequencia_calibracao || '',
+                    data_ultima_calibracao: formatDateBR(equip.data_ultima_calibracao, ''),
+                    data_proxima_calibracao: formatDateBR(equip.data_proxima_calibracao, ''),
+                    situacao: situacao?.label || ''
+                });
+            });
+
+            const cabecalho = planilha.getRow(1);
+            cabecalho.font = { bold: true };
+            cabecalho.alignment = { vertical: 'middle', horizontal: 'center' };
+            planilha.autoFilter = { from: 'A1', to: `M${planilha.rowCount}` };
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `equipamentos-${todayISO()}.xlsx`;
+            link.click();
+            URL.revokeObjectURL(url);
+        } finally {
+            setExporting(false);
+        }
+    };
+
+    /* Fecha o seletor de período ao clicar fora. */
+    useEffect(() => {
+        if (!showPeriodMenu) return;
+        const fechar = (evento) => {
+            if (periodMenuRef.current && !periodMenuRef.current.contains(evento.target)) {
+                setShowPeriodMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', fechar);
+        /* `touchstart` além de `mousedown`: no celular o mousedown sintético
+           só chega depois do toque terminar, e em alguns casos nem chega. */
+        document.addEventListener('touchstart', fechar);
+        return () => {
+            document.removeEventListener('mousedown', fechar);
+            document.removeEventListener('touchstart', fechar);
+        };
+    }, [showPeriodMenu]);
+
+    const selecionarMes = (mes) => {
+        const { start, end } = monthRangeISO(mes || currentMonthISO());
+        setMonthFilter(mes || currentMonthISO());
+        setDateFilter(start);
+        setDateEndFilter(end);
+        setRangeStartDraft('');
+        setRangeEndDraft('');
+        setShowPeriodMenu(false);
+    };
+
+    const aplicarIntervalo = () => {
+        if (!rangeStartDraft || !rangeEndDraft) {
+            alert('Selecione a data inicial e a data final.');
+            return;
+        }
+        setMonthFilter('');
+        setDateFilter(rangeStartDraft);
+        setDateEndFilter(rangeEndDraft);
+        setShowPeriodMenu(false);
+    };
+
+    const limparPeriodo = () => {
+        setMonthFilter('');
+        setDateFilter('');
+        setDateEndFilter('');
+        setRangeStartDraft('');
+        setRangeEndDraft('');
+        setShowPeriodMenu(false);
+    };
+
+    const periodoLabel = !dateFilter && !dateEndFilter
+        ? 'Todo período'
+        : (monthFilter
+            ? `${PERIODO_CAMPO[periodField].rotulo} · ${monthFilter.split('-').reverse().join('/')}`
+            : `${formatDateBR(dateFilter, '—')} a ${formatDateBR(dateEndFilter, '—')}`);
+
+    /* Lista que a tabela mostra. Sem período escolhido devolve tudo, para a
+       tela seguir funcionando como antes de o filtro existir. Equipamento sem
+       a data escolhida fica de fora enquanto houver período — senão "vence em
+       setembro" traria também os que nunca foram calibrados. */
+    const equipamentosVisiveis = useMemo(() => {
+        if (!dateFilter && !dateEndFilter) return equipamentos;
+        const campo = PERIODO_CAMPO[periodField].chave;
+        return equipamentos.filter((equip) => {
+            const valor = normalizeISODate(equip[campo], '');
+            if (!valor) return false;
+            if (dateFilter && valor < dateFilter) return false;
+            if (dateEndFilter && valor > dateEndFilter) return false;
+            return true;
+        });
+    }, [equipamentos, dateFilter, dateEndFilter, periodField]);
+
     useEffect(() => {
         loadData();
     }, [loadData]);
@@ -158,7 +331,7 @@ export default function Calibracao() {
             } else {
                 await equipamentosAPI.create(equipamentoPayload);
             }
-            setShowEquipamentoModal(false);
+            fecharEquipamentoModal();
             resetEquipamentoForm();
             loadData();
         } catch (error) {
@@ -196,6 +369,23 @@ export default function Calibracao() {
 
     const updateEquipamentoField = (field, value) => {
         setEquipamentoForm(prev => ({ ...prev, [field]: value }));
+        setFormDirty(true);
+    };
+
+    const fecharEquipamentoModal = () => {
+        setShowEquipamentoModal(false);
+        setFormDirty(false);
+        setConfirmarSaida(false);
+    };
+
+    /* Único caminho de fechamento: o X, o Cancelar e o clique no fundo passam
+       por aqui, senão um deles descartaria o preenchimento em silêncio. */
+    const solicitarFechamentoEquipamento = () => {
+        if (formDirty) {
+            setConfirmarSaida(true);
+            return;
+        }
+        fecharEquipamentoModal();
     };
     const handleDeleteEquipamento = async (id) => {
         if (window.confirm('Tem certeza que deseja desativar este equipamento?')) {
@@ -233,6 +423,9 @@ export default function Calibracao() {
         }
     };
     const resetEquipamentoForm = () => {
+        setFormDirty(false);
+        setConfirmarSaida(false);
+        setFormViewMode('tabs');
         setEquipamentoForm({
             codigo: '',
             codigo_sap: '',
@@ -455,6 +648,7 @@ export default function Calibracao() {
     return (
         <AppLayout
             breadcrumb={[{ label: 'Qualidade' }, { label: 'Calibração' }]}
+            containerClassName="calibracao-page"
         >
             <div>
                 {/* Header */}
@@ -463,25 +657,112 @@ export default function Calibracao() {
                         <h1><i className="fas fa-tools"></i> Calibração de Equipamentos</h1>
                         <p>Gerencie equipamentos e controle as calibrações</p>
                     </div>
-                    <div className="header-actions">
+                    {/* Mesma barra da Inspeção de Injeção: busca, período e os
+                        botões de ação. Os rótulos ficam em `.filter-label`, que
+                        some no celular e deixa só os ícones. */}
+                    <div className="header-actions calibracao-filters">
                         <input
-                            type="text"
-                            className="form-control"
+                            type="search"
+                            className="form-control calibracao-search"
                             placeholder="Buscar equipamento..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
+
+                        <div className="period-filter-wrapper" ref={periodMenuRef}>
+                            <button
+                                type="button"
+                                className={showPeriodMenu ? 'period-filter-button active' : 'period-filter-button'}
+                                onClick={() => setShowPeriodMenu((c) => !c)}
+                                aria-expanded={showPeriodMenu}
+                                aria-haspopup="dialog"
+                                title={'Período: ' + periodoLabel}
+                            >
+                                <i className="fas fa-calendar-alt" aria-hidden="true"></i>
+                                <span className="filter-label">
+                                    <span className="period-filter-title">Período</span>
+                                    <span className="period-filter-value">{periodoLabel}</span>
+                                </span>
+                                <i className="fas fa-chevron-down period-filter-chevron" aria-hidden="true"></i>
+                            </button>
+
+                            {showPeriodMenu && (
+                                <div className="period-filter-menu" role="dialog" aria-label="Selecionar período">
+                                    {/* Qual das duas datas o período filtra. Sem
+                                        isto o filtro seria ambíguo nesta tela. */}
+                                    <div className="period-campo-escolha" role="group"
+                                        aria-label="Filtrar período por">
+                                        {Object.entries(PERIODO_CAMPO).map(([id, campo]) => (
+                                            <button key={id} type="button"
+                                                className={`period-campo-opcao ${periodField === id ? 'is-ativo' : ''}`}
+                                                aria-pressed={periodField === id}
+                                                onClick={() => setPeriodField(id)}>
+                                                {campo.rotulo}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="period-filter-quick-actions">
+                                        <button type="button" onClick={() => selecionarMes(currentMonthISO())}>Mês atual</button>
+                                        <button type="button" onClick={() => selecionarMes(previousMonthISO())}>Mês anterior</button>
+                                    </div>
+
+                                    <label>
+                                        <span>Outro mês</span>
+                                        <input type="month" value={monthFilter}
+                                            onChange={(e) => selecionarMes(e.target.value)} />
+                                    </label>
+
+                                    <div className="period-range-fields">
+                                        <label>
+                                            <span>Data inicial</span>
+                                            <input type="date" value={rangeStartDraft}
+                                                max={rangeEndDraft || undefined}
+                                                onChange={(e) => setRangeStartDraft(e.target.value)} />
+                                        </label>
+                                        <label>
+                                            <span>Data final</span>
+                                            <input type="date" value={rangeEndDraft}
+                                                min={rangeStartDraft || undefined}
+                                                onChange={(e) => setRangeEndDraft(e.target.value)} />
+                                        </label>
+                                    </div>
+
+                                    <button type="button" className="period-range-apply"
+                                        onClick={aplicarIntervalo}>Aplicar intervalo</button>
+
+                                    {(dateFilter || dateEndFilter) && (
+                                        <button type="button" className="period-limpar"
+                                            onClick={limparPeriodo}>Mostrar todo período</button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
                         <button
                             className="btn btn-secondary"
                             onClick={() => setShowTipoModal(true)}
+                            title="Tipos de equipamento"
                         >
-                            <i className="fas fa-tags"></i> Tipos
+                            <i className="fas fa-tags"></i>
+                            <span className="filter-label"> Tipos</span>
+                        </button>
+                        <button
+                            className="btn btn-success"
+                            onClick={exportarExcel}
+                            disabled={exporting || equipamentosVisiveis.length === 0}
+                            title="Exportar Excel"
+                        >
+                            <i className={`fas ${exporting ? 'fa-spinner fa-spin' : 'fa-file-excel'}`}></i>
+                            <span className="filter-label"> Excel</span>
                         </button>
                         <button
                             className="btn btn-primary"
                             onClick={() => { resetEquipamentoForm(); setShowEquipamentoModal(true); }}
+                            title="Novo equipamento"
                         >
-                            <i className="fas fa-plus"></i> Novo Equipamento
+                            <i className="fas fa-plus"></i>
+                            <span className="filter-label"> Novo Equipamento</span>
                         </button>
                     </div>
                 </div>
@@ -574,7 +855,7 @@ export default function Calibracao() {
                                             </div>
                                         </td>
                                     </tr>
-                                ) : equipamentos.length === 0 ? (
+                                ) : equipamentosVisiveis.length === 0 ? (
                                     <tr>
                                         <td colSpan="8" className="text-center">
                                             <div className="empty-state">
@@ -584,7 +865,7 @@ export default function Calibracao() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    equipamentos.map(equip => {
+                                    equipamentosVisiveis.map(equip => {
                                         const statusCal = getStatusCalibracao(equip);
                                         return (
                                             <tr
@@ -663,15 +944,36 @@ export default function Calibracao() {
 
                 {/* Modal de Equipamento */}
                 {showEquipamentoModal && (
-                    <div className="modal-overlay" onClick={() => setShowEquipamentoModal(false)}>
+                    <div className="modal-overlay" onClick={solicitarFechamentoEquipamento}>
                         <div className="modal-content modal-equipment-list" onClick={(e) => e.stopPropagation()}>
                             <div className="modal-header modal-header-equipment">
                                 <h2><i className="fas fa-clipboard-list"></i> {editingId ? 'Editar Equipamento' : 'Novo Equipamento'}</h2>
-                                <button className="modal-close" onClick={() => setShowEquipamentoModal(false)}>
+                                <button className="modal-close" onClick={solicitarFechamentoEquipamento}>
                                     <i className="fas fa-times"></i>
                                 </button>
                             </div>
                             <form onSubmit={handleEquipamentoSubmit}>
+                                {/* Alternador Abas / Visão geral, o mesmo do Cadastro de
+                                    Material e da Inspeção de Recebimento. Na visão geral
+                                    as seções vêm em sequência e as abas somem, porque não
+                                    há mais o que navegar. */}
+                                <div className="form-view-switcher" role="group"
+                                    aria-label="Modo de exibição do formulário">
+                                    <button type="button"
+                                        className={`view-switch-option ${formViewMode === 'tabs' ? 'active' : ''}`}
+                                        onClick={() => setFormViewMode('tabs')}
+                                        aria-pressed={formViewMode === 'tabs'}>
+                                        <i className="fas fa-layer-group" aria-hidden="true"></i> Abas
+                                    </button>
+                                    <button type="button"
+                                        className={`view-switch-option ${formViewMode === 'geral' ? 'active' : ''}`}
+                                        onClick={() => setFormViewMode('geral')}
+                                        aria-pressed={formViewMode === 'geral'}>
+                                        <i className="fas fa-list-check" aria-hidden="true"></i> Visão geral
+                                    </button>
+                                </div>
+
+                                {formViewMode === 'tabs' && (
                                 <div className="equipment-modal-tabs" role="tablist" aria-label="Dados do equipamento">
                                     <button
                                         type="button"
@@ -688,9 +990,10 @@ export default function Calibracao() {
                                         <i className="fas fa-sliders-h"></i> Detalhes
                                     </button>
                                 </div>
+                                )}
 
                                 <div className="modal-body equipment-sheet-form">
-                                    {equipmentModalTab === 'geral' ? (
+                                    {(formViewMode === 'geral' || equipmentModalTab === 'geral') && (
                                         <section className="equipment-form-section">
                                             <h3>Cadastro Básico</h3>
                                             <div className="equipment-form-grid basic">
@@ -750,7 +1053,8 @@ export default function Calibracao() {
                                                 </div>
                                             </div>
                                         </section>
-                                    ) : (
+                                    )}
+                                    {(formViewMode === 'geral' || equipmentModalTab === 'detalhes') && (
                                         <>
                                             <section className="equipment-form-section">
                                                 <h3>Identificação Complementar</h3>
@@ -799,7 +1103,7 @@ export default function Calibracao() {
 
                                             <section className="equipment-form-section">
                                                 <h3>Classificação</h3>
-                                                <div className="equipment-form-grid compact">
+                                                <div className="equipment-form-grid">
                                                     <div className="form-group">
                                                         <label>Tipo de Aferição</label>
                                                         <select
@@ -911,7 +1215,7 @@ export default function Calibracao() {
                                     )}
                                 </div>
                                 <div className="modal-footer">
-                                    <button type="button" className="btn btn-secondary" onClick={() => setShowEquipamentoModal(false)}>
+                                    <button type="button" className="btn btn-secondary" onClick={solicitarFechamentoEquipamento}>
                                         Cancelar
                                     </button>
                                     <button type="submit" className="btn btn-primary">
@@ -919,6 +1223,12 @@ export default function Calibracao() {
                                     </button>
                                 </div>
                             </form>
+
+                            <ConfirmarSaida
+                                aberto={confirmarSaida}
+                                onCancelar={() => setConfirmarSaida(false)}
+                                onSair={fecharEquipamentoModal}
+                            />
                         </div>
                     </div>
                 )}

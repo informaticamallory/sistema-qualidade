@@ -401,7 +401,20 @@
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--surface);
+    /* Mantém o cabeçalho colorido dentro do canto arredondado. */
     overflow: hidden;
+    /* A causa do corte: as seções são itens de um flex column
+       (`.equipment-sheet-form`) com altura limitada pelo modal, e item de flex
+       tem `flex-shrink: 1` por padrão. Elas eram espremidas abaixo da altura
+       do próprio conteúdo e o `overflow: hidden` cortava o que sobrava —
+       medido, 34px nas duas seções maiores e 8px na Classificação, o
+       suficiente para sumir com a última linha de campos.
+
+       `0 0 auto` faz cada seção manter a altura natural; quem rola é o
+       `.equipment-sheet-form`, que já tem `overflow-y: auto`. Tirar o
+       `overflow: hidden` não resolveria: o conteúdo passaria a vazar por cima
+       da borda arredondada em vez de ser cortado. */
+    flex: 0 0 auto;
 }
 
 .equipment-form-section h3 {
@@ -421,9 +434,10 @@
     padding: 1rem;
 }
 
-.equipment-form-grid.compact {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-}
+/* A modificadora `compact` saiu: ela punha a Classificação numa grade de 4
+   colunas enquanto as outras duas seções usavam 3, então os três campos dela
+   ficavam com 139px contra 191px dos demais e sobrava uma coluna vazia à
+   direita. Agora as três seções usam a mesma grade. */
 
 .equipment-form-grid .form-group {
     min-width: 0;
@@ -1055,8 +1069,7 @@
         width: min(760px, calc(100vw - 20px));
     }
 
-    .equipment-form-grid,
-    .equipment-form-grid.compact {
+    .equipment-form-grid {
         grid-template-columns: 1fr;
     }
 
@@ -1178,3 +1191,114 @@
 
 
 
+
+/* ══════════════════════════════════════════════════════════════════════
+   Barra de filtros, no padrão da Inspeção de Injeção
+   ══════════════════════════════════════════════════════════════════════
+   As classes `.period-filter-*` não são declaradas aqui: já existem sem
+   escopo em InspecaoInjecao.css e InspecaoMontagem.css e, como o Vite junta
+   todo o CSS num arquivo só, valem para o sistema inteiro — é assim que a
+   tela de Cartões também as usa. Declarar uma terceira cópia mudaria qual
+   das existentes vence pela ordem do bundle. Aqui ficam apenas os controles
+   que só esta tela tem. */
+.calibracao-filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.calibracao-filters .calibracao-search {
+    flex: 1 1 240px;
+    min-width: 170px;
+}
+
+/* Escolha de qual data o período filtra. Só existe nesta tela: as de
+   inspeção têm uma data só. */
+.period-campo-escolha {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.period-campo-opcao {
+    min-height: 34px;
+    padding: 0.4rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-base);
+}
+
+.period-campo-opcao.is-ativo {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+    color: var(--primary);
+}
+
+.period-limpar {
+    width: 100%;
+    margin-top: 0.5rem;
+    padding: 0.45rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+.period-limpar:hover {
+    background: var(--surface-2);
+    color: var(--text);
+}
+
+/* Tablet e celular: a barra vira grade, como na Injeção — a busca ocupa uma
+   linha inteira e os quatro controles dividem a de cima. */
+@media (max-width: 1024px) {
+    .calibracao-page .header-actions.calibracao-filters {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.5rem;
+        width: 100%;
+    }
+
+    .calibracao-page .calibracao-filters .calibracao-search {
+        grid-column: 1 / -1;
+        order: 2;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .calibracao-page .calibracao-filters .period-filter-wrapper,
+    .calibracao-page .calibracao-filters .btn {
+        order: 1;
+        width: 100%;
+        min-width: 0;
+        min-height: 42px;
+        padding: 0.55rem;
+        border-radius: 12px;
+    }
+
+    .calibracao-page .calibracao-filters .period-filter-button {
+        min-height: 42px;
+        padding: 0.55rem;
+        border-radius: 12px;
+    }
+}
+
+/* No celular ficam só os ícones: os quatro rótulos não cabem lado a lado. */
+@media (max-width: 600px) {
+    .calibracao-page .calibracao-filters .filter-label {
+        display: none;
+    }
+}

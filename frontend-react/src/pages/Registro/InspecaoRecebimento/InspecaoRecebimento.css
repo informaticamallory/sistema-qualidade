@@ -317,3 +317,64 @@
         align-items: flex-start;
     }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   Barra de filtros, no padrão da Inspeção de Injeção
+   ══════════════════════════════════════════════════════════════════════
+   As classes `.period-filter-*` não são declaradas aqui: já existem sem
+   escopo em InspecaoInjecao.css e InspecaoMontagem.css e valem para o sistema
+   inteiro pelo bundle — é assim que Cartões e Calibração também as usam. Uma
+   cópia nova mudaria qual das existentes vence pela ordem dos arquivos. */
+.recb-filtros {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.recb-filtros .recb-busca-barra {
+    flex: 1 1 260px;
+    min-width: 180px;
+}
+
+/* `.period-limpar` é o mesmo botão da tela de Calibração, declarado lá sem
+   escopo; aqui só é usado. */
+
+@media (max-width: 1024px) {
+    .recebimento-page .header-actions.recb-filtros {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.5rem;
+        width: 100%;
+    }
+
+    .recebimento-page .recb-filtros .recb-busca-barra {
+        grid-column: 1 / -1;
+        order: 2;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .recebimento-page .recb-filtros .period-filter-wrapper,
+    .recebimento-page .recb-filtros .btn {
+        order: 1;
+        width: 100%;
+        min-width: 0;
+        min-height: 42px;
+        padding: 0.55rem;
+        border-radius: 12px;
+    }
+
+    .recebimento-page .recb-filtros .period-filter-button {
+        min-height: 42px;
+        padding: 0.55rem;
+        border-radius: 12px;
+    }
+}
+
+/* No celular ficam só os ícones: os três rótulos não cabem lado a lado. */
+@media (max-width: 600px) {
+    .recebimento-page .recb-filtros .filter-label {
+        display: none;
+    }
+}

@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import ExcelJS from 'exceljs';
 import AppLayout from '../../../components/Layout/AppLayout';
 import { Tabs, ConfirmarSaida, MobileActionSheet } from '../../../components/ui';
 import { materiaisAPI, revisoesAPI, inspecoesRecebimentoAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
 import { upperFields } from '../../../utils/text';
+import { currentMonthISO, formatMonthLabel, monthRangeISO, previousMonthISO } from '../../../utils/date';
 import './InspecaoRecebimento.css';
 
 /* Inspeção de Recebimento.
@@ -57,6 +59,19 @@ export default function InspecaoRecebimento() {
     const [erro, setErro] = useState('');
     const [busca, setBusca] = useState('');
     const [filtroStatus, setFiltroStatus] = useState('todos');
+
+    /* ── Filtro de período ──
+       Mesmo painel das telas de Injeção e Montagem, filtrando pela data da
+       inspeção. A filtragem é no cliente, sobre a lista já carregada, como o
+       status e a busca que já existiam aqui — nenhum contrato de API muda. */
+    const [monthFilter, setMonthFilter] = useState('');
+    const [dateFilter, setDateFilter] = useState('');
+    const [dateEndFilter, setDateEndFilter] = useState('');
+    const [rangeStartDraft, setRangeStartDraft] = useState('');
+    const [rangeEndDraft, setRangeEndDraft] = useState('');
+    const [showPeriodMenu, setShowPeriodMenu] = useState(false);
+    const periodMenuRef = useRef(null);
+    const [exportando, setExportando] = useState(false);
 
     const [modalAberto, setModalAberto] = useState(false);
     const [activeTab, setActiveTab] = useState('identificacao');
@@ -139,6 +154,24 @@ export default function InspecaoRecebimento() {
     }, []);
 
     useEffect(() => { carregar(); }, [carregar]);
+
+    /* Fecha o seletor de período ao clicar fora. */
+    useEffect(() => {
+        if (!showPeriodMenu) return;
+        const fechar = (evento) => {
+            if (periodMenuRef.current && !periodMenuRef.current.contains(evento.target)) {
+                setShowPeriodMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', fechar);
+        /* `touchstart` além de `mousedown`: no celular o mousedown sintético
+           só chega depois do toque terminar, e em alguns casos nem chega. */
+        document.addEventListener('touchstart', fechar);
+        return () => {
+            document.removeEventListener('mousedown', fechar);
+            document.removeEventListener('touchstart', fechar);
+        };
+    }, [showPeriodMenu]);
 
     useEffect(() => () => clearTimeout(debounceRef.current), []);
 
@@ -510,14 +543,118 @@ export default function InspecaoRecebimento() {
 
     /* ── Filtros e contadores ── */
     const termo = busca.trim().toLowerCase();
-    const visiveis = inspecoes.filter((i) => {
+
+    /* O período é o primeiro corte, e os cards contam sobre ele: sem isto
+       "Aprovadas" mostraria o total histórico enquanto a tabela mostra o mês
+       escolhido. Status e busca refinam a tabela a partir daqui. */
+    const noPeriodo = useMemo(() => {
+        if (!dateFilter && !dateEndFilter) return inspecoes;
+        return inspecoes.filter((i) => {
+            const data = String(i.data_inspecao || '').slice(0, 10);
+            if (!data) return false;
+            if (dateFilter && data < dateFilter) return false;
+            if (dateEndFilter && data > dateEndFilter) return false;
+            return true;
+        });
+    }, [inspecoes, dateFilter, dateEndFilter]);
+
+    const visiveis = noPeriodo.filter((i) => {
         if (filtroStatus !== 'todos' && i.status !== filtroStatus) return false;
         if (!termo) return true;
         return [i.codigo_sap, i.componente, i.lote, i.nota_fiscal, i.fornecedor]
             .some((v) => String(v || '').toLowerCase().includes(termo));
     });
 
-    const contar = (status) => inspecoes.filter((i) => i.status === status).length;
+    const contar = (status) => noPeriodo.filter((i) => i.status === status).length;
+
+    const selecionarMes = (mes) => {
+        const alvo = mes || currentMonthISO();
+        const { start, end } = monthRangeISO(alvo);
+        setMonthFilter(alvo);
+        setDateFilter(start);
+        setDateEndFilter(end);
+        setRangeStartDraft('');
+        setRangeEndDraft('');
+        setShowPeriodMenu(false);
+    };
+
+    const aplicarIntervalo = () => {
+        if (!rangeStartDraft || !rangeEndDraft) {
+            alert('Selecione a data inicial e a data final.');
+            return;
+        }
+        setMonthFilter('');
+        setDateFilter(rangeStartDraft);
+        setDateEndFilter(rangeEndDraft);
+        setShowPeriodMenu(false);
+    };
+
+    const limparPeriodo = () => {
+        setMonthFilter('');
+        setDateFilter('');
+        setDateEndFilter('');
+        setRangeStartDraft('');
+        setRangeEndDraft('');
+        setShowPeriodMenu(false);
+    };
+
+    const periodoLabel = !dateFilter && !dateEndFilter
+        ? 'Todo período'
+        : (monthFilter
+            ? formatMonthLabel(monthFilter)
+            : `${formatarData(dateFilter)} a ${formatarData(dateEndFilter)}`);
+
+    /* Exporta o que está na tabela — período, status e busca aplicados — e
+       com as mesmas colunas dela. */
+    const exportarExcel = async () => {
+        if (!visiveis.length) return;
+        setExportando(true);
+        try {
+            const workbook = new ExcelJS.Workbook();
+            const planilha = workbook.addWorksheet('Inspeções de Recebimento');
+            planilha.columns = [
+                { header: 'Data', key: 'data', width: 12 },
+                { header: 'Cód. SAP', key: 'codigo_sap', width: 14 },
+                { header: 'Componente', key: 'componente', width: 34 },
+                { header: 'Lote', key: 'lote', width: 16 },
+                { header: 'Revisão', key: 'revisao', width: 12 },
+                { header: 'NF', key: 'nota_fiscal', width: 14 },
+                { header: 'Inspetor', key: 'inspetor', width: 22 },
+                { header: 'Status', key: 'status', width: 14 }
+            ];
+
+            visiveis.forEach((i) => {
+                planilha.addRow({
+                    data: formatarData(i.data_inspecao),
+                    codigo_sap: i.codigo_sap || '',
+                    componente: i.componente || '',
+                    lote: i.lote || '',
+                    revisao: i.revisao_desenho || '',
+                    nota_fiscal: i.nota_fiscal || '',
+                    inspetor: i.inspetor_nome || '',
+                    status: STATUS_LABEL[i.status] || i.status || ''
+                });
+            });
+
+            const cabecalho = planilha.getRow(1);
+            cabecalho.font = { bold: true };
+            cabecalho.alignment = { vertical: 'middle', horizontal: 'center' };
+            planilha.autoFilter = { from: 'A1', to: `H${planilha.rowCount}` };
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `inspecoes-recebimento-${hoje()}.xlsx`;
+            link.click();
+            URL.revokeObjectURL(url);
+        } finally {
+            setExportando(false);
+        }
+    };
 
     const cards = [
         { chave: 'todos', rotulo: 'Total de inspeções', valor: inspecoes.length,
@@ -564,9 +701,89 @@ export default function InspecaoRecebimento() {
                         <h1><i className="fas fa-clipboard-check"></i> Inspeção de Recebimento</h1>
                         <p>Registro de inspeção por lote, medido contra a revisão de desenho cadastrada</p>
                     </div>
-                    <div className="header-actions">
-                        <button className="btn btn-primary" onClick={abrirNovo}>
-                            <i className="fas fa-plus"></i> Nova Inspeção
+                    {/* Busca, período, exportação e ação numa linha só, como nas
+                        telas de Injeção e Montagem. A busca estava num card
+                        separado abaixo dos cards de resumo. Os rótulos ficam em
+                        `.filter-label`, que some no celular deixando só ícones. */}
+                    <div className="header-actions recb-filtros">
+                        <div className="recb-busca recb-busca-barra">
+                            <i className="fas fa-search" aria-hidden="true"></i>
+                            <input
+                                type="search"
+                                className="form-control"
+                                placeholder="Buscar por código SAP, componente, lote, nota fiscal ou fornecedor"
+                                value={busca}
+                                onChange={(e) => setBusca(e.target.value)}
+                                aria-label="Buscar inspeção"
+                            />
+                        </div>
+
+                        <div className="period-filter-wrapper" ref={periodMenuRef}>
+                            <button
+                                type="button"
+                                className={showPeriodMenu ? 'period-filter-button active' : 'period-filter-button'}
+                                onClick={() => setShowPeriodMenu((c) => !c)}
+                                aria-expanded={showPeriodMenu}
+                                aria-haspopup="dialog"
+                                title={'Período: ' + periodoLabel}
+                            >
+                                <i className="fas fa-calendar-alt" aria-hidden="true"></i>
+                                <span className="filter-label">
+                                    <span className="period-filter-title">Período</span>
+                                    <span className="period-filter-value">{periodoLabel}</span>
+                                </span>
+                                <i className="fas fa-chevron-down period-filter-chevron" aria-hidden="true"></i>
+                            </button>
+
+                            {showPeriodMenu && (
+                                <div className="period-filter-menu" role="dialog" aria-label="Selecionar período">
+                                    <div className="period-filter-quick-actions">
+                                        <button type="button" onClick={() => selecionarMes(currentMonthISO())}>Mês atual</button>
+                                        <button type="button" onClick={() => selecionarMes(previousMonthISO())}>Mês anterior</button>
+                                    </div>
+
+                                    <label>
+                                        <span>Outro mês</span>
+                                        <input type="month" value={monthFilter}
+                                            onChange={(e) => selecionarMes(e.target.value)} />
+                                    </label>
+
+                                    <div className="period-range-fields">
+                                        <label>
+                                            <span>Data inicial</span>
+                                            <input type="date" value={rangeStartDraft}
+                                                max={rangeEndDraft || undefined}
+                                                onChange={(e) => setRangeStartDraft(e.target.value)} />
+                                        </label>
+                                        <label>
+                                            <span>Data final</span>
+                                            <input type="date" value={rangeEndDraft}
+                                                min={rangeStartDraft || undefined}
+                                                onChange={(e) => setRangeEndDraft(e.target.value)} />
+                                        </label>
+                                    </div>
+
+                                    <button type="button" className="period-range-apply"
+                                        onClick={aplicarIntervalo}>Aplicar intervalo</button>
+
+                                    {(dateFilter || dateEndFilter) && (
+                                        <button type="button" className="period-limpar"
+                                            onClick={limparPeriodo}>Mostrar todo período</button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <button className="btn btn-success" onClick={exportarExcel}
+                            disabled={exportando || visiveis.length === 0}
+                            title="Exportar Excel">
+                            <i className={`fas ${exportando ? 'fa-spinner fa-spin' : 'fa-file-excel'}`}></i>
+                            <span className="filter-label"> Exportar Excel</span>
+                        </button>
+
+                        <button className="btn btn-primary" onClick={abrirNovo} title="Nova inspeção">
+                            <i className="fas fa-plus"></i>
+                            <span className="filter-label"> Nova Inspeção</span>
                         </button>
                     </div>
                 </div>
@@ -603,19 +820,6 @@ export default function InspecaoRecebimento() {
                     ))}
                 </div>
 
-                <div className="filters-card">
-                    <div className="recb-busca">
-                        <i className="fas fa-search" aria-hidden="true"></i>
-                        <input
-                            type="search"
-                            className="form-control"
-                            placeholder="Buscar por código SAP, componente, lote, nota fiscal ou fornecedor"
-                            value={busca}
-                            onChange={(e) => setBusca(e.target.value)}
-                            aria-label="Buscar inspeção"
-                        />
-                    </div>
-                </div>
 
                 <div className="table-card">
                     {loading ? (

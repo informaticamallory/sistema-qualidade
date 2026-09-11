@@ -419,35 +419,52 @@
         font-size: 0.82rem;
     }
 
+    /* ── Abas de relatório ──
+       Antes as três abas eram largas demais e a barra virava um carrossel
+       horizontal com a barra de rolagem escondida. A causa era a combinação
+       de `flex: 1 0 180px` — o `0` do meio é `flex-shrink`, então elas não
+       podiam encolher, e a base de 180px dava 3×180 + espaços = 560px de
+       largura mínima — com `white-space: nowrap`, que impedia o texto de
+       quebrar. O `overflow-x: auto` então transformava o transbordo em
+       rolagem, e `scrollbar-width: none` escondia o indicador dela.
+
+       Agora as três dividem a largura existente e o texto quebra em duas
+       linhas quando precisa. Sem rolagem, e sem nada escondido. */
     .relatorios-page .report-tabs-container {
         padding: 4px;
         margin-bottom: 18px;
-        overflow: hidden;
+        /* `overflow: hidden` saiu junto: mascarava o transbordo em vez de
+           evitá-lo, e agora não há transbordo para mascarar. */
+        max-width: 100%;
+        box-sizing: border-box;
     }
 
     .relatorios-page .report-tabs {
         flex-direction: row;
         flex-wrap: nowrap;
         gap: 6px;
-        overflow-x: auto;
-        overscroll-behavior-inline: contain;
-        scroll-snap-type: x proximity;
-        scrollbar-width: none;
-    }
-
-    .relatorios-page .report-tabs::-webkit-scrollbar {
-        display: none;
+        width: 100%;
+        min-width: 0;
     }
 
     .relatorios-page .report-tab {
-        flex: 1 0 180px;
+        /* `1 1 0`: crescem e ENCOLHEM a partir de base zero, então repartem
+           igualmente o que a tela oferece, seja qual for. */
+        flex: 1 1 0;
+        /* Item de flex tem `min-width: auto` por padrão, que é o tamanho do
+           conteúdo — sem isto o `flex-shrink` não consegue passar do texto. */
         min-width: 0;
-        padding: 11px 12px;
+        padding: 11px 8px;
         justify-content: center;
         gap: 7px;
         font-size: 0.8rem;
-        white-space: nowrap;
-        scroll-snap-align: start;
+        /* O texto passa a quebrar em vez de esticar a aba. */
+        white-space: normal;
+        text-align: center;
+        line-height: 1.2;
+        overflow-wrap: break-word;
+        /* Alvo de toque confortável mesmo quando o rótulo cabe em uma linha. */
+        min-height: 44px;
     }
 
     .relatorios-page .filters-card {
@@ -509,6 +526,22 @@
 
     .relatorios-page .stat-card-volume {
         grid-column: 1 / -1;
+    }
+}
+
+/* No celular o ícone sobe para cima do rótulo. Lado a lado ele consumia
+   ~20 dos ~64px de texto que sobram numa aba a 320px, e a legenda quebrava
+   em três linhas estreitas; empilhado, o texto usa a largura inteira da aba
+   e cabe em duas. Os ícones seguem alinhados entre si, agora pelo topo. */
+@media (max-width: 480px) {
+    .relatorios-page .report-tab {
+        flex-direction: column;
+        gap: 4px;
+        padding: 9px 6px;
+        /* Pelo topo, e não centrado: as abas têm a mesma altura, mas o
+           conteúdo de "Fichas NC" ocupa uma linha e o das outras duas, duas —
+           centrado, o ícone dela descia e os três desalinhavam. */
+        justify-content: flex-start;
     }
 }
 

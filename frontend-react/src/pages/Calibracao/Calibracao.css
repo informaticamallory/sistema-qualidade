@@ -670,53 +670,80 @@
     padding: 1rem;
 }
 
+/* O card tinha `display: flex` junto de um `grid-template-columns` de quatro
+   colunas -- a grade nunca valia, e os quatro blocos ficavam soltos numa
+   linha. O flex tinha sido posto para contornar o modal que nao mostrava
+   nada, causa que era o `flex-shrink` das secoes, ja corrigido.
+
+   Agora sao tres faixas empilhadas: cabecalho, grade de dados e rodape do
+   arquivo. */
 .calibracao-history-item {
     display: flex;
-    grid-template-columns: minmax(150px, 1fr) auto minmax(240px, 1.8fr) auto;
-    align-items: center;
-    gap: 0.85rem;
-    padding: 0.75rem;
+    flex-direction: column;
+    gap: 0.7rem;
+    padding: 0.85rem;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--surface-2);
 }
 
-.calibracao-history-main {
+/* ── Cabecalho ── */
+.calibracao-history-topo {
     display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.7rem;
+}
+
+.calibracao-history-data {
     color: var(--text);
+    font-size: 1rem;
+    font-weight: 700;
 }
 
-.calibracao-history-main span {
+/* `margin-left: auto` joga a validade para a direita, deixando data e badge
+   juntos a esquerda. Com `flex-wrap`, no celular ela cai para a linha de
+   baixo em vez de espremer o badge. */
+.calibracao-history-validade {
+    margin-left: auto;
     color: var(--text-muted);
-    font-size: 0.85rem;
+    font-size: 0.82rem;
 }
 
-.calibracao-history-details {
-    min-width: 0;
+/* ── Dados ──
+   Usa `.calibracao-view-item` dentro, o mesmo das outras secoes do modal, e
+   por isso herda a tipografia de rotulo/valor e o tratamento de campo vazio.
+   Tres colunas, como a grade das demais secoes. */
+.calibracao-history-dados {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.45rem 0.75rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.6rem 1rem;
 }
 
-.calibracao-history-details span {
-    min-width: 0;
-    color: var(--text);
-    font-size: 0.85rem;
-    overflow-wrap: anywhere;
-}
-
-.calibracao-history-details strong {
-    display: block;
-    color: var(--text-muted);
-    font-size: 0.72rem;
-    margin-bottom: 0.1rem;
-}
-
-.calibracao-history-actions {
+/* ── Arquivo ── */
+.calibracao-history-arquivo {
     display: flex;
-    justify-content: flex-end;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-top: 0.7rem;
+    border-top: 1px solid var(--border);
+}
+
+/* `min-width: 0` e obrigatorio para o `text-overflow` funcionar dentro de um
+   flex: sem ele o item nao encolhe abaixo do conteudo e o nome do arquivo
+   empurra o botao para fora em vez de ganhar reticencias. */
+.calibracao-history-arquivo-nome {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+.calibracao-history-arquivo .btn {
+    flex: 0 0 auto;
 }
 /* Modal Calibração */
 .modal-header-calibracao {
@@ -1090,12 +1117,11 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .calibracao-history-item {
-        grid-template-columns: 1fr;
-        align-items: stretch;
+    /* Mesma quebra da grade das outras secoes do modal. */
+    .calibracao-history-dados {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .calibracao-history-actions,
     .calibracao-certificate-line {
         justify-content: flex-start;
     }
@@ -1111,7 +1137,7 @@
     }
 
     .calibracao-view-grid,
-    .calibracao-history-details {
+    .calibracao-history-dados {
         grid-template-columns: 1fr;
     }
     .modal-equipment-list {

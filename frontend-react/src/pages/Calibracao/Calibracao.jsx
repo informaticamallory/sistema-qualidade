@@ -1495,34 +1495,57 @@ export default function Calibracao() {
                                         <div className="calibracao-history-list">
                                             {viewCalibracoes.map((cal, index) => (
                                                 <article className="calibracao-history-item" key={cal.id || `${cal.data_calibracao}-${index}`}>
-                                                    <div className="calibracao-history-main">
-                                                        <strong>{formatarData(cal.data_calibracao)}</strong>
-                                                        <span>Validade: {formatarData(cal.data_validade)}</span>
+                                                    {/* Cabecalho: a data manda, o status vem ao lado e
+                                                        a validade fica em segundo plano, a direita. */}
+                                                    <header className="calibracao-history-topo">
+                                                        <strong className="calibracao-history-data">
+                                                            {formatarData(cal.data_calibracao)}
+                                                        </strong>
+                                                        <span className={`badge badge-${getResultadoColor(cal.resultado)}`}>
+                                                            {formatarOpcao(cal.resultado)}
+                                                        </span>
+                                                        <span className="calibracao-history-validade">
+                                                            Validade: {formatarData(cal.data_validade)}
+                                                        </span>
+                                                    </header>
+
+                                                    {/* Mesmo `renderInfoItem` das outras secoes do modal:
+                                                        a tipografia de rotulo e valor e o tratamento de
+                                                        campo vazio vem junto, em vez de um par
+                                                        <strong>/texto com regras proprias. */}
+                                                    <div className="calibracao-history-dados">
+                                                        {renderInfoItem('Certificado', cal.numero_certificado)}
+                                                        {renderInfoItem('Responsável', cal.responsavel)}
+                                                        {renderInfoItem('Laboratório', cal.laboratorio)}
                                                     </div>
-                                                    <span className={`badge badge-${getResultadoColor(cal.resultado)}`}>
-                                                        {formatarOpcao(cal.resultado)}
-                                                    </span>
-                                                    <div className="calibracao-history-details">
-                                                        <span><strong>Certificado</strong>{formatarValor(cal.numero_certificado)}</span>
-                                                        <span><strong>Laboratório</strong>{formatarValor(cal.laboratorio)}</span>
-                                                        <span><strong>Responsável</strong>{formatarValor(cal.responsavel)}</span>
-                                                        <span><strong>Arquivo</strong>{formatarValor(getArquivoNome(cal.arquivo_certificado))}</span>
-                                                    </div>
-                                                    <div className="calibracao-history-actions">
+
+                                                    {/* Arquivo em linha propria, separada por um filete: o
+                                                        nome e longo e, dentro da grade, desalinhava as
+                                                        colunas. Truncado com reticencias, nome inteiro no
+                                                        title. */}
+                                                    <footer className="calibracao-history-arquivo">
                                                         {cal.arquivo_certificado ? (
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-outline btn-sm"
-                                                                onClick={() => handleOpenCertificado(cal)}
-                                                                disabled={openingCertificadoId === cal.id}
-                                                            >
-                                                                <i className="fas fa-file-pdf"></i>
-                                                                {openingCertificadoId === cal.id ? 'Abrindo...' : 'PDF'}
-                                                            </button>
+                                                            <>
+                                                                <span className="calibracao-history-arquivo-nome"
+                                                                    title={getArquivoNome(cal.arquivo_certificado)}>
+                                                                    <i className="fas fa-paperclip" aria-hidden="true"></i>
+                                                                    {' '}
+                                                                    {getArquivoNome(cal.arquivo_certificado)}
+                                                                </span>
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-outline btn-sm"
+                                                                    onClick={() => handleOpenCertificado(cal)}
+                                                                    disabled={openingCertificadoId === cal.id}
+                                                                >
+                                                                    <i className="fas fa-file-pdf"></i>
+                                                                    {openingCertificadoId === cal.id ? 'Abrindo...' : 'PDF'}
+                                                                </button>
+                                                            </>
                                                         ) : (
-                                                            <span className="calibracao-pdf-empty">Sem PDF</span>
+                                                            <span className="calibracao-pdf-empty">Sem PDF anexado</span>
                                                         )}
-                                                    </div>
+                                                    </footer>
                                                 </article>
                                             ))}
                                         </div>

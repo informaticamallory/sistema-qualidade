@@ -545,7 +545,23 @@
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--surface);
+    /* Mantém o cabeçalho colorido dentro do canto arredondado. */
     overflow: hidden;
+    /* Mesma causa do corte no modal de formulário: as seções são itens de um
+       flex column (`.calibracao-view-body`) com altura limitada pelo modal, e
+       item de flex tem `flex-shrink: 1` por padrão. Todas eram espremidas
+       abaixo da altura do próprio conteúdo e o `overflow: hidden` cortava o
+       resto — medido, 66px em Identificação, 46 em Controle, 26 em Ficha e na
+       Última Calibração e 35 no Histórico, que sumia por inteiro, mensagem de
+       vazio incluída.
+
+       O sinal de que era isso: o corpo do modal NÃO rolava. Com todas as
+       seções encolhidas o conteúdo "cabia", então nem barra de rolagem
+       aparecia — o conteúdo era descartado em silêncio.
+
+       `0 0 auto` devolve a altura natural; quem rola é o `.modal-body`, que
+       já tem `overflow-y: auto`. */
+    flex: 0 0 auto;
 }
 
 .calibracao-view-section h3,
@@ -594,6 +610,16 @@
     line-height: 1.35;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
+}
+
+/* Campo sem dado. Antes vinha um "-" com a mesma cor e o mesmo peso de um
+   valor preenchido, então não dava para distinguir de longe o que falta
+   preencher. Em itálico, sem o negrito e na cor secundária, a leitura da
+   seção separa na hora o que tem dado do que não tem. */
+.calibracao-view-value.is-vazio {
+    color: var(--text-muted);
+    font-weight: 400;
+    font-style: italic;
 }
 
 .calibracao-certificate-line {

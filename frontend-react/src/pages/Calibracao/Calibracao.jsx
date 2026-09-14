@@ -635,12 +635,21 @@ export default function Calibracao() {
         }
     };
 
-    const renderInfoItem = (label, value, className = '') => (
-        <div className={`calibracao-view-item ${className}`}>
-            <span className="calibracao-view-label">{label}</span>
-            <span className="calibracao-view-value">{formatarValor(value)}</span>
-        </div>
-    );
+    const renderInfoItem = (label, value, className = '') => {
+        /* `'-'` também conta como vazio: vários chamadores passam o valor já
+           por `formatarOpcao`, que devolve `'-'` quando não há dado. Sem isto
+           só o `null` seria reconhecido e metade dos campos vazios ficaria com
+           aparência de preenchido. */
+        const vazio = value === null || value === undefined || value === '' || value === '-';
+        return (
+            <div className={`calibracao-view-item ${className}`}>
+                <span className="calibracao-view-label">{label}</span>
+                <span className={`calibracao-view-value ${vazio ? 'is-vazio' : ''}`}>
+                    {vazio ? 'Não informado' : formatarValor(value)}
+                </span>
+            </div>
+        );
+    };
     const sheetEquipamento = sheetData ? equipamentos.find((equipamento) => equipamento.id === sheetData.id) : null;
     const viewStatusCalibracao = viewEquipamento ? getStatusCalibracao(viewEquipamento) : null;
     const ultimaCalibracaoView = viewCalibracoes[0] || viewEquipamento?.ultima_calibracao || null;

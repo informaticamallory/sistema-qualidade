@@ -59,6 +59,15 @@ export default function Calibracao() {
     const periodMenuRef = useRef(null);
     const [exporting, setExporting] = useState(false);
 
+    /* Filtro por situacao de calibracao, acionado pelos cards de resumo.
+       As chaves sao as mesmas que `getStatusCalibracao` devolve. */
+    const [filtroStatus, setFiltroStatus] = useState('todos');
+
+    /* Clicar no card ja ativo desliga o filtro; "Total" sempre desliga. */
+    const alternarFiltro = (chave) => {
+        setFiltroStatus((atual) => (atual === chave ? 'todos' : chave));
+    };
+
     // Modais
     const [showEquipamentoModal, setShowEquipamentoModal] = useState(false);
     const [showCalibracaoModal, setShowCalibracaoModal] = useState(false);
@@ -164,7 +173,7 @@ export default function Calibracao() {
     /* Exporta o que está na tela — a lista já filtrada por busca e período —
        e não a base inteira: o arquivo tem de bater com o que o usuário vê. */
     const exportarExcel = async () => {
-        if (!equipamentosVisiveis.length) return;
+        if (!equipamentosFiltrados.length) return;
         setExporting(true);
         try {
             const workbook = new ExcelJS.Workbook();
@@ -185,7 +194,7 @@ export default function Calibracao() {
                 { header: 'Situação', key: 'situacao', width: 16 }
             ];
 
-            equipamentosVisiveis.forEach((equip) => {
+            equipamentosFiltrados.forEach((equip) => {
                 const situacao = getStatusCalibracao(equip);
                 planilha.addRow({
                     codigo: equip.codigo || '',
@@ -558,6 +567,14 @@ export default function Calibracao() {
         }
     };
 
+    /* Segundo corte, depois do periodo: a situacao escolhida nos cards.
+       Fica aqui, e nao junto do `useMemo` do periodo, porque depende de
+       `getStatusCalibracao`, declarada logo acima -- dentro do memo, que roda
+       durante a renderizacao, ela ainda estaria na zona morta. */
+    const equipamentosFiltrados = filtroStatus === 'todos'
+        ? equipamentosVisiveis
+        : equipamentosVisiveis.filter((e) => getStatusCalibracao(e).status === filtroStatus);
+
     /* Delega ao utilitário compartilhado, que extrai a data por regex
        (`^\d{4}-\d{2}-\d{2}`) e portanto ignora a parte de hora. A versão
        local fazia `split('-')` e tomava o terceiro pedaço como dia: num
@@ -783,8 +800,17 @@ export default function Calibracao() {
                 )}
 
                 {/* Stats Cards */}
+                {/* Os quatro cards filtram a tabela. `button` e nao `div`:
+                    entra no foco pelo teclado e responde ao Enter sem handler
+                    proprio. O "!" de alerta continua abrindo o modal de
+                    alertas -- ele era o unico caminho para aquela tela, e
+                    perder isso ao transformar o card em filtro seria trocar um
+                    recurso por outro. */}
                 <div className="stats-grid">
-                    <div className="stat-card">
+                    <button type="button"
+                        className={`stat-card clickable ${filtroStatus === 'todos' ? 'is-active' : ''}`}
+                        onClick={() => setFiltroStatus('todos')}
+                        aria-pressed={filtroStatus === 'todos'}>
                         <div className="stat-icon blue">
                             <i className="fas fa-tools"></i>
                         </div>
@@ -792,9 +818,12 @@ export default function Calibracao() {
                             <span className="stat-value">{stats.total_equipamentos}</span>
                             <span className="stat-label">Total Equipamentos</span>
                         </div>
-                    </div>
+                    </button>
 
-                    <div className="stat-card">
+                    <button type="button"
+                        className={`stat-card clickable ${filtroStatus === 'ok' ? 'is-active' : ''}`}
+                        onClick={() => alternarFiltro('ok')}
+                        aria-pressed={filtroStatus === 'ok'}>
                         <div className="stat-icon green">
                             <i className="fas fa-check-circle"></i>
                         </div>
@@ -802,12 +831,12 @@ export default function Calibracao() {
                             <span className="stat-value">{stats.calibrados}</span>
                             <span className="stat-label">Calibrados</span>
                         </div>
-                    </div>
+                    </button>
 
-                    <div
-                        className={`stat-card clickable ${stats.vencendo > 0 ? 'warning' : ''}`}
-                        onClick={() => stats.vencendo > 0 && setShowAlertasModal(true)}
-                    >
+                    <button type="button"
+                        className={`stat-card clickable ${stats.vencendo > 0 ? 'warning' : ''} ${filtroStatus === 'vencendo' ? 'is-active' : ''}`}
+                        onClick={() => alternarFiltro('vencendo')}
+                        aria-pressed={filtroStatus === 'vencendo'}>
                         <div className="stat-icon yellow">
                             <i className="fas fa-exclamation-triangle"></i>
                         </div>
@@ -815,13 +844,25 @@ export default function Calibracao() {
                             <span className="stat-value">{stats.vencendo}</span>
                             <span className="stat-label">Vencendo (20 dias)</span>
                         </div>
-                        {stats.vencendo > 0 && <span className="alert-badge pulse">!</span>}
-                    </div>
+                        {stats.vencendo > 0 && (
+                            <span className="alert-badge pulse" role="button" tabIndex={0}
+                                title="Ver alertas de calibração"
+                                aria-label="Ver alertas de calibração"
+                                onClick={(e) => { e.stopPropagation(); setShowAlertasModal(true); }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setShowAlertasModal(true);
+                                    }
+                                }}>!</span>
+                        )}
+                    </button>
 
-                    <div
-                        className={`stat-card clickable ${stats.vencidos > 0 ? 'danger' : ''}`}
-                        onClick={() => stats.vencidos > 0 && setShowAlertasModal(true)}
-                    >
+                    <button type="button"
+                        className={`stat-card clickable ${stats.vencidos > 0 ? 'danger' : ''} ${filtroStatus === 'vencida' ? 'is-active' : ''}`}
+                        onClick={() => alternarFiltro('vencida')}
+                        aria-pressed={filtroStatus === 'vencida'}>
                         <div className="stat-icon red">
                             <i className="fas fa-times-circle"></i>
                         </div>
@@ -829,8 +870,20 @@ export default function Calibracao() {
                             <span className="stat-value">{stats.vencidos}</span>
                             <span className="stat-label">Vencidos</span>
                         </div>
-                        {stats.vencidos > 0 && <span className="alert-badge danger">!</span>}
-                    </div>
+                        {stats.vencidos > 0 && (
+                            <span className="alert-badge danger" role="button" tabIndex={0}
+                                title="Ver alertas de calibração"
+                                aria-label="Ver alertas de calibração"
+                                onClick={(e) => { e.stopPropagation(); setShowAlertasModal(true); }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setShowAlertasModal(true);
+                                    }
+                                }}>!</span>
+                        )}
+                    </button>
                 </div>
 
                 {/* Tabela de Equipamentos */}
@@ -859,7 +912,7 @@ export default function Calibracao() {
                                             </div>
                                         </td>
                                     </tr>
-                                ) : equipamentosVisiveis.length === 0 ? (
+                                ) : equipamentosFiltrados.length === 0 ? (
                                     <tr>
                                         <td colSpan="8" className="text-center">
                                             <div className="empty-state">
@@ -869,7 +922,7 @@ export default function Calibracao() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    equipamentosVisiveis.map(equip => {
+                                    equipamentosFiltrados.map(equip => {
                                         const statusCal = getStatusCalibracao(equip);
                                         return (
                                             <tr

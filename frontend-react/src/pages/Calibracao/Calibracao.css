@@ -1,7 +1,12 @@
 /* ==================== CALIBRAÇÃO PAGE STYLES ==================== */
 
-/* Stats Grid */
-.stats-grid {
+/* Stats Grid
+   Escopado em `.calibracao-page`: `.stats-grid` e declarada sem escopo tambem
+   em Dashboard.css, Relatorios.css, responsive.css e ui-kit.css, e como o
+   Vite junta todo o CSS num arquivo so, quem vence e a ordem dos arquivos --
+   medido, uma regra do Dashboard (`@media 600 { 1fr }`) governava esta tela.
+   Com duas classes (0,2,0) a grade daqui passa a ser deterministica. */
+.calibracao-page .stats-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 1.5rem;
@@ -29,6 +34,41 @@
 
 .stat-card.clickable {
     cursor: pointer;
+}
+
+/* Os cards viraram `button` para entrar no foco pelo teclado. O elemento traz
+   estilos proprios de formulario que precisam ser neutralizados para ele
+   continuar parecendo um card. */
+button.stat-card {
+    width: 100%;
+    font: inherit;
+    text-align: left;
+    color: inherit;
+}
+
+button.stat-card:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+/* Filtro ativo. Borda e anel na cor de acao, mais um leve destaque de fundo:
+   so a borda ficava fraca demais nos cards que ja tem fundo colorido
+   (`warning` e `danger`). */
+.stat-card.is-active {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-soft-strong, var(--primary-soft)),
+        var(--shadow-md);
+}
+
+/* O "!" abre os alertas e vive dentro do card, que e um botao. Precisa de
+   area de toque propria e de um alvo maior que os 24px originais. */
+.stat-card .alert-badge {
+    cursor: pointer;
+}
+
+.stat-card .alert-badge:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
 }
 
 .stat-card.warning {
@@ -1107,7 +1147,7 @@
 
 /* Responsive */
 @media (max-width: 1200px) {
-    .stats-grid {
+    .calibracao-page .stats-grid {
         grid-template-columns: repeat(2, 1fr);
     }
 }
@@ -1206,22 +1246,49 @@
         border-radius: 0 8px 8px 0;
     }
 
-    .stats-grid {
-        grid-template-columns: 1fr;
+    /* 2x2 em vez de uma coluna: quatro cards empilhados empurravam a tabela
+       para fora da primeira tela. O icone encolhe e o card passa a empilhar
+       icone sobre texto, senao o numero nao cabe em metade da largura. */
+    .calibracao-page .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.7rem;
     }
 
-    .stat-card {
-        padding: 1rem;
+    .calibracao-page .stat-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+        padding: 0.85rem;
+        min-width: 0;
     }
 
-    .stat-icon {
-        width: 50px;
-        height: 50px;
-        font-size: 1.2rem;
+    .calibracao-page .stat-info {
+        min-width: 0;
     }
 
-    .stat-value {
-        font-size: 1.5rem;
+    .calibracao-page .stat-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        font-size: 1rem;
+    }
+
+    .calibracao-page .stat-value {
+        font-size: 1.45rem;
+    }
+
+    .calibracao-page .stat-label {
+        font-size: 0.76rem;
+        line-height: 1.25;
+    }
+
+    /* O alerta encosta no canto de um card mais estreito; alvo um pouco
+       maior para o toque. */
+    .calibracao-page .stat-card .alert-badge {
+        width: 28px;
+        height: 28px;
+        top: 8px;
+        right: 8px;
     }
 
     .resultado-options {

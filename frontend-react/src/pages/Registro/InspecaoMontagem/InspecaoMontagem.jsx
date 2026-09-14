@@ -915,16 +915,11 @@ export default function InspecaoMontagem() {
         setErrosValidacao([]);
     };
 
-    const formatarData = (dataString) => {
-        if (!dataString) return 'N/A';
-        try {
-            const [year, month, day] = dataString.split('-');
-            if (!year || !month || !day) return 'N/A';
-            return `${day}/${month}/${year}`;
-        } catch {
-            return 'N/A';
-        }
-    };
+    /* Delega ao utilitário compartilhado, que extrai a data por regex
+       (`^\d{4}-\d{2}-\d{2}`) e portanto ignora a parte de hora. A versão
+       local fazia `split('-')` e tomava o terceiro pedaço como dia: num
+       `created_at` ISO isso virava "14T12:57:44.000Z/09/2026". */
+    const formatarData = (dataString) => formatDateBR(dataString, 'N/A');
 
     const normalizarStatus = (status) => String(status || 'pendente').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 

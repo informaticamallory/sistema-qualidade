@@ -5,7 +5,7 @@ import { Tabs, ConfirmarSaida, MobileActionSheet } from '../../../components/ui'
 import { materiaisAPI, revisoesAPI, inspecoesRecebimentoAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
 import { upperFields } from '../../../utils/text';
-import { currentMonthISO, formatMonthLabel, monthRangeISO, previousMonthISO } from '../../../utils/date';
+import { currentMonthISO, formatDateBR, formatMonthLabel, monthRangeISO, previousMonthISO } from '../../../utils/date';
 import './InspecaoRecebimento.css';
 
 /* Inspeção de Recebimento.
@@ -49,7 +49,10 @@ const formVazio = () => ({
 
 const loteVazio = () => ({ lote: '', nota_fiscal: '', quantidade_total: '' });
 
-const formatarData = (iso) => (iso ? iso.split('-').reverse().join('/') : '—');
+/* Delega ao utilitário compartilhado: ele extrai a data por regex e ignora a
+   parte de hora. O `split('-').reverse()` daqui só funcionava com colunas de
+   data pura — num datetime ISO devolveria "14T12:57:44.000Z/09/2026". */
+const formatarData = (iso) => formatDateBR(iso, '—');
 
 export default function InspecaoRecebimento() {
     const { user } = useAuth();

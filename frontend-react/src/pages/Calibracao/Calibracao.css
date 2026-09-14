@@ -492,7 +492,7 @@
 }
 
 .modal-calibracao-view .modal-body {
-    overflow-y: auto;
+    overflow-y: visible;
 }
 
 .modal-header-view {
@@ -671,11 +671,11 @@
 }
 
 .calibracao-history-item {
-    display: grid;
+    display: flex;
     grid-template-columns: minmax(150px, 1fr) auto minmax(240px, 1.8fr) auto;
     align-items: center;
     gap: 0.85rem;
-    padding: 0.85rem;
+    padding: 0.75rem;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--surface-2);

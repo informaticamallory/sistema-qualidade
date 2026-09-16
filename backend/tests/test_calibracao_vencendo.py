@@ -12,6 +12,7 @@ from app.extensions import db
 from app.models.calibracao import Equipamento, Calibracao
 from app.routes.dashboard import _calibracao_status
 from app.utils.calibracao import DIAS_ALERTA_VENCIMENTO, contar_situacoes, situacao_equipamento
+from tests.conftest import SENHA_VALIDA
 
 HOJE = date.today()
 
@@ -108,3 +109,72 @@ def test_equipamento_inativo_fica_de_fora(parque):
     stats = contar_situacoes(Equipamento.query.filter_by(ativo=True).all(), HOJE)
     assert stats['vencendo'] == 1
     assert stats['total_equipamentos'] == 2
+
+
+def test_situacoes_nao_se_sobrepoem(parque):
+    """As quatro fatias do gráfico de pizza têm de somar o total.
+
+    'calibrados' não serve para isso porque inclui os que estão vencendo — era
+    o que faria o gráfico contar o mesmo equipamento duas vezes."""
+    stats = contar_situacoes(Equipamento.query.filter_by(ativo=True).all(), HOJE)
+    exclusivas = stats['em_dia'] + stats['vencendo'] + stats['vencidos'] + stats['nunca_calibrados']
+
+    assert exclusivas == stats['total_equipamentos'] == 3
+    assert stats['em_dia'] == 1
+    assert stats['calibrados'] == stats['em_dia'] + stats['vencendo']
+
+
+# ── Ponta a ponta: os dois gráficos do Dashboard ────────────────────────────
+
+def _token(client):
+    resp = client.post('/api/auth/login', json={'usuario': 'admin_ok', 'senha': SENHA_VALIDA})
+    return resp.get_json()['data']['token']
+
+
+def _dataset_por_id(payload, dataset_id):
+    return next(d for d in payload['datasets'] if d['id'] == dataset_id)
+
+
+def test_graficos_de_calibracao_saem_preenchidos(client, admin_ok, parque):
+    """Era o sintoma: "Sem dados para exibir" nos dois, com equipamento vencendo.
+
+    O período pedido é o mês corrente, em que não há calibração nenhuma — que é
+    exatamente a situação em que os gráficos vinham vazios."""
+    resp = client.get(
+        '/api/dashboard/builder-data',
+        query_string={'start_date': HOJE.replace(day=1).isoformat(), 'end_date': HOJE.isoformat()},
+        headers={'Authorization': f'Bearer {_token(client)}'})
+    assert resp.status_code == 200
+
+    payload = resp.get_json()['data']
+
+    alertas = _dataset_por_id(payload, 'calibracoes-alertas')
+    assert alertas['labels'] == ['Vencendo']
+    assert alertas['values'] == [2]
+
+    status = _dataset_por_id(payload, 'calibracoes-por-status')
+    assert dict(zip(status['labels'], status['values'])) == {'Vencendo': 2, 'Em dia': 1}
+    # Nenhuma fatia zerada: 'Vencida' e 'Nunca calibrado' não têm ninguém.
+    assert all(valor > 0 for valor in status['values'])
+
+    # É o que o front-end testa para decidir entre desenhar e mostrar
+    # "Sem dados para exibir".
+    for dataset in (alertas, status):
+        assert any(int(valor or 0) > 0 for valor in dataset['values'])
+
+
+def test_uma_unica_categoria_ainda_desenha(client, admin_ok, parque):
+    """Item 2 do diagnóstico: uma fatia só não pode virar "sem dados"."""
+    parque['sem_linha'].ativo = False
+    parque['em_dia'].ativo = False
+    db.session.commit()
+
+    resp = client.get(
+        '/api/dashboard/builder-data',
+        headers={'Authorization': f'Bearer {_token(client)}'})
+    payload = resp.get_json()['data']
+
+    status = _dataset_por_id(payload, 'calibracoes-por-status')
+    assert status['labels'] == ['Vencendo']
+    assert status['values'] == [1]
+    assert any(int(valor or 0) > 0 for valor in status['values'])

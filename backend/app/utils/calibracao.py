@@ -51,11 +51,16 @@ def contar_situacoes(equipamentos, hoje=None):
 
     'calibrados' inclui os que estão vencendo: eles têm calibração válida, só
     perto do fim. É o que os cards daquela tela sempre mostraram.
+
+    'em_dia' é o mesmo recorte sem os que estão vencendo — as quatro situações
+    exclusivas entre si, que é o que um gráfico de pizza precisa para as fatias
+    somarem o total sem contar ninguém duas vezes.
     """
     hoje = hoje or date.today()
     stats = {
         'total_equipamentos': len(equipamentos),
         'calibrados': 0,
+        'em_dia': 0,
         'vencendo': 0,
         'vencidos': 0,
         'nunca_calibrados': 0
@@ -71,6 +76,7 @@ def contar_situacoes(equipamentos, hoje=None):
             stats['vencendo'] += 1
             stats['calibrados'] += 1
         else:
+            stats['em_dia'] += 1
             stats['calibrados'] += 1
 
     return stats

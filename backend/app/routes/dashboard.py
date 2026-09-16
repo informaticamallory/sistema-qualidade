@@ -598,16 +598,37 @@ def get_dashboard_builder_data():
                 inc_count(cartoes_nc, _codigo_nome(cartao.codigo_produto, cartao.nome_produto), cartao.qtd_nao_conforme)
             inc_count(inspetores, cartao.responsavel or 'N/A')
 
-        calibracoes_status = {}
-        calibracoes_alertas = {}
-        equipamentos_setor = {}
+        # Os dois gráficos de calibração saem do parque de equipamentos, pela
+        # mesma função do card "Calibrações Vencendo". Vinham das linhas de
+        # `calibracoes` recortadas pelo período, e ficavam vazios pelos mesmos
+        # dois motivos do card: a calibração de quem vence daqui a dez dias foi
+        # feita há quase um ano, e equipamento cadastrado só com as datas não
+        # tem linha nenhuma para contar.
+        situacao_parque = contar_situacoes(current['equipamentos'])
+
+        def fatias(*chaves_rotulos):
+            """Só as situações com alguém dentro: fatia de valor zero não
+            desenha nada e ainda ocupa a legenda."""
+            return {
+                rotulo: situacao_parque[chave]
+                for chave, rotulo in chaves_rotulos
+                if situacao_parque[chave]
+            }
+
+        calibracoes_status = fatias(
+            ('em_dia', 'Em dia'),
+            ('vencendo', 'Vencendo'),
+            ('vencidos', 'Vencida'),
+            ('nunca_calibrados', 'Nunca calibrado'))
+
+        calibracoes_alertas = fatias(('vencendo', 'Vencendo'), ('vencidos', 'Vencida'))
+
+        # O responsável pela calibração continua entrando no ranking de
+        # inspetores, que é um número do período — ali o recorte faz sentido.
         for calibracao in current['calibracoes']:
-            status = _calibracao_status(calibracao)
-            inc_count(calibracoes_status, status.title())
-            if status in ('vencida', 'vencendo'):
-                inc_count(calibracoes_alertas, status.title())
             inc_count(inspetores, calibracao.responsavel or 'N/A')
 
+        equipamentos_setor = {}
         for equipamento in current['equipamentos']:
             inc_count(equipamentos_setor, equipamento.setor or 'Sem setor')
 
@@ -683,9 +704,12 @@ def get_dashboard_builder_data():
             _dataset('cartoes-por-status', 'Cartões por Status', rows_from_map(cartoes_status, 10), 'doughnut', ['bar', 'horizontalBar', 'pie', 'doughnut'], 'fa-id-card'),
             _dataset('cartoes-por-origem', 'Cartões por Origem', rows_from_map(cartoes_origem, 10), 'bar', ['bar', 'horizontalBar', 'pie', 'doughnut'], 'fa-location-dot'),
             _dataset('cartoes-nao-conformes', 'Produtos com Não Conformidade em Cartões', rows_from_map(cartoes_nc, 10), 'horizontalBar', ['bar', 'horizontalBar', 'pie', 'doughnut'], 'fa-rectangle-xmark'),
-            _dataset('calibracoes-por-status', 'Calibrações por Status', rows_from_map(calibracoes_status, 10), 'doughnut', ['bar', 'horizontalBar', 'pie', 'doughnut'], 'fa-tools'),
-            _dataset('calibracoes-alertas', 'Alertas de Calibração', rows_from_map(calibracoes_alertas, 10), 'bar', ['bar', 'horizontalBar', 'pie', 'doughnut'], 'fa-calendar-xmark'),
-            _dataset('equipamentos-por-setor', 'Equipamentos por Setor', rows_from_map(equipamentos_setor, 12), 'bar', ['bar', 'horizontalBar', 'pie', 'doughnut'], 'fa-tools'),
+            _dataset('calibracoes-por-status', 'Calibrações por Status', rows_from_map(calibracoes_status, 10), 'doughnut', ['bar', 'horizontalBar', 'pie', 'doughnut'], 'fa-tools',
+                     'Situação atual dos equipamentos ativos — não depende do filtro de período'),
+            _dataset('calibracoes-alertas', 'Alertas de Calibração', rows_from_map(calibracoes_alertas, 10), 'bar', ['bar', 'horizontalBar', 'pie', 'doughnut'], 'fa-calendar-xmark',
+                     'Equipamentos vencidos ou a até 20 dias do vencimento, hoje — não depende do filtro de período'),
+            _dataset('equipamentos-por-setor', 'Equipamentos por Setor', rows_from_map(equipamentos_setor, 12), 'bar', ['bar', 'horizontalBar', 'pie', 'doughnut'], 'fa-tools',
+                     'Equipamentos ativos por setor — não depende do filtro de período'),
             _dataset('inspecoes-por-turno', 'Registros por Turno', rows_from_map(turnos, 10), 'bar', ['bar', 'horizontalBar', 'pie', 'doughnut'], 'fa-clock'),
             _dataset('inspecoes-por-inspetor', 'Inspeções por Inspetor', rows_from_map(inspetores, 10), 'horizontalBar', ['bar', 'horizontalBar', 'pie', 'doughnut'], 'fa-user-check')
         ]

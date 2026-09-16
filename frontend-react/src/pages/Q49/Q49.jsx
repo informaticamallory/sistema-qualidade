@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import ExcelJS from 'exceljs';
 import AppLayout from '../../components/Layout/AppLayout';
+import { MobileActionSheet } from '../../components/ui';
 import { produtosAPI, q49API } from '../../services/api';
-import { formatDateBR, normalizeISODate, todayISO } from '../../utils/date';
+import {
+    currentMonthISO, formatDateBR, formatMonthLabel, monthRangeISO,
+    normalizeISODate, previousMonthISO, todayISO
+} from '../../utils/date';
 import './Q49.css';
 
 const MONTHS = [
@@ -21,7 +26,7 @@ const MONTHS = [
 ];
 
 const MODAL_TABS = [
-    { id: 'china', label: '🇨🇳 China' },
+    { id: 'china', label: '🌐 Internacional' },
     { id: 'decisaoBrasil', label: '⚖️ Decisão Brasil' },
     { id: 'brasil', label: '🇧🇷 Brasil' }
 ];
@@ -156,7 +161,7 @@ const UPPER_FIELDS = {
 };
 
 const CHINA_FIELDS = [
-    { name: 'datachina', label: 'Data China', type: 'date' },
+    { name: 'datachina', label: 'Data Internacional', type: 'date' },
     { name: 'ano', label: 'Ano', readOnly: true },
     { name: 'mes', label: 'Mês', readOnly: true },
     { name: 'po', label: 'P.O', type: 'text' },
@@ -172,7 +177,7 @@ const CHINA_FIELDS = [
     { name: 'qtdTotal', label: 'Qtd. Total', type: 'number' },
     { name: 'qtdInspecionada', label: 'Qtd. Inspecionada', type: 'number' },
     { name: 'rastreabilidade', label: 'Rastreabilidade', type: 'text' },
-    { name: 'inspetorChina', label: 'Inspetor China', type: 'text' },
+    { name: 'inspetorChina', label: 'Inspetor Internacional', type: 'text' },
     { name: 'resultado', label: 'Resultado', type: 'select', options: RESULTADO_OPTIONS },
     { name: 'rejeicoes', label: 'Rejeições / Informações', type: 'textarea' },
     { name: 'resumoProblemas', label: 'Resumo dos Problemas', type: 'textarea' }
@@ -228,6 +233,30 @@ function displayValue(value) {
     return value || '-';
 }
 
+/* Um card por valor que `resultado` aceita, mais o total. Sem o de Concessao
+   um registro nesse estado nao apareceria em card nenhum -- o campo tem
+   quatro valores, nao tres. */
+const CARDS_RESUMO = [
+    { chave: 'todos', rotulo: 'Total de inspeções', icone: 'fa-clipboard-list', tom: 'total' },
+    { chave: 'aprovado', rotulo: 'Aprovadas', icone: 'fa-circle-check', tom: 'approved' },
+    { chave: 'reprovado', rotulo: 'Reprovadas', icone: 'fa-circle-xmark', tom: 'rejected' },
+    { chave: 'pendente', rotulo: 'Pendentes', icone: 'fa-clock', tom: 'pending' },
+    { chave: 'concessao', rotulo: 'Concessão', icone: 'fa-handshake', tom: 'concessao' }
+];
+
+/* Rotulo textual do resultado, sem o badge -- serve a planilha e ao modo
+   leitura, que nao mostram o chip colorido. */
+const ROTULOS_RESULTADO = {
+    aprovado: 'Aprovado',
+    reprovado: 'Reprovado',
+    pendente: 'Pendente',
+    concessao: 'Concessão',
+    liberado: 'Liberado',
+    bloqueado: 'Bloqueado'
+};
+
+const rotuloResultado = (value) => ROTULOS_RESULTADO[normalizeSearch(value)] || value || '';
+
 const resultadoBadge = (value) => {
     const map = {
         aprovado: { label: 'Aprovado', className: 'badge-success' },
@@ -271,11 +300,108 @@ export default function Q49() {
         }
     };
 
+    /* ── Filtros ──
+       Periodo pela data da inspecao internacional (`datachina` no payload da
+       API -- o nome do campo fica, so o rotulo muda). Tudo no cliente, sobre
+       a lista ja carregada, como a busca que ja existia. */
+    const [filtroResultado, setFiltroResultado] = useState('todos');
+    const [monthFilter, setMonthFilter] = useState('');
+    const [dateFilter, setDateFilter] = useState('');
+    const [dateEndFilter, setDateEndFilter] = useState('');
+    const [rangeStartDraft, setRangeStartDraft] = useState('');
+    const [rangeEndDraft, setRangeEndDraft] = useState('');
+    const [showPeriodMenu, setShowPeriodMenu] = useState(false);
+    const periodMenuRef = useRef(null);
+    const [exportando, setExportando] = useState(false);
+
+    /* Linha tocada no celular e registro aberto em leitura. */
+    const [sheetItem, setSheetItem] = useState(null);
+    const [viewRecord, setViewRecord] = useState(null);
+
+    useEffect(() => {
+        if (!showPeriodMenu) return;
+        const fechar = (evento) => {
+            if (periodMenuRef.current && !periodMenuRef.current.contains(evento.target)) {
+                setShowPeriodMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', fechar);
+        /* `touchstart` alem de `mousedown`: no celular o mousedown sintetico
+           so chega depois do toque terminar, e as vezes nem chega. */
+        document.addEventListener('touchstart', fechar);
+        return () => {
+            document.removeEventListener('mousedown', fechar);
+            document.removeEventListener('touchstart', fechar);
+        };
+    }, [showPeriodMenu]);
+
+    const selecionarMes = (mes) => {
+        const alvo = mes || currentMonthISO();
+        const { start, end } = monthRangeISO(alvo);
+        setMonthFilter(alvo);
+        setDateFilter(start);
+        setDateEndFilter(end);
+        setRangeStartDraft('');
+        setRangeEndDraft('');
+        setShowPeriodMenu(false);
+    };
+
+    const aplicarIntervalo = () => {
+        if (!rangeStartDraft || !rangeEndDraft) {
+            alert('Selecione a data inicial e a data final.');
+            return;
+        }
+        setMonthFilter('');
+        setDateFilter(rangeStartDraft);
+        setDateEndFilter(rangeEndDraft);
+        setShowPeriodMenu(false);
+    };
+
+    const limparPeriodo = () => {
+        setMonthFilter('');
+        setDateFilter('');
+        setDateEndFilter('');
+        setRangeStartDraft('');
+        setRangeEndDraft('');
+        setShowPeriodMenu(false);
+    };
+
+    const periodoLabel = !dateFilter && !dateEndFilter
+        ? 'Todo período'
+        : (monthFilter
+            ? formatMonthLabel(monthFilter)
+            : `${formatDateBR(dateFilter, '—')} a ${formatDateBR(dateEndFilter, '—')}`);
+
+    /* Periodo e o primeiro corte, e os cards contam sobre ele: senao
+       "Aprovadas" mostraria o total historico com a tabela num mes so. */
+    const noPeriodo = useMemo(() => {
+        if (!dateFilter && !dateEndFilter) return records;
+        return records.filter((record) => {
+            const data = normalizeISODate(record.china?.datachina, '');
+            if (!data) return false;
+            if (dateFilter && data < dateFilter) return false;
+            if (dateEndFilter && data > dateEndFilter) return false;
+            return true;
+        });
+    }, [records, dateFilter, dateEndFilter]);
+
+    const contarResultado = (chave) => (chave === 'todos'
+        ? noPeriodo.length
+        : noPeriodo.filter((r) => normalizeSearch(r.china?.resultado) === chave).length);
+
+    const alternarResultado = (chave) => {
+        setFiltroResultado((atual) => (atual === chave ? 'todos' : chave));
+    };
+
     const filteredRecords = useMemo(() => {
         const term = normalizeSearch(search).trim();
-        if (!term) return records;
+        const porResultado = filtroResultado === 'todos'
+            ? noPeriodo
+            : noPeriodo.filter((r) => normalizeSearch(r.china?.resultado) === filtroResultado);
 
-        return records.filter((record) => {
+        if (!term) return porResultado;
+
+        return porResultado.filter((record) => {
             const china = record.china || {};
             const decisaoBrasil = record.decisaoBrasil || {};
             const brasil = record.brasil || {};
@@ -290,7 +416,7 @@ export default function Q49() {
                 brasil.inspetor
             ].some((value) => normalizeSearch(value).includes(term));
         });
-    }, [records, search]);
+    }, [noPeriodo, filtroResultado, search]);
 
     const clearProdutoSugestoes = () => {
         if (searchTimeout.current) {
@@ -442,47 +568,60 @@ export default function Q49() {
         }
     };
 
-    const exportRecords = () => {
+    /* Exporta o que esta na tabela -- periodo, resultado e busca aplicados --
+       em xlsx, como as telas de Injecao e Montagem. Antes saia um CSV com
+       separador ponto e virgula, que o Excel abre mas nao formata. */
+    const exportRecords = async () => {
         if (filteredRecords.length === 0) {
             alert('Nenhum registro para exportar.');
             return;
         }
+        setExportando(true);
+        try {
+            const workbook = new ExcelJS.Workbook();
+            const planilha = workbook.addWorksheet('Produto Importado');
+            planilha.columns = [
+                { header: 'N° Insp.', key: 'nInsp', width: 14 },
+                { header: 'Código SAP', key: 'codigoSAP', width: 16 },
+                { header: 'Descrição SAP', key: 'descricaoSAP', width: 38 },
+                { header: 'Fornecedor', key: 'fornecedor', width: 26 },
+                { header: 'Data Internacional', key: 'datachina', width: 18 },
+                { header: 'Resultado', key: 'resultado', width: 14 },
+                { header: 'Status Brasil', key: 'status', width: 14 }
+            ];
 
-        const columns = [
-            'N° INSP.',
-            'CÓDIGO SAP',
-            'DESCRIÇÃO SAP',
-            'FORNECEDOR',
-            'DATA CHINA',
-            'RESULTADO',
-            'STATUS BRASIL'
-        ];
-        const csvValue = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-        const lines = [
-            columns.map(csvValue).join(';'),
-            ...filteredRecords.map((record) => {
+            filteredRecords.forEach((record) => {
                 const china = record.china || {};
                 const decisaoBrasil = record.decisaoBrasil || {};
-                return [
-                    china.nInsp,
-                    china.codigoSAP,
-                    china.descricaoSAP,
-                    china.fornecedor,
-                    formatDate(china.datachina),
-                    china.resultado,
-                    decisaoBrasil.status
-                ].map(csvValue).join(';');
-            })
-        ];
-        const blob = new Blob([`\uFEFF${lines.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'q49-produto-importado.csv';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+                planilha.addRow({
+                    nInsp: china.nInsp || '',
+                    codigoSAP: china.codigoSAP || '',
+                    descricaoSAP: china.descricaoSAP || '',
+                    fornecedor: china.fornecedor || '',
+                    datachina: formatDateBR(china.datachina, ''),
+                    resultado: rotuloResultado(china.resultado),
+                    status: rotuloResultado(decisaoBrasil.status)
+                });
+            });
+
+            const cabecalho = planilha.getRow(1);
+            cabecalho.font = { bold: true };
+            cabecalho.alignment = { vertical: 'middle', horizontal: 'center' };
+            planilha.autoFilter = { from: 'A1', to: `G${planilha.rowCount}` };
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `produto-importado-${todayISO()}.xlsx`;
+            link.click();
+            URL.revokeObjectURL(url);
+        } finally {
+            setExportando(false);
+        }
     };
 
     const getCurrentTabIndex = () => MODAL_TABS.findIndex((tab) => tab.id === modalTab);
@@ -679,26 +818,131 @@ export default function Q49() {
                     </div>
                 </div>
 
-                <div className="table-card">
-                    <div className="q49-table-toolbar">
+                {/* Cards de resumo, no padrao das telas de Injecao e
+                    Recebimento. Contam sobre o periodo escolhido e filtram a
+                    tabela ao serem clicados. */}
+                <div className="summary-grid q49-summary-grid">
+                    {CARDS_RESUMO.map((card) => (
+                        <button
+                            key={card.chave}
+                            type="button"
+                            className={`summary-card is-clickable ${card.tom} ${filtroResultado === card.chave ? 'is-active' : ''}`}
+                            onClick={() => (card.chave === 'todos'
+                                ? setFiltroResultado('todos')
+                                : alternarResultado(card.chave))}
+                            aria-pressed={filtroResultado === card.chave}
+                        >
+                            <div className="summary-heading">
+                                <i className={`fas ${card.icone}`} aria-hidden="true"></i>
+                                <span>{card.rotulo}</span>
+                            </div>
+                            <strong>{loading ? '—' : contarResultado(card.chave)}</strong>
+                            <span className="summary-line" aria-hidden="true"></span>
+                        </button>
+                    ))}
+                </div>
+
+                {/* Busca, periodo, resultado, exportacao e acao numa linha so,
+                    como nas telas de referencia. Os rotulos ficam em
+                    `.filter-label`, que some no celular deixando so icones. */}
+                <div className="header-actions q49-filtros">
+                    <div className="q49-busca">
+                        <i className="fas fa-search" aria-hidden="true"></i>
                         <input
-                            type="text"
-                            className="form-control q49-search"
-                            placeholder="Buscar..."
+                            type="search"
+                            className="form-control"
+                            placeholder="Buscar por código SAP, descrição, fornecedor..."
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
+                            aria-label="Buscar registro"
                         />
-                        <div className="q49-toolbar-actions">
-                            <button type="button" className="btn btn-primary" onClick={openNewModal}>
-                                + Novo Registro
-                            </button>
-                            <button type="button" className="btn btn-outline" onClick={exportRecords}>
-                                <i className="fas fa-file-excel"></i>
-                                Exportar
-                            </button>
-                        </div>
                     </div>
 
+                    <div className="period-filter-wrapper" ref={periodMenuRef}>
+                        <button
+                            type="button"
+                            className={showPeriodMenu ? 'period-filter-button active' : 'period-filter-button'}
+                            onClick={() => setShowPeriodMenu((c) => !c)}
+                            aria-expanded={showPeriodMenu}
+                            aria-haspopup="dialog"
+                            title={'Período: ' + periodoLabel}
+                        >
+                            <i className="fas fa-calendar-alt" aria-hidden="true"></i>
+                            <span className="filter-label">
+                                <span className="period-filter-title">Período</span>
+                                <span className="period-filter-value">{periodoLabel}</span>
+                            </span>
+                            <i className="fas fa-chevron-down period-filter-chevron" aria-hidden="true"></i>
+                        </button>
+
+                        {showPeriodMenu && (
+                            <div className="period-filter-menu" role="dialog" aria-label="Selecionar período">
+                                <div className="period-filter-quick-actions">
+                                    <button type="button" onClick={() => selecionarMes(currentMonthISO())}>Mês atual</button>
+                                    <button type="button" onClick={() => selecionarMes(previousMonthISO())}>Mês anterior</button>
+                                </div>
+
+                                <label>
+                                    <span>Outro mês</span>
+                                    <input type="month" value={monthFilter}
+                                        onChange={(event) => selecionarMes(event.target.value)} />
+                                </label>
+
+                                <div className="period-range-fields">
+                                    <label>
+                                        <span>Data inicial</span>
+                                        <input type="date" value={rangeStartDraft}
+                                            max={rangeEndDraft || undefined}
+                                            onChange={(event) => setRangeStartDraft(event.target.value)} />
+                                    </label>
+                                    <label>
+                                        <span>Data final</span>
+                                        <input type="date" value={rangeEndDraft}
+                                            min={rangeStartDraft || undefined}
+                                            onChange={(event) => setRangeEndDraft(event.target.value)} />
+                                    </label>
+                                </div>
+
+                                <button type="button" className="period-range-apply"
+                                    onClick={aplicarIntervalo}>Aplicar intervalo</button>
+
+                                {(dateFilter || dateEndFilter) && (
+                                    <button type="button" className="period-limpar"
+                                        onClick={limparPeriodo}>Mostrar todo período</button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Equivalente ao filtro de turno das telas de inspecao:
+                        aqui o recorte util e o resultado da inspecao. */}
+                    <select
+                        className="form-control q49-filtro-resultado"
+                        value={filtroResultado}
+                        onChange={(event) => setFiltroResultado(event.target.value)}
+                        aria-label="Filtrar por resultado"
+                    >
+                        <option value="todos">Todos os resultados</option>
+                        {RESULTADO_OPTIONS.map((opcao) => (
+                            <option key={opcao.value} value={opcao.value}>{opcao.label}</option>
+                        ))}
+                    </select>
+
+                    <button type="button" className="btn btn-success" onClick={exportRecords}
+                        disabled={exportando || filteredRecords.length === 0}
+                        title="Exportar Excel">
+                        <i className={`fas ${exportando ? 'fa-spinner fa-spin' : 'fa-file-excel'}`}></i>
+                        <span className="filter-label"> Exportar Excel</span>
+                    </button>
+
+                    <button type="button" className="btn btn-primary" onClick={openNewModal}
+                        title="Novo registro">
+                        <i className="fas fa-plus"></i>
+                        <span className="filter-label"> Novo Registro</span>
+                    </button>
+                </div>
+
+                <div className="table-card">
                     <div className="table-container q49-table-container">
                         <table className="table q49-table q49-summary-table">
                             <thead>
@@ -707,7 +951,7 @@ export default function Q49() {
                                     <th>CÓDIGO SAP</th>
                                     <th>DESCRIÇÃO SAP</th>
                                     <th>FORNECEDOR</th>
-                                    <th>DATA CHINA</th>
+                                    <th>DATA INTERNACIONAL</th>
                                     <th>RESULTADO</th>
                                     <th>STATUS BRASIL</th>
                                     <th className="actions-column">AÇÕES</th>
@@ -718,11 +962,25 @@ export default function Q49() {
                                     <tr>
                                         <td colSpan="8" className="q49-loading-cell">Carregando...</td>
                                     </tr>
+                                ) : filteredRecords.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="8" className="q49-loading-cell">
+                                            {records.length
+                                                ? 'Nenhum registro corresponde aos filtros.'
+                                                : 'Nenhum registro cadastrado ainda.'}
+                                        </td>
+                                    </tr>
                                 ) : filteredRecords.map((record) => {
                                     const china = record.china || {};
                                     const decisaoBrasil = record.decisaoBrasil || {};
                                     return (
-                                        <tr key={record.id}>
+                                        <tr key={record.id}
+                                            className={`mobile-clickable-row ${sheetItem?.id === record.id ? 'mobile-row-active' : ''}`}
+                                            onClick={() => {
+                                                if (typeof window === 'undefined') return;
+                                                if (!window.matchMedia('(max-width: 1024px)').matches) return;
+                                                setSheetItem(record);
+                                            }}>
                                             <td>{displayValue(china.nInsp)}</td>
                                             <td>{displayValue(china.codigoSAP)}</td>
                                             <td>{displayValue(china.descricaoSAP)}</td>
@@ -731,31 +989,34 @@ export default function Q49() {
                                             <td>{resultadoBadge(china.resultado)}</td>
                                             <td>{resultadoBadge(decisaoBrasil.status)}</td>
                                             <td className="actions-column q49-actions-cell">
-                                                <div className="q49-row-actions">
+                                                <div className="acoes">
+                                                    {/* "Ver" abria o mesmo modal de edicao do lapis --
+                                                        nao era modo leitura. Agora abre o modal
+                                                        somente leitura. */}
                                                     <button
                                                         type="button"
-                                                        className="icon-button q49-action-view"
+                                                        className="btn-icon btn-view"
                                                         title="Ver"
                                                         aria-label="Ver registro"
-                                                        onClick={() => openEditModal(record)}
+                                                        onClick={(e) => { e.stopPropagation(); setViewRecord(record); }}
                                                     >
                                                         <i className="fas fa-eye"></i>
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        className="icon-button q49-action-edit"
+                                                        className="btn-icon btn-edit"
                                                         title="Editar"
                                                         aria-label="Editar registro"
-                                                        onClick={() => openEditModal(record)}
+                                                        onClick={(e) => { e.stopPropagation(); openEditModal(record); }}
                                                     >
                                                         <i className="fas fa-edit"></i>
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        className="icon-button q49-action-delete"
+                                                        className="btn-icon btn-delete"
                                                         title="Excluir"
                                                         aria-label="Excluir registro"
-                                                        onClick={() => deleteRecord(record.id)}
+                                                        onClick={(e) => { e.stopPropagation(); deleteRecord(record.id); }}
                                                     >
                                                         <i className="fas fa-trash"></i>
                                                     </button>
@@ -768,13 +1029,130 @@ export default function Q49() {
                         </table>
                     </div>
 
-                    {!loading && filteredRecords.length === 0 && (
-                        <div className="table-empty">
-                            <i className="fas fa-inbox"></i>
-                            <p>Nenhum registro encontrado.</p>
-                        </div>
-                    )}
+                    {/* O aviso de lista vazia ficava aqui, fora da tabela. Foi
+                        para dentro, numa linha com colSpan, como nas telas de
+                        Injecao e Recebimento -- assim o cabecalho da tabela
+                        continua visivel quando nao ha registros. */}
                 </div>
+
+                {/* Somente leitura: o botao do olho abria o formulario de
+                    edicao, o mesmo do lapis. Aqui os dados sao texto, sem
+                    campo nenhum para alterar sem querer. */}
+                {viewRecord && (
+                    <div className="modal-overlay q49-view-modal" onClick={() => setViewRecord(null)}>
+                        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                            <div className="modal-header">
+                                <h2><i className="fas fa-eye"></i> Registro de Produto Importado</h2>
+                                <button className="modal-close" onClick={() => setViewRecord(null)}
+                                    aria-label="Fechar">
+                                    <i className="fas fa-times"></i>
+                                </button>
+                            </div>
+
+                            <div className="modal-body">
+                                <h3 className="section-title">Identificação</h3>
+                                <div className="view-grid">
+                                    <div className="view-item">
+                                        <span className="view-label">N° Insp.</span>
+                                        <span className="view-value">{displayValue(viewRecord.china?.nInsp)}</span>
+                                    </div>
+                                    <div className="view-item">
+                                        <span className="view-label">Código SAP</span>
+                                        <span className="view-value">{displayValue(viewRecord.china?.codigoSAP)}</span>
+                                    </div>
+                                    <div className="view-item">
+                                        <span className="view-label">Data Internacional</span>
+                                        <span className="view-value">{formatDate(viewRecord.china?.datachina)}</span>
+                                    </div>
+                                    <div className="view-item">
+                                        <span className="view-label">Descrição SAP</span>
+                                        <span className="view-value">{displayValue(viewRecord.china?.descricaoSAP)}</span>
+                                    </div>
+                                    <div className="view-item">
+                                        <span className="view-label">Fornecedor</span>
+                                        <span className="view-value">{displayValue(viewRecord.china?.fornecedor)}</span>
+                                    </div>
+                                    <div className="view-item">
+                                        <span className="view-label">Inspetor</span>
+                                        <span className="view-value">{displayValue(viewRecord.china?.inspetorChina)}</span>
+                                    </div>
+                                </div>
+
+                                <h3 className="section-title">Resultado da Inspeção</h3>
+                                <div className="view-grid">
+                                    <div className="view-item">
+                                        <span className="view-label">Resultado</span>
+                                        <span className="view-value">{resultadoBadge(viewRecord.china?.resultado)}</span>
+                                    </div>
+                                    <div className="view-item">
+                                        <span className="view-label">Qtd. total</span>
+                                        <span className="view-value">{displayValue(viewRecord.china?.qtdTotal)}</span>
+                                    </div>
+                                    <div className="view-item">
+                                        <span className="view-label">Qtd. inspecionada</span>
+                                        <span className="view-value">{displayValue(viewRecord.china?.qtdInspecionada)}</span>
+                                    </div>
+                                </div>
+
+                                {viewRecord.china?.resumoProblemas && (
+                                    <div className="view-section">
+                                        <h4>Resumo dos problemas</h4>
+                                        <p>{viewRecord.china.resumoProblemas}</p>
+                                    </div>
+                                )}
+
+                                <h3 className="section-title">Decisão Brasil</h3>
+                                <div className="view-grid">
+                                    <div className="view-item">
+                                        <span className="view-label">Status Brasil</span>
+                                        <span className="view-value">{resultadoBadge(viewRecord.decisaoBrasil?.status)}</span>
+                                    </div>
+                                    <div className="view-item">
+                                        <span className="view-label">Decisão Mallory</span>
+                                        <span className="view-value">{displayValue(viewRecord.decisaoBrasil?.decisaoMallory)}</span>
+                                    </div>
+                                    <div className="view-item">
+                                        <span className="view-label">Tipo de reprovação</span>
+                                        <span className="view-value">{displayValue(viewRecord.decisaoBrasil?.tipoReprovacao)}</span>
+                                    </div>
+                                </div>
+
+                                {viewRecord.decisaoBrasil?.observacoes && (
+                                    <div className="view-section">
+                                        <h4>Observações</h4>
+                                        <p>{viewRecord.decisaoBrasil.observacoes}</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="modal-footer">
+                                <button className="btn btn-outline" onClick={() => setViewRecord(null)}>
+                                    Fechar
+                                </button>
+                                <button className="btn btn-primary"
+                                    onClick={() => {
+                                        const alvo = viewRecord;
+                                        setViewRecord(null);
+                                        openEditModal(alvo);
+                                    }}>
+                                    <i className="fas fa-pen" aria-hidden="true"></i> Editar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Mesmas tres acoes da coluna, em tamanho de toque. */}
+                <MobileActionSheet
+                    item={sheetItem}
+                    titulo={sheetItem ? (sheetItem.china?.nInsp || sheetItem.china?.codigoSAP || 'Registro') : ''}
+                    onFechar={() => setSheetItem(null)}
+                    acoes={[
+                        { id: 'ver', rotulo: 'Ver', icone: 'fa-eye', className: 'btn-view', onClick: setViewRecord },
+                        { id: 'editar', rotulo: 'Editar', icone: 'fa-edit', className: 'btn-edit', onClick: openEditModal },
+                        { id: 'excluir', rotulo: 'Excluir', icone: 'fa-trash', className: 'btn-delete', onClick: (r) => deleteRecord(r.id) }
+                    ]}
+                />
 
                 {typeof document !== 'undefined' && createPortal(renderModal(), document.body)}
             </div>

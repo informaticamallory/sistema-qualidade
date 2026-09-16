@@ -424,3 +424,122 @@
         grid-column: span 1;
     }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   Cards de resumo e barra de filtros
+   ══════════════════════════════════════════════════════════════════════
+   As classes `.summary-card`, `.summary-grid` e `.period-filter-*` nao sao
+   declaradas aqui: as primeiras vivem em ui/theme/ui-kit.css e as ultimas,
+   sem escopo, em InspecaoInjecao.css e InspecaoMontagem.css, valendo para o
+   sistema inteiro pelo bundle. Aqui fica so o que e proprio desta tela. */
+
+/* Cinco cards, um por valor de resultado mais o total. O `auto-fit` do
+   ui-kit deixaria 4+1 em telas medias; fixar cinco colunas mantem a linha
+   unica onde cabe. */
+.q49-page .q49-summary-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+/* Tom de "Concessao", que o ui-kit nao tem: usa a mesma cor do badge de
+   concessao que esta tela ja usava na tabela. */
+.summary-card.concessao .summary-heading i {
+    color: var(--info);
+}
+
+.summary-card.concessao .summary-line {
+    background: var(--info);
+}
+
+/* ── Barra de filtros ── */
+.q49-filtros {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: var(--gap, 1rem);
+}
+
+.q49-busca {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1 1 260px;
+    min-width: 180px;
+}
+
+.q49-busca > i {
+    position: absolute;
+    left: 14px;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.q49-busca .form-control {
+    width: 100%;
+    padding-left: 38px;
+}
+
+.q49-filtro-resultado {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 170px;
+}
+
+/* ── Tablet e celular ── */
+@media (max-width: 1024px) {
+    /* Cinco cards em duas colunas: o quinto ocupa a linha inteira embaixo,
+       em vez de ficar sozinho num terco de largura. */
+    .q49-page .q49-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.7rem;
+    }
+
+    .q49-page .q49-summary-grid .summary-card:last-child {
+        grid-column: 1 / -1;
+    }
+
+    .q49-page .q49-filtros {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.5rem;
+        width: 100%;
+    }
+
+    .q49-page .q49-filtros .q49-busca,
+    .q49-page .q49-filtros .q49-filtro-resultado {
+        grid-column: 1 / -1;
+        order: 2;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .q49-page .q49-filtros .period-filter-wrapper,
+    .q49-page .q49-filtros .btn {
+        order: 1;
+        width: 100%;
+        min-width: 0;
+        min-height: 42px;
+        padding: 0.55rem;
+        border-radius: 12px;
+    }
+
+    .q49-page .q49-filtros .period-filter-button {
+        min-height: 42px;
+        padding: 0.55rem;
+        border-radius: 12px;
+    }
+
+    /* A coluna de acoes sai e as tres acoes passam para a folha de baixo.
+       Escopado a pagina: esconder `.col-acoes`/`.actions-column` so e
+       aceitavel onde existe o caminho alternativo. */
+    .q49-page .table th.actions-column,
+    .q49-page .table td.actions-column {
+        display: none;
+    }
+}
+
+@media (max-width: 600px) {
+    .q49-page .q49-filtros .filter-label {
+        display: none;
+    }
+}

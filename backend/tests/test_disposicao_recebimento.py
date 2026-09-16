@@ -99,6 +99,25 @@ def test_api_grava_e_devolve_a_disposicao(client, admin_ok):
     assert alterado.get_json()['data']['disposicao'] == 'Seleção'
 
 
+def test_lista_sem_page_devolve_tudo(client, admin_ok, app):
+    """Os cards contam no cliente sobre a lista recebida.
+
+    A resposta vinha cortada em 50 por padrão, então "Total de entradas"
+    empacaria nos 50 assim que a tabela passasse disso."""
+    for i in range(55):
+        _relatorio(cod_sap=f'B{i:05d}')
+
+    headers = {'Authorization': f'Bearer {_token(client)}'}
+
+    resp = client.get('/api/relatorio-recebimento', headers=headers)
+    assert len(resp.get_json()['data']) == 55
+
+    # Quem pedir página continua recebendo página.
+    paginado = client.get('/api/relatorio-recebimento',
+                          query_string={'page': 1, 'limit': 20}, headers=headers)
+    assert len(paginado.get_json()['data']) == 20
+
+
 def test_api_deduz_a_disposicao_de_registro_antigo(client, admin_ok, app):
     """Registro gravado antes da mudança: só `rel`, sem `disposicao`."""
     antigo = _relatorio(dev='X')

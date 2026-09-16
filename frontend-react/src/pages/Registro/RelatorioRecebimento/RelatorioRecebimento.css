@@ -1,0 +1,139 @@
+/* ══════════════════════════════════════════════════════════════════════
+   Relatório de Entrada de Matéria-Prima Nacional
+   ══════════════════════════════════════════════════════════════════════
+   Só o que é próprio desta tela. `.summary-card`, `.summary-grid`,
+   `.period-filter-*`, `.btn-icon` e `.acoes` já existem — as primeiras no
+   ui-kit, as outras sem escopo em InspecaoInjecao.css e InspecaoMontagem.css,
+   valendo para o sistema inteiro pelo bundle único do Vite.
+
+   Tudo abaixo de `.relatorio-recebimento-page`: os nomes usados aqui são
+   disputados por várias telas, e a ordem dos arquivos no bundle é que decide
+   quem vence. Com o prefixo, vence por especificidade. */
+
+/* Quatro situações do material mais o total: as mesmas três do filtro de
+   Status, para o card e o select nunca discordarem, e "Em disposição", que é
+   outro recorte — lote com destino declarado. O `auto-fit` do ui-kit deixaria
+   4+1 em tela média; fixar cinco colunas mantém a linha única onde cabe. */
+.relatorio-recebimento-page .recb-summary-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+/* Tom de "Em disposição", que o ui-kit não tem. Token dos dois temas: no
+   escuro o roxo clareia sozinho. */
+.summary-card.disposicao .summary-heading i {
+    color: var(--purple);
+}
+
+.summary-card.disposicao .summary-line {
+    background: var(--purple);
+}
+
+/* ── Barra de filtros ── */
+.relatorio-recebimento-page .recb-filtros {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: var(--gap, 1rem);
+}
+
+.relatorio-recebimento-page .recb-busca {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1 1 260px;
+    min-width: 180px;
+}
+
+.relatorio-recebimento-page .recb-busca > i {
+    position: absolute;
+    left: 14px;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.relatorio-recebimento-page .recb-busca .form-control {
+    width: 100%;
+    padding-left: 38px;
+}
+
+.relatorio-recebimento-page .recb-filtro-status {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 170px;
+}
+
+/* ── Estado vazio dentro da tabela ── */
+.relatorio-recebimento-page .recb-vazio-celula {
+    padding: var(--space-8) var(--space-4);
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.relatorio-recebimento-page .recb-vazio-celula i {
+    display: block;
+    margin-bottom: var(--space-2);
+    font-size: 2rem;
+    color: var(--text-subtle, var(--text-muted));
+}
+
+/* ── Tablet e celular ── */
+@media (max-width: 1024px) {
+    /* Cinco cards em duas colunas: o quinto ocupa a linha inteira embaixo, em
+       vez de ficar sozinho num terço de largura. */
+    .relatorio-recebimento-page .recb-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.7rem;
+    }
+
+    .relatorio-recebimento-page .recb-summary-grid .summary-card:last-child {
+        grid-column: 1 / -1;
+    }
+
+    .relatorio-recebimento-page .recb-filtros {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.5rem;
+        width: 100%;
+    }
+
+    .relatorio-recebimento-page .recb-filtros .recb-busca,
+    .relatorio-recebimento-page .recb-filtros .recb-filtro-status {
+        grid-column: 1 / -1;
+        order: 2;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .relatorio-recebimento-page .recb-filtros .period-filter-wrapper,
+    .relatorio-recebimento-page .recb-filtros .column-toggle,
+    .relatorio-recebimento-page .recb-filtros .btn {
+        order: 1;
+        width: 100%;
+        min-width: 0;
+        min-height: 42px;
+        padding: 0.55rem;
+        border-radius: 12px;
+    }
+
+    .relatorio-recebimento-page .recb-filtros .period-filter-button,
+    .relatorio-recebimento-page .recb-filtros .column-toggle > .btn {
+        width: 100%;
+        min-height: 42px;
+        padding: 0.55rem;
+        border-radius: 12px;
+    }
+
+    /* A coluna de ações sai e as três ações passam para a folha de baixo.
+       Escondê-la só é aceitável onde existe o caminho alternativo. */
+    .relatorio-recebimento-page .table th.actions-column,
+    .relatorio-recebimento-page .table td.actions-column {
+        display: none;
+    }
+}
+
+@media (max-width: 600px) {
+    .relatorio-recebimento-page .recb-filtros .filter-label {
+        display: none;
+    }
+}

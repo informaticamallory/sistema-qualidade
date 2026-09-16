@@ -191,12 +191,22 @@ def handle_relatorios():
                 query = query.filter(RelatorioRecebimento.status_material == status)
 
             query = query.order_by(RelatorioRecebimento.data_inspecao.desc(), RelatorioRecebimento.id.desc())
-            paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+
+            # Sem `page`, devolve tudo — mesmo contrato do Q49. A tela recorta
+            # por período e conta os cards no cliente, e com a resposta cortada
+            # em 50 o "Total de entradas" pararia de crescer nos 50. Quem passar
+            # `page` continua recebendo página.
+            if request.args.get('page'):
+                paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+                registros, total = paginated.items, paginated.total
+            else:
+                registros = query.all()
+                total = len(registros)
 
             return create_response(
                 success=True,
-                data=[r.to_dict() for r in paginated.items],
-                message=f"Encontrados {paginated.total} relatórios"
+                data=[r.to_dict() for r in registros],
+                message=f"Encontrados {total} relatórios"
             )
         except Exception as e:
             current_app.logger.error(f"Erro ao buscar relatórios de recebimento: {str(e)}")

@@ -79,6 +79,7 @@ def _apply_payload(registro, dados):
     registro.qtd_liberados = _to_int(brasil.get('qtdLiberados'))
     registro.qtd_bloqueados = _to_int(brasil.get('qtdBloqueados'))
     registro.inspetor = brasil.get('inspetor')
+    registro.codigo_barras = brasil.get('codigoBarras')
     registro.decisao_brasil = brasil.get('decisaoBrasil') or 'pendente'
     registro.reporte_docushare = brasil.get('reporteDocushare')
     registro.disposicao_decisao = brasil.get('disposicaoDecisao')

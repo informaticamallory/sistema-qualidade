@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import ExcelJS from 'exceljs';
 import AppLayout from '../../components/Layout/AppLayout';
-import { MobileActionSheet } from '../../components/ui';
+import ScannerCodigo from '../../components/ScannerCodigo/ScannerCodigo';
+import { MobileActionSheet, Tabs } from '../../components/ui';
 import { produtosAPI, q49API } from '../../services/api';
 import {
     currentMonthISO, formatDateBR, formatMonthLabel, monthRangeISO,
@@ -25,11 +26,23 @@ const MONTHS = [
     'DEZEMBRO'
 ];
 
+/* O componente Tabs do UI Kit recebe o icone como no separado do rotulo, dai
+   `emoji` fora do texto. `titulo` e o nome por extenso, usado na visao geral —
+   ali nao ha aba para identificar a secao. */
 const MODAL_TABS = [
-    { id: 'china', label: '🌐 Internacional' },
-    { id: 'decisaoBrasil', label: '⚖️ Decisão Brasil' },
-    { id: 'brasil', label: '🇧🇷 Brasil' }
+    { id: 'china', label: 'Internacional', emoji: '🌐', titulo: 'Inspeção Internacional' },
+    { id: 'decisaoBrasil', label: 'Decisão Brasil', emoji: '⚖️', titulo: 'Decisão Brasil' },
+    { id: 'brasil', label: 'Brasil', emoji: '🇧🇷', titulo: 'Inspeção no Brasil' }
 ];
+
+/* Campos que vem do cadastro do material: enquanto o Cod. SAP corresponder a um
+   material conhecido eles ficam somente leitura, porque editar aqui criaria uma
+   descricao diferente da que consta no cadastro para a mesma peca. */
+const CAMPOS_DO_MATERIAL = ['descricaoSAP', 'linha', 'modelo'];
+
+const codigoDoProduto = (produto) => String(
+    produto?.cod_material || produto?.codigo || produto?.codigoSAP || ''
+).trim().toUpperCase();
 
 const RESULTADO_OPTIONS = [
     { value: 'aprovado', label: 'Aprovado' },
@@ -135,6 +148,7 @@ const emptyBrasil = () => {
         dataEntrada,
         ...dateParts(dataEntrada),
         dataInspecao: '',
+        codigoBarras: '',
         qtdInspecionada: '',
         qtdNCInspecionada: '',
         qtdLiberados: '',
@@ -157,7 +171,7 @@ const emptyRecordForm = () => ({
 const UPPER_FIELDS = {
     china: ['codigoSAP', 'descricaoSAP', 'modelo', 'fornecedor'],
     decisaoBrasil: ['decisaoMallory', 'respReprovacao'],
-    brasil: ['inspetor', 'reporteDocushare', 'nRNA']
+    brasil: ['inspetor', 'codigoBarras', 'reporteDocushare', 'nRNA']
 };
 
 const CHINA_FIELDS = [
@@ -199,6 +213,7 @@ const BRASIL_FIELDS = [
     { name: 'ano', label: 'Ano', readOnly: true },
     { name: 'mes', label: 'Mês', readOnly: true },
     { name: 'dataInspecao', label: 'Data Inspeção', type: 'date' },
+    { name: 'codigoBarras', label: 'Código de Barras', type: 'barcode' },
     { name: 'qtdInspecionada', label: 'Qtd. Inspecionada', type: 'number' },
     { name: 'qtdNCInspecionada', label: 'Qtd. NC Inspecionada', type: 'number' },
     { name: 'qtdLiberados', label: 'Qtd. Total de Produtos Liberados', type: 'number' },
@@ -280,7 +295,26 @@ export default function Q49() {
     const [formData, setFormData] = useState(emptyRecordForm);
     const [produtoSugestoes, setProdutoSugestoes] = useState([]);
     const [showSugestoes, setShowSugestoes] = useState(false);
+    const [buscandoSap, setBuscandoSap] = useState(false);
     const searchTimeout = useRef(null);
+
+    /* Abas (padrao) ou todos os campos numa tela so, como nos modais de Nova
+       Inspecao de Recebimento e Novo Material / Revisao. */
+    const [formViewMode, setFormViewMode] = useState('tabs');
+
+    /* O Cod. SAP bateu com um material conhecido. O ref existe porque quem le
+       isso e o retorno da busca, 350 ms depois — o valor do estado capturado na
+       renderizacao em que a busca comecou ja estaria velho. */
+    const [autoPreenchido, setAutoPreenchido] = useState(false);
+    const autoPreenchidoRef = useRef(false);
+    const definirAutoPreenchido = (valor) => {
+        autoPreenchidoRef.current = valor;
+        setAutoPreenchido(valor);
+    };
+
+    /* Leitor de codigo de barras da aba Brasil. */
+    const [scannerAberto, setScannerAberto] = useState(false);
+    const [barcodeStatus, setBarcodeStatus] = useState(null);
 
     useEffect(() => {
         loadRecords();
@@ -424,69 +458,167 @@ export default function Q49() {
             searchTimeout.current = null;
         }
 
+        setBuscandoSap(false);
         setProdutoSugestoes([]);
         setShowSugestoes(false);
     };
 
-    const buscarSugestoes = (termo) => {
+    /* Busca com atraso: cada tecla cancela o timer anterior, entao a API so e
+       chamada quando o inspetor para de digitar. Mesmos 350 ms e mesmo minimo
+       de dois caracteres do modal de Novo Material / Revisao — abaixo disso o
+       endpoint de produtos recusa o termo e a lista viria com a base inteira.
+
+       `autoPreencher` separa os dois disparos: digitar preenche os campos do
+       material, receber o foco apenas reabre a lista. Sem isso, entrar no campo
+       de um registro ja salvo sobrescreveria o que estivesse la. */
+    const buscarSugestoes = (termo, autoPreencher = false) => {
         if (searchTimeout.current) {
             clearTimeout(searchTimeout.current);
         }
 
-        const busca = String(termo || '').trim();
+        const busca = String(termo || '').trim().toUpperCase();
         if (busca.length < 2) {
+            setBuscandoSap(false);
             setProdutoSugestoes([]);
             setShowSugestoes(false);
             return;
         }
 
+        setBuscandoSap(true);
         searchTimeout.current = setTimeout(async () => {
+            let sugestoes = [];
             try {
                 const response = await produtosAPI.search(busca);
                 const data = response.data?.success ? response.data.data : response.data?.data;
-                const sugestoes = Array.isArray(data) ? data : [];
-
-                setProdutoSugestoes(sugestoes);
-                setShowSugestoes(sugestoes.length > 0);
-            } catch (error) {
-                setProdutoSugestoes([]);
-                setShowSugestoes(false);
+                sugestoes = Array.isArray(data) ? data : [];
+            } catch {
+                /* Codigo ainda nao cadastrado e resposta esperada, nao erro. */
             }
-        }, 300);
+
+            setBuscandoSap(false);
+            setProdutoSugestoes(sugestoes);
+            setShowSugestoes(sugestoes.length > 0);
+
+            if (!autoPreencher) return;
+
+            /* A mesma consulta serve a lista e ao preenchimento: quando o que
+               foi digitado e exatamente um dos resultados, nao ha o que
+               escolher — os campos ja podem ser preenchidos. */
+            const exato = sugestoes.find((produto) => codigoDoProduto(produto) === busca);
+            if (exato) {
+                preencherComProduto(exato);
+                return;
+            }
+
+            /* Codigo sem material correspondente: os campos que tinham vindo do
+               cadastro esvaziam e voltam a aceitar digitacao. So esses — o que
+               foi preenchido a mao fica onde esta. */
+            if (autoPreenchidoRef.current) {
+                definirAutoPreenchido(false);
+                setFormData((current) => ({
+                    ...current,
+                    china: { ...current.china, descricaoSAP: '', linha: '', modelo: '' }
+                }));
+            }
+        }, 350);
     };
 
-    const selecionarProduto = (produto) => {
-        const codigo = produto.cod_material || produto.codigo || produto.codigoSAP || '';
+    const preencherComProduto = (produto) => {
         const descricao = produto.desc_material || produto.descricao || produto.descricaoSAP || '';
         const linha = produto.cod_linha || produto.linha || '';
         const modelo = getProdutoModelo(produto);
         const fornecedor = produto.fornecedor || produto.nome_fornecedor || produto.desc_fornecedor || '';
 
+        definirAutoPreenchido(true);
         setFormData((current) => ({
             ...current,
             china: {
                 ...current.china,
-                codigoSAP: String(codigo || current.china.codigoSAP || '').toUpperCase(),
-                descricaoSAP: String(descricao || current.china.descricaoSAP || '').toUpperCase(),
-                linha: linha || current.china.linha || '',
+                codigoSAP: codigoDoProduto(produto) || current.china.codigoSAP,
+                descricaoSAP: String(descricao || '').toUpperCase(),
+                linha: linha || '',
                 modelo: String(modelo || '').toUpperCase(),
+                /* Fornecedor segue editavel: a compra nem sempre vem do
+                   fornecedor que consta no cadastro do material. */
                 fornecedor: String(fornecedor || current.china.fornecedor || '').toUpperCase()
             }
         }));
+    };
 
+    const selecionarProduto = (produto) => {
+        preencherComProduto(produto);
         clearProdutoSugestoes();
     };
 
-    const openNewModal = () => {
+    /* ── Codigo de barras (aba Brasil) ──
+       A camera so aparece onde existe de fato: aparelho sem camera ou pagina
+       sem HTTPS nao ganham um botao que so daria erro. Mesmo teste da Inspecao
+       de Montagem, de onde vem o componente do leitor. */
+    const suportaCamera = typeof navigator !== 'undefined'
+        && !!navigator.mediaDevices?.getUserMedia
+        && window.isSecureContext;
+
+    const conferirCodigoBarras = async (codigo) => {
+        const barcode = String(codigo || '').trim();
+        if (barcode.length < 3) return;
+
+        try {
+            const response = await produtosAPI.getByBarcode(barcode);
+            const produto = response.data?.success ? response.data.data : null;
+            if (!produto) {
+                setBarcodeStatus({ tipo: 'error', mensagem: 'Nenhum produto encontrado para este código de barras.' });
+                return;
+            }
+
+            const sapDoProduto = codigoDoProduto(produto);
+            const sapDoRegistro = String(formData.china.codigoSAP || '').trim().toUpperCase();
+
+            /* Divergencia e o caso que justifica a conferencia: a etiqueta lida
+               no recebimento nao ser a do material que o registro diz conter. */
+            if (sapDoRegistro && sapDoProduto && sapDoRegistro !== sapDoProduto) {
+                setBarcodeStatus({
+                    tipo: 'error',
+                    mensagem: `Este código pertence ao produto ${sapDoProduto}, não ao ${sapDoRegistro} do registro.`
+                });
+                return;
+            }
+
+            setBarcodeStatus({
+                tipo: 'success',
+                mensagem: `Produto conferido: ${sapDoProduto}${produto.desc_material ? ' — ' + produto.desc_material : ''}`
+            });
+        } catch {
+            setBarcodeStatus({ tipo: 'error', mensagem: 'Nenhum produto encontrado para este código de barras.' });
+        }
+    };
+
+    const aoLerCodigoPelaCamera = (codigo) => {
+        setNestedField('brasil', 'codigoBarras', codigo);
+        setBarcodeStatus(null);
+        conferirCodigoBarras(codigo);
+    };
+
+    /* Estado que o modal carrega entre uma abertura e outra: sem zerar aqui, o
+       proximo registro abriria com os campos travados e o aviso da leitura
+       anterior ainda na tela. */
+    const prepararModal = () => {
         clearProdutoSugestoes();
+        definirAutoPreenchido(false);
+        setBarcodeStatus(null);
+        setScannerAberto(false);
+        setFormViewMode('tabs');
+        setModalTab('china');
+    };
+
+    const openNewModal = () => {
+        prepararModal();
         setFormData(emptyRecordForm());
         setEditingId(null);
-        setModalTab('china');
         setShowModal(true);
     };
 
     const openEditModal = (record) => {
-        clearProdutoSugestoes();
+        prepararModal();
         const blank = emptyRecordForm();
         setFormData({
             china: { ...blank.china, ...(record.china || {}) },
@@ -494,15 +626,13 @@ export default function Q49() {
             brasil: { ...blank.brasil, ...(record.brasil || {}) }
         });
         setEditingId(record.id);
-        setModalTab('china');
         setShowModal(true);
     };
 
     const closeModal = () => {
-        clearProdutoSugestoes();
+        prepararModal();
         setShowModal(false);
         setEditingId(null);
-        setModalTab('china');
         setFormData(emptyRecordForm());
     };
 
@@ -624,70 +754,140 @@ export default function Q49() {
         }
     };
 
-    const getCurrentTabIndex = () => MODAL_TABS.findIndex((tab) => tab.id === modalTab);
-
-    const goToPrevTab = () => {
-        const index = getCurrentTabIndex();
-        if (index > 0) setModalTab(MODAL_TABS[index - 1].id);
-    };
-
-    const goToNextTab = () => {
-        const index = getCurrentTabIndex();
-        if (index < MODAL_TABS.length - 1) setModalTab(MODAL_TABS[index + 1].id);
-    };
+    /* Anterior/Proximo saiu: quem quiser ver tudo de uma vez usa o modo
+       "Visao geral" no topo, e quem preferir por partes clica na aba. O rodape
+       ficou so com Fechar e Salvar. */
 
     const renderField = (section, field) => {
         const value = formData[section]?.[field.name] ?? '';
-        const className = `form-control ${field.upper ? 'field-upper' : ''}`.trim();
 
+        /* Trava enquanto o Cod. SAP corresponder a um material conhecido. Fica
+           readOnly e nao disabled: campo desabilitado nao viaja no formulario,
+           e o valor precisa ser salvo. */
+        const doMaterial = section === 'china'
+            && autoPreenchido
+            && CAMPOS_DO_MATERIAL.includes(field.name);
+
+        const className = [
+            'form-control',
+            field.upper ? 'field-upper' : '',
+            doMaterial ? 'campo-lido' : ''
+        ].filter(Boolean).join(' ');
+
+        /* ── Cod. SAP: busca conforme se digita ── */
         if (section === 'china' && field.name === 'codigoSAP') {
             return (
-                <div className="form-group produto-autocomplete" key={`${section}-${field.name}`}>
+                /* onBlur no conjunto, e nao no input: clicar num item da lista
+                   tambem e um blur do campo, e fechar ali cancelaria a escolha
+                   antes de o clique valer. */
+                <div className="form-group campo-autocomplete"
+                    key={`${section}-${field.name}`}
+                    onBlur={(event) => {
+                        if (!event.currentTarget.contains(event.relatedTarget)) {
+                            setShowSugestoes(false);
+                        }
+                    }}>
                     <label htmlFor={`q49-${section}-${field.name}`}>{field.label}</label>
-                    <input
-                        id={`q49-${section}-${field.name}`}
-                        type="text"
-                        className={className}
-                        value={value}
-                        autoComplete="off"
-                        onChange={(event) => {
-                            const nextValue = event.target.value.toUpperCase();
-                            setNestedField(section, field.name, nextValue);
-                            buscarSugestoes(nextValue);
-                        }}
-                        onFocus={() => {
-                            if (produtoSugestoes.length > 0) {
-                                setShowSugestoes(true);
-                            } else {
-                                buscarSugestoes(value);
-                            }
-                        }}
-                        onBlur={() => {
-                            setTimeout(() => setShowSugestoes(false), 150);
-                        }}
-                    />
+                    <div className="campo-com-status">
+                        <input
+                            id={`q49-${section}-${field.name}`}
+                            type="text"
+                            className={className}
+                            value={value}
+                            autoComplete="off"
+                            onChange={(event) => {
+                                const nextValue = event.target.value.toUpperCase();
+                                setNestedField(section, field.name, nextValue);
+                                buscarSugestoes(nextValue, true);
+                            }}
+                            onFocus={() => {
+                                if (produtoSugestoes.length > 0) {
+                                    setShowSugestoes(true);
+                                } else {
+                                    buscarSugestoes(value);
+                                }
+                            }}
+                        />
+                        {/* O spinner fica no proprio campo da busca, nao nos
+                            campos que so recebem o resultado. */}
+                        {buscandoSap && (
+                            <span className="campo-spinner" role="status"
+                                aria-label="Buscando código SAP">
+                                <i className="fas fa-spinner fa-spin" aria-hidden="true"></i>
+                            </span>
+                        )}
+                    </div>
                     {showSugestoes && produtoSugestoes.length > 0 && (
-                        <ul className="autocomplete-list" role="listbox">
+                        <ul className="autocomplete-lista" role="listbox">
                             {produtoSugestoes.map((produto, index) => {
-                                const codigo = produto.cod_material || produto.codigo || produto.codigoSAP || '';
-                                const descricao = produto.desc_material || produto.descricao || produto.descricaoSAP || '';
+                                const codigo = codigoDoProduto(produto);
+                                const descricao = produto.desc_material
+                                    || produto.descricao || produto.descricaoSAP || '';
 
                                 return (
-                                    <li
-                                        key={`${codigo || 'produto'}-${index}`}
-                                        className="autocomplete-item"
-                                        role="option"
-                                        onMouseDown={(event) => {
-                                            event.preventDefault();
-                                            selecionarProduto(produto);
-                                        }}
-                                    >
-                                        <span className="autocomplete-cod">{codigo}</span>
-                                        <span className="autocomplete-desc">{descricao || 'Sem descrição cadastrada'}</span>
+                                    <li key={`${codigo || 'produto'}-${index}`}>
+                                        <button type="button" className="autocomplete-item"
+                                            onClick={() => selecionarProduto(produto)}>
+                                            <span className="autocomplete-cod">{codigo}</span>
+                                            <span className="autocomplete-desc">
+                                                {descricao || 'Sem descrição cadastrada'}
+                                            </span>
+                                        </button>
                                     </li>
                                 );
                             })}
                         </ul>
+                    )}
+                </div>
+            );
+        }
+
+        /* ── Codigo de barras: camera opcional ── */
+        if (field.type === 'barcode') {
+            return (
+                <div className="form-group" key={`${section}-${field.name}`}>
+                    <label htmlFor={`q49-${section}-${field.name}`}>{field.label}</label>
+                    {/* O botao da camera e um extra: digitar e usar leitor fisico
+                        (que chega como digitacao seguida de Enter) seguem
+                        funcionando igual. */}
+                    <div className="barcode-campo">
+                        <input
+                            id={`q49-${section}-${field.name}`}
+                            type="text"
+                            className={className}
+                            value={value}
+                            autoComplete="off"
+                            placeholder="Escaneie ou digite o código de barras"
+                            onChange={(event) => {
+                                setNestedField(section, field.name, event.target.value);
+                                if (barcodeStatus) setBarcodeStatus(null);
+                            }}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                    event.preventDefault();
+                                    conferirCodigoBarras(event.target.value);
+                                }
+                            }}
+                            onBlur={(event) => conferirCodigoBarras(event.target.value)}
+                        />
+                        {suportaCamera && (
+                            <button
+                                type="button"
+                                className="barcode-camera-btn"
+                                onClick={() => setScannerAberto(true)}
+                                title="Ler com a câmera"
+                                aria-label="Ler código de barras com a câmera"
+                            >
+                                <i className="fas fa-camera" aria-hidden="true"></i>
+                            </button>
+                        )}
+                    </div>
+                    {barcodeStatus && (
+                        <span className={`barcode-status barcode-status-${barcodeStatus.tipo}`} role="status">
+                            <i className={`fas ${barcodeStatus.tipo === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}`}
+                                aria-hidden="true"></i>
+                            {barcodeStatus.mensagem}
+                        </span>
                     )}
                 </div>
             );
@@ -722,18 +922,28 @@ export default function Q49() {
                         min={field.type === 'number' ? '0' : undefined}
                         className={className}
                         value={value}
-                        readOnly={field.readOnly}
+                        readOnly={field.readOnly || doMaterial}
                         onChange={(event) => setNestedField(section, field.name, event.target.value)}
                     />
+                )}
+                {doMaterial && (
+                    <small className="campo-ajuda">Vem do cadastro do material.</small>
                 )}
             </div>
         );
     };
 
-    const renderModalTab = () => (
-        <div className="tab-content active">
+    const renderSecao = (aba) => (
+        <div className="q49-form-section" key={aba.id}>
+            {/* O titulo so na visao geral: no modo abas a propria aba ja diz em
+                que secao o inspetor esta. */}
+            {formViewMode === 'geral' && (
+                <h3 className="section-title">
+                    <span aria-hidden="true">{aba.emoji}</span> {aba.titulo}
+                </h3>
+            )}
             <div className="q49-form-grid">
-                {FIELDS_BY_TAB[modalTab].map((field) => renderField(modalTab, field))}
+                {FIELDS_BY_TAB[aba.id].map((field) => renderField(aba.id, field))}
             </div>
         </div>
     );
@@ -744,7 +954,6 @@ export default function Q49() {
         const title = editingId
             ? `Editar Registro — ${editingCode}`
             : 'Novo Registro — Inspeção de Produto Importado';
-        const currentIndex = getCurrentTabIndex();
 
         return (
             <div className="modal-overlay q49-modal" onClick={closeModal}>
@@ -757,36 +966,48 @@ export default function Q49() {
                             </button>
                         </div>
 
-                        <div className="tabs-container q49-modal-tabs">
-                            <div className="tabs" role="tablist" aria-label="Seções do registro Q49">
-                                {MODAL_TABS.map((tab) => (
-                                    <button
-                                        type="button"
-                                        key={tab.id}
-                                        className={`tab ${modalTab === tab.id ? 'active' : ''}`}
-                                        onClick={() => setModalTab(tab.id)}
-                                        role="tab"
-                                        aria-selected={modalTab === tab.id}
-                                    >
-                                        {tab.label}
-                                    </button>
-                                ))}
-                            </div>
+                        {/* Mesmo alternador dos modais de Nova Inspecao de
+                            Recebimento e Novo Material / Revisao. */}
+                        <div className="form-view-switcher" role="group"
+                            aria-label="Modo de exibição do formulário">
+                            <button type="button"
+                                className={`view-switch-option ${formViewMode === 'tabs' ? 'active' : ''}`}
+                                onClick={() => setFormViewMode('tabs')}
+                                aria-pressed={formViewMode === 'tabs'}>
+                                <i className="fas fa-layer-group" aria-hidden="true"></i> Abas
+                            </button>
+                            <button type="button"
+                                className={`view-switch-option ${formViewMode === 'geral' ? 'active' : ''}`}
+                                onClick={() => setFormViewMode('geral')}
+                                aria-pressed={formViewMode === 'geral'}>
+                                <i className="fas fa-list-check" aria-hidden="true"></i> Visão geral
+                            </button>
                         </div>
 
+                        {/* Tabs do UI Kit: ja trazem o padrao ARIA de tablist,
+                            com navegacao pelas setas do teclado. Na visao geral
+                            somem, porque nao ha mais o que navegar. */}
+                        {formViewMode === 'tabs' && (
+                            <Tabs
+                                className="modal-tabs"
+                                ariaLabel="Seções do registro Q49"
+                                activeId={modalTab}
+                                onChange={setModalTab}
+                                items={MODAL_TABS.map((aba) => ({
+                                    id: aba.id,
+                                    label: aba.label,
+                                    icon: <span aria-hidden="true">{aba.emoji}</span>
+                                }))}
+                            />
+                        )}
+
                         <div className="modal-body">
-                            {renderModalTab()}
+                            {formViewMode === 'geral'
+                                ? MODAL_TABS.map((aba) => renderSecao(aba))
+                                : renderSecao(MODAL_TABS.find((aba) => aba.id === modalTab) || MODAL_TABS[0])}
                         </div>
 
                         <div className="modal-footer q49-modal-footer">
-                            <div className="nav-buttons">
-                                <button type="button" className="btn btn-nav" onClick={goToPrevTab} disabled={currentIndex === 0}>
-                                    <i className="fas fa-arrow-left"></i> Anterior
-                                </button>
-                                <button type="button" className="btn btn-nav" onClick={goToNextTab} disabled={currentIndex === MODAL_TABS.length - 1}>
-                                    Próximo <i className="fas fa-arrow-right"></i>
-                                </button>
-                            </div>
                             <div className="action-buttons-footer">
                                 <button type="button" className="btn btn-secondary" onClick={closeModal}>
                                     <i className="fas fa-times"></i> Fechar
@@ -1076,6 +1297,10 @@ export default function Q49() {
                                         <span className="view-label">Inspetor</span>
                                         <span className="view-value">{displayValue(viewRecord.china?.inspetorChina)}</span>
                                     </div>
+                                    <div className="view-item">
+                                        <span className="view-label">Código de Barras</span>
+                                        <span className="view-value">{displayValue(viewRecord.brasil?.codigoBarras)}</span>
+                                    </div>
                                 </div>
 
                                 <h3 className="section-title">Resultado da Inspeção</h3>
@@ -1152,6 +1377,16 @@ export default function Q49() {
                         { id: 'editar', rotulo: 'Editar', icone: 'fa-edit', className: 'btn-edit', onClick: openEditModal },
                         { id: 'excluir', rotulo: 'Excluir', icone: 'fa-trash', className: 'btn-delete', onClick: (r) => deleteRecord(r.id) }
                     ]}
+                />
+
+                {/* Fora do modal: o componente ja se projeta em portal, e
+                    monta-lo aqui evita que fechar o formulario deixe a camera
+                    ligada. */}
+                <ScannerCodigo
+                    aberto={scannerAberto}
+                    onLer={aoLerCodigoPelaCamera}
+                    onFechar={() => setScannerAberto(false)}
+                    titulo="Ler código de barras do produto"
                 />
 
                 {typeof document !== 'undefined' && createPortal(renderModal(), document.body)}

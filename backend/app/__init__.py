@@ -337,6 +337,29 @@ def garantir_schema_registros_inspecao(app):
             app.logger.error(f"Erro ao atualizar schema de registros_inspecao: {str(e)}")
 
 
+def garantir_schema_q49(app):
+    """Garante o código de barras do Q49 em bancos existentes.
+
+    create_all() não acrescenta coluna a tabela já criada, e 'q49_registros'
+    existe desde o deploy anterior."""
+    from sqlalchemy import inspect
+
+    with app.app_context():
+        try:
+            inspector = inspect(db.engine)
+            if not inspector.has_table('q49_registros'):
+                return
+
+            colunas = {col['name'] for col in inspector.get_columns('q49_registros')}
+            if 'codigo_barras' not in colunas:
+                db.session.execute(db.text(
+                    "ALTER TABLE q49_registros ADD COLUMN codigo_barras VARCHAR(255)"))
+                db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Erro ao atualizar schema de q49_registros: {str(e)}")
+
+
 def garantir_schema_checklist_testes(app):
     """Garante campos de observação do checklist em bancos existentes."""
     from sqlalchemy import inspect
@@ -423,6 +446,7 @@ def criar_admin_padrao(app):
     garantir_lotes_das_inspecoes(app)
     garantir_schema_equipamentos(app)
     garantir_schema_registros_inspecao(app)
+    garantir_schema_q49(app)
     garantir_schema_checklist_testes(app)
     garantir_schema_fichas_nc(app)
 

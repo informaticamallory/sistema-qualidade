@@ -57,6 +57,11 @@ class Q49Registro(db.Model):
     qtd_liberados = db.Column(db.Integer, default=0)
     qtd_bloqueados = db.Column(db.Integer, default=0)
     inspetor = db.Column(db.String(100), index=True)
+    # Lido pela câmera na conferência do material que chegou ao Brasil, ou
+    # digitado. Sem índice: nenhuma consulta filtra por ele, e um índice que o
+    # ALTER TABLE de banco existente não criaria deixaria os dois esquemas
+    # diferentes entre si.
+    codigo_barras = db.Column(db.String(255))
     decisao_brasil = db.Column(db.String(30), default='pendente', index=True)
     reporte_docushare = db.Column(db.String(255))
     disposicao_decisao = db.Column(db.Text)
@@ -119,6 +124,7 @@ class Q49Registro(db.Model):
                 'qtdLiberados': self.qtd_liberados or 0,
                 'qtdBloqueados': self.qtd_bloqueados or 0,
                 'inspetor': self.inspetor or '',
+                'codigoBarras': self.codigo_barras or '',
                 'decisaoBrasil': self.decisao_brasil or 'pendente',
                 'reporteDocushare': self.reporte_docushare or '',
                 'disposicaoDecisao': self.disposicao_decisao or '',

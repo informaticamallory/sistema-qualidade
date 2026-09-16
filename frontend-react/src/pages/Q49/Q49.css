@@ -221,64 +221,73 @@
     background: rgba(255, 255, 255, 0.3);
 }
 
-.q49-modal-tabs {
-    flex-shrink: 0;
-    background: var(--surface-2);
-    border-bottom: 1px solid var(--border);
+/* As abas em si sao o componente Tabs do UI Kit, com o encaixe `.modal-tabs`
+   que o Cadastro de Material e a Inspecao de Recebimento ja usam. As regras
+   proprias daqui sairam junto com a barra antiga. */
+
+/* Cabecalho, alternador, abas e rodape nao encolhem.
+   `flex-shrink` vale 1 por omissao: num container em coluna com altura limitada
+   o navegador esmaga cada faixa abaixo da altura do proprio conteudo, e o
+   `overflow: hidden` do `.modal-content` corta o que sobra. O sintoma e o corpo
+   do modal deixar de rolar, porque com tudo esmagado o conteudo "cabe". */
+.q49-modal .modal-header,
+.q49-modal .form-view-switcher,
+.q49-modal .modal-tabs,
+.q49-modal .modal-footer {
+    flex: 0 0 auto;
 }
 
-.q49-modal-tabs .tabs {
-    display: flex;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    overflow-x: auto;
-}
-
-.q49-modal-tabs .tab {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 1rem 1.5rem;
-    cursor: pointer;
-    transition: all 0.3s;
-    font-weight: 500;
-    color: var(--text-muted);
-    border: 0;
-    border-bottom: 3px solid transparent;
-    background: none;
-    font-size: 0.95rem;
-    white-space: nowrap;
-}
-
-.q49-modal-tabs .tab.active {
-    color: var(--primary);
-    border-bottom-color: var(--primary);
-    background: var(--surface);
-    font-weight: 600;
-}
-
-.q49-modal-tabs .tab:hover:not(.active) {
-    background: var(--surface-3);
-}
-
+/* Sem `max-height` calculada: a altura do corpo sai do proprio flex, e a conta
+   antiga (94vh menos 245px) descrevia uma moldura que nao existe mais — o
+   rodape perdeu a linha de navegacao e o topo ganhou o alternador. */
 .q49-modal .modal-body {
     flex: 1 1 auto;
     min-height: 0;
-    max-height: calc(94vh - 245px);
     overflow-y: auto;
     padding: 1.5rem 1.75rem;
 }
 
+/* Visao geral: as tres secoes vem em sequencia, e a linha separa uma da outra. */
+.q49-modal .q49-form-section + .q49-form-section {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+}
+
+.q49-modal .q49-form-section .section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 1rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+/* So Fechar e Salvar, a direita. Era `space-between` por causa do par
+   Anterior/Proximo, que ficava na outra ponta. */
 .q49-modal .modal-footer {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 1rem;
     padding: 1.1rem 1.75rem;
     border-top: 1px solid var(--border);
     background: var(--surface-2);
     border-radius: 0 0 20px 20px;
+}
+
+/* Espaco do spinner e do botao da camera dentro do campo.
+   !important e tres classes porque o responsive.css declara
+   `.form-control { padding: 12px 14px !important }` abaixo de 480px, que
+   apagaria a reserva e deixaria o texto passar por baixo do icone. Vence por
+   especificidade, nao por ordem de arquivo. */
+.q49-modal .campo-com-status .form-control {
+    padding-right: 38px !important;
+}
+
+.q49-modal .barcode-campo .form-control {
+    padding-right: 46px !important;
 }
 
 .q49-form-grid {
@@ -299,49 +308,11 @@
     font-weight: 700;
 }
 
-.q49-modal .produto-autocomplete {
-    position: relative;
-}
-
-.q49-modal .autocomplete-list {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
-    right: 0;
-    z-index: 40;
-    max-height: 240px;
-    overflow-y: auto;
-    list-style: none;
-    margin: 0;
-    padding: 6px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    box-shadow: var(--shadow-md);
-}
-
-.q49-modal .autocomplete-item {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-}
-
-.q49-modal .autocomplete-item:hover {
-    background: var(--primary-soft);
-}
-
-.q49-modal .autocomplete-cod {
-    color: var(--text);
-    font-weight: 700;
-}
-
-.q49-modal .autocomplete-desc {
-    color: var(--text-muted);
-    font-size: 0.85rem;
-}
+/* O autocomplete proprio saiu: a lista agora e a `.campo-autocomplete` do
+   Cadastro de Material, que a Inspecao de Recebimento tambem usa. Aquelas
+   regras vivem sob o prefixo `.campo-autocomplete` justamente porque
+   `.autocomplete-item` e `.autocomplete-desc` sao nomes disputados por seis
+   telas no bundle unico do Vite. */
 
 .q49-field-wide {
     grid-column: span 2;
@@ -351,29 +322,15 @@
     text-transform: uppercase;
 }
 
-.nav-buttons,
-.action-buttons-footer {
+/* `.nav-buttons` e `.btn-nav` sairam com os botoes Anterior/Proximo. As Fichas
+   ainda os usam e declaram os dois no proprio CSS, entao nada muda la.
+   `.action-buttons-footer` ficou, agora com escopo, para nao depender da ordem
+   dos arquivos no bundle. */
+.q49-modal .action-buttons-footer {
     display: flex;
     align-items: center;
     gap: 0.75rem;
     flex-wrap: wrap;
-}
-
-.btn-nav {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-}
-
-.btn-nav:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.35);
-}
-
-.btn-nav:disabled {
-    background: var(--border-strong);
-    cursor: not-allowed;
-    opacity: 0.6;
 }
 
 @media (max-width: 768px) {
@@ -409,8 +366,7 @@
     }
 
     .q49-modal .modal-footer,
-    .nav-buttons,
-    .action-buttons-footer {
+    .q49-modal .action-buttons-footer {
         width: 100%;
         flex-direction: column;
         align-items: stretch;
@@ -541,5 +497,15 @@
 @media (max-width: 600px) {
     .q49-page .q49-filtros .filter-label {
         display: none;
+    }
+
+    /* As três abas somavam 371px numa barra de 353px, e "Brasil" ficava 18px
+       fora — só aparecia arrastando. Cortar o recuo lateral de 16px para 8px
+       economiza 48px e faz as três caberem, com os rótulos inteiros.
+       Escopado ao modal desta tela: o Cadastro de Material e a Inspeção de
+       Recebimento usam a mesma `.modal-tabs` com rótulos mais curtos. */
+    .q49-modal .modal-tabs .ui-tab {
+        padding-left: var(--space-2);
+        padding-right: var(--space-2);
     }
 }

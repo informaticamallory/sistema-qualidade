@@ -189,6 +189,14 @@ export default function Dashboard() {
                 setRegistros(registrosResult.value.data.data);
             }
 
+            /* O relógio do "Ao vivo" marcava --:--:-- desde sempre: `lastUpdated`
+               era declarado e lido, mas nunca recebia valor. Marca aqui, e só
+               quando os indicadores de fato chegaram — um horário novo com dados
+               velhos na tela seria pior do que traço nenhum. */
+            if (builderResult.status === 'fulfilled' && builderResult.value?.data.success) {
+                setLastUpdated(new Date());
+            }
+
             const failed = [builderResult, registrosResult].filter((result) => result.status === 'rejected');
             const rateLimited = failed.some((result) => result.reason?.response?.status === 429);
             if (rateLimited) {

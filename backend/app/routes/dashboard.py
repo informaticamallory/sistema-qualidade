@@ -11,6 +11,7 @@ from app.models.calibracao import Equipamento, Calibracao
 from app.models.q49 import Q49Registro
 from app.utils.responses import create_response
 from app.utils.auth_decorators import permission_required
+from app.utils.calibracao import DIAS_ALERTA_VENCIMENTO, contar_situacoes
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -135,10 +136,13 @@ def _cartao_to_dashboard(reg):
 
 
 def _calibracao_status(reg):
+    """Situação de UMA linha de calibração, para a lista de registros e para a
+    distribuição de status do período. Os cards de vencidas/vencendo não usam
+    isto: eles olham o equipamento, em `contar_situacoes`."""
     hoje = datetime.now().date()
     if reg.data_validade and reg.data_validade < hoje:
         return 'vencida'
-    if reg.data_validade and (reg.data_validade - hoje).days <= 20:
+    if reg.data_validade and (reg.data_validade - hoje).days <= DIAS_ALERTA_VENCIMENTO:
         return 'vencendo'
     return _normalizar_status(reg.resultado or 'aprovado')
 
@@ -446,8 +450,18 @@ def get_dashboard_builder_data():
             reprovados = sum(status_counts.get(status, 0) for status in REPROVADO_STATUS) + status_counts.get('bloqueado', 0) + status_counts.get('vencida', 0)
             pendentes = status_counts.get('pendente', 0) + status_counts.get('vencendo', 0)
             cartoes_nc = sum(int(cartao.qtd_nao_conforme or 0) for cartao in period['cartoes'])
-            calibracoes_vencidas = sum(1 for calibracao in period['calibracoes'] if _calibracao_status(calibracao) == 'vencida')
-            calibracoes_vencendo = sum(1 for calibracao in period['calibracoes'] if _calibracao_status(calibracao) == 'vencendo')
+
+            # Vencidas e vencendo são estado ATUAL do parque de equipamentos,
+            # não um total do período, e por isso saem de `contar_situacoes`
+            # sobre os equipamentos ativos — a mesma função que responde à tela
+            # de Calibração. Antes vinham das linhas de `calibracoes` recortadas
+            # pelo filtro de período, o que errava duas vezes: a calibração de
+            # um equipamento que vence daqui a 10 dias foi feita há quase um
+            # ano, portanto fora de qualquer período recente, e equipamento
+            # cadastrado só com as datas não tem linha nenhuma para contar.
+            situacao_parque = contar_situacoes(period['equipamentos'])
+            calibracoes_vencidas = situacao_parque['vencidos']
+            calibracoes_vencendo = situacao_parque['vencendo']
 
             return {
                 'total_montagem': total_montagem,
@@ -620,8 +634,10 @@ def get_dashboard_builder_data():
             metric('cartoes-nc', 'Qtd. Não Conforme em Cartões', summary['cartoes_nc'], 'fa-ban', 'danger', '', comp('cartoes_nc')),
             metric('calibracoes', 'Calibrações', summary['total_calibracoes'], 'fa-tools', 'primary', '', comp('total_calibracoes')),
             metric('equipamentos', 'Equipamentos Ativos', summary['total_equipamentos'], 'fa-tools', 'primary', ''),
-            metric('calibracoes-vencidas', 'Calibrações Vencidas', summary['calibracoes_vencidas'], 'fa-calendar-xmark', 'danger', '', comp('calibracoes_vencidas')),
-            metric('calibracoes-vencendo', 'Calibrações Vencendo', summary['calibracoes_vencendo'], 'fa-clock', 'warning', '', comp('calibracoes_vencendo'))
+            # Sem comparação: os dois medem o parque hoje, então o período
+            # anterior daria o mesmo número e a variação seria sempre zero.
+            metric('calibracoes-vencidas', 'Calibrações Vencidas', summary['calibracoes_vencidas'], 'fa-calendar-xmark', 'danger'),
+            metric('calibracoes-vencendo', 'Calibrações Vencendo', summary['calibracoes_vencendo'], 'fa-clock', 'warning')
         ]
 
         compare_rows = []

@@ -9,13 +9,13 @@ from app.models.calibracao import TipoEquipamento, Equipamento, Calibracao
 from app.services.r2_storage import criar_nome_objeto, eh_url_publica, r2_configurado, salvar_arquivo
 from app.utils.responses import create_response
 from app.utils.auth_decorators import auth_required, check_permission
+from app.utils.calibracao import (
+    DIAS_ALERTA_VENCIMENTO, contar_situacoes, dias_restantes
+)
 
 equipamentos_bp = Blueprint('equipamentos', __name__)
 tipos_equipamento_bp = Blueprint('tipos_equipamento', __name__)
 calibracoes_bp = Blueprint('calibracoes', __name__)
-
-# Dias de antecedência para considerar uma calibração "vencendo"
-DIAS_ALERTA_VENCIMENTO = 20
 
 CAMPOS_EQUIPAMENTO_TEXTO = [
     'nome', 'codigo_sap', 'fabricante', 'modelo', 'numero_serie', 'setor',
@@ -48,13 +48,8 @@ def _parse_date(valor):
     return datetime.strptime(str(valor)[:10], '%Y-%m-%d').date()
 
 
-def _dias_restantes(equipamento, hoje):
-    """Dias até a validade da última calibração (None se nunca calibrado)"""
-    ultima = equipamento.ultima_calibracao()
-    validade = ultima.data_validade if ultima and ultima.data_validade else equipamento.data_proxima_calibracao
-    if not validade:
-        return None
-    return (validade - hoje).days
+# `_dias_restantes` virou `dias_restantes` em app/utils/calibracao.py, para o
+# Dashboard responder pela mesma regra que esta tela.
 
 
 def _aplicar_dados_equipamento(equipamento, dados):
@@ -525,30 +520,8 @@ def calibracoes_stats():
         return negado
 
     try:
-        hoje = date.today()
         equipamentos = Equipamento.query.filter_by(ativo=True).all()
-
-        stats = {
-            'total_equipamentos': len(equipamentos),
-            'calibrados': 0,
-            'vencendo': 0,
-            'vencidos': 0,
-            'nunca_calibrados': 0
-        }
-
-        for equip in equipamentos:
-            dias = _dias_restantes(equip, hoje)
-            if dias is None:
-                stats['nunca_calibrados'] += 1
-            elif dias < 0:
-                stats['vencidos'] += 1
-            elif dias <= DIAS_ALERTA_VENCIMENTO:
-                stats['vencendo'] += 1
-                stats['calibrados'] += 1
-            else:
-                stats['calibrados'] += 1
-
-        return create_response(success=True, data=stats)
+        return create_response(success=True, data=contar_situacoes(equipamentos, date.today()))
 
     except Exception as e:
         current_app.logger.error(f"Erro ao calcular estatísticas: {str(e)}")
@@ -576,7 +549,7 @@ def calibracoes_alertas():
 
         alertas = []
         for equip in equipamentos:
-            dias = _dias_restantes(equip, hoje)
+            dias = dias_restantes(equip, hoje)
             if dias is not None and dias <= DIAS_ALERTA_VENCIMENTO:
                 alertas.append({
                     'equipamento': equip.to_dict(),

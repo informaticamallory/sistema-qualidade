@@ -69,6 +69,18 @@ class FichaRecebimento(db.Model):
         }
 
 
+# De que campo antigo sai cada disposição, na ordem em que o desempate é
+# resolvido quando mais de um veio preenchido.
+DISPOSICOES_LEGADAS = (
+    ('rel', 'Retrabalho'),
+    ('sei', 'Seleção'),
+    ('dev', 'Devolução'),
+    ('lp', 'Lote Piloto')
+)
+
+DISPOSICOES = tuple(rotulo for _, rotulo in DISPOSICOES_LEGADAS)
+
+
 class RelatorioRecebimento(db.Model):
     """Relatório de Entrada de Matéria-Prima Nacional (listagem em tabela larga)."""
     __tablename__ = 'relatorios_recebimento'
@@ -100,10 +112,15 @@ class RelatorioRecebimento(db.Model):
 
     # Indicadores/flags do relatório
     mpn = db.Column(db.String(20))
+    # REL, SEI, DEV e LP eram quatro campos de texto livre, um por destino
+    # possível do lote. Viraram o campo único `disposicao`. As colunas seguem
+    # aqui, intactas: o conteúdo antigo é texto que ninguém conferiu, e
+    # apagá-lo para caber numa lista de quatro opções seria perda irreversível.
     rel = db.Column(db.String(20))
     sei = db.Column(db.String(20))
     dev = db.Column(db.String(20))
     lp = db.Column(db.String(20))
+    disposicao = db.Column(db.String(30))
     liberado_sap = db.Column(db.String(10))
 
     observacao = db.Column(db.Text)
@@ -113,6 +130,26 @@ class RelatorioRecebimento(db.Model):
 
     def __repr__(self):
         return f'<RelatorioRecebimento {self.cod_sap} - {self.fornecedor}>'
+
+    def disposicao_efetiva(self):
+        """A disposição do lote, deduzida dos campos antigos quando preciso.
+
+        Registro lançado depois da mudança tem `disposicao` preenchida e é ela
+        que vale. Registro antigo tem um dos quatro campos de texto com algo
+        dentro, e o nome do campo é o que diz o destino — o conteúdo em si é
+        texto livre que varia de inspetor para inspetor.
+
+        Com mais de um preenchido, vence a ordem da lista. Não deveria
+        acontecer, mas texto livre não impedia; escolher o primeiro é o
+        critério previsível, e as quatro colunas continuam no banco para quem
+        precisar conferir o caso.
+        """
+        if self.disposicao:
+            return self.disposicao
+        for campo, rotulo in DISPOSICOES_LEGADAS:
+            if (getattr(self, campo) or '').strip():
+                return rotulo
+        return ''
 
     def to_dict(self):
         return {
@@ -136,6 +173,7 @@ class RelatorioRecebimento(db.Model):
             'sei': self.sei,
             'dev': self.dev,
             'lp': self.lp,
+            'disposicao': self.disposicao_efetiva(),
             'liberado_sap': self.liberado_sap,
             'observacao': self.observacao,
             'created_at': self.created_at.isoformat() if self.created_at else None,

@@ -57,13 +57,25 @@ const COLUNAS = [
     { key: 'inspetor', label: 'Inspetor', default: true, render: (r) => r.inspetor || '-' },
     { key: 'nota_fiscal', label: 'Nota Fiscal', default: false, render: (r) => r.nota_fiscal || '-' },
     { key: 'mpn', label: 'MPN', default: false, render: (r) => r.mpn || '-' },
-    { key: 'rel', label: 'REL', default: false, render: (r) => r.rel || '-' },
-    { key: 'sei', label: 'SEI', default: false, render: (r) => r.sei || '-' },
-    { key: 'dev', label: 'DEV', default: false, render: (r) => r.dev || '-' },
-    { key: 'lp', label: 'LP', default: false, render: (r) => r.lp || '-' },
+    /* As quatro colunas REL, SEI, DEV e LP viraram esta. Registro antigo
+       continua aparecendo: o backend deduz a disposição do campo antigo que
+       estiver preenchido. */
+    { key: 'disposicao', label: 'Disposição', default: false, render: (r) => r.disposicao || '-' },
     { key: 'liberado_sap', label: 'Liberado no SAP', default: false, render: (r) => r.liberado_sap || '-' },
     { key: 'observacao', label: 'Observação', default: false, render: (r) => r.observacao || '-' }
 ];
+
+/* Destinos possíveis de um lote com problema. Substituíram REL, SEI, DEV e LP,
+   que eram quatro campos de texto para registrar um destino só. O rótulo é o
+   valor gravado, como já acontece em "Liberado no SAP". */
+const DISPOSICOES = ['Retrabalho', 'Seleção', 'Devolução', 'Lote Piloto'];
+
+/* Lote sem não conformidade não tem disposição a declarar: entra, é aprovado e
+   segue. Com NC, o destino é a informação que falta no relatório. */
+const exigeDisposicao = (dados) => (
+    Number(dados.qtd_nc || 0) > 0
+    || String(dados.status_material || '').toLowerCase() === 'reprovado'
+);
 
 const estadoInicial = () => ({
     data_entrada: hoje(),
@@ -81,10 +93,7 @@ const estadoInicial = () => ({
     inspetor: '',
     nota_fiscal: '',
     mpn: '',
-    rel: '',
-    sei: '',
-    dev: '',
-    lp: '',
+    disposicao: '',
     liberado_sap: '',
     observacao: ''
 });
@@ -133,6 +142,8 @@ export default function RelatorioRecebimento() {
     };
 
     const setCampo = (campo, valor) => setFormData((prev) => ({ ...prev, [campo]: valor }));
+
+    const disposicaoObrigatoria = exigeDisposicao(formData);
 
     const preencherProduto = (produto) => {
         setFormData((prev) => ({
@@ -188,13 +199,26 @@ export default function RelatorioRecebimento() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        /* A aba entra em cena junto com o aviso: no modo Abas o campo pode
+           estar fora da tela, e uma mensagem sobre um campo que o inspetor não
+           está vendo não diz onde corrigir. */
+        if (disposicaoObrigatoria && !formData.disposicao) {
+            if (formViewMode === 'tabs') setActiveTab('indicadores');
+            alert('Informe a Disposição: o lote tem quantidade não conforme ou está reprovado.');
+            return;
+        }
+
         try {
             const dados = upperFields({
                 ...formData,
                 inspetor: user?.nome || formData.inspetor || 'Sistema'
             }, [
+                /* `disposicao` fica de fora: o valor vem de uma lista fechada,
+                   e passá-lo por maiúsculas mudaria "Lote Piloto" para
+                   "LOTE PILOTO", que não é nenhuma das opções. */
                 'cod_sap', 'descricao_sap', 'fornecedor', 'nota_fiscal', 'rastreabilidade',
-                'documento', 'defeito', 'mpn', 'rel', 'sei', 'dev', 'lp'
+                'documento', 'defeito', 'mpn'
             ]);
             if (editingId) {
                 await relatorioRecebimentoAPI.update(editingId, dados);
@@ -490,13 +514,36 @@ export default function RelatorioRecebimento() {
                                             <div className="form-section">
                                                 <h3 className="section-title">Indicadores</h3>
                                         <div className="form-row">
-                                            {['mpn', 'rel', 'sei', 'dev', 'lp'].map((campo) => (
-                                                <div className="form-group" key={campo}>
-                                                    <label>{campo.toUpperCase()}</label>
-                                                    <input type="text" className="form-control field-upper" value={formData[campo]}
-                                                        onChange={(e) => setCampo(campo, e.target.value)} />
-                                                </div>
-                                            ))}
+                                            <div className="form-group">
+                                                <label>MPN</label>
+                                                <input type="text" className="form-control field-upper" value={formData.mpn}
+                                                    onChange={(e) => setCampo('mpn', e.target.value)} />
+                                            </div>
+                                            {/* No lugar de REL, SEI, DEV e LP, que eram quatro
+                                                campos de texto para marcar um destino só. */}
+                                            <div className="form-group">
+                                                <label>
+                                                    Disposição{disposicaoObrigatoria ? ' *' : ''}
+                                                </label>
+                                                {/* Sem `required` no elemento: no modo Abas este
+                                                    campo nem está no DOM quando outra aba está
+                                                    aberta, e a validação do navegador passaria
+                                                    direto. Quem cobra é o handleSubmit, que
+                                                    também traz a aba certa para a frente. */}
+                                                <select className="form-control" value={formData.disposicao}
+                                                    onChange={(e) => setCampo('disposicao', e.target.value)}
+                                                    aria-describedby="ajuda-disposicao">
+                                                    <option value="">Selecione</option>
+                                                    {DISPOSICOES.map((opcao) => (
+                                                        <option key={opcao} value={opcao}>{opcao}</option>
+                                                    ))}
+                                                </select>
+                                                {disposicaoObrigatoria && (
+                                                    <small className="campo-ajuda" id="ajuda-disposicao">
+                                                        Obrigatória: o lote tem não conformidade.
+                                                    </small>
+                                                )}
+                                            </div>
                                             <div className="form-group">
                                                 <label>Liberado no SAP</label>
                                                 <select className="form-control" value={formData.liberado_sap}

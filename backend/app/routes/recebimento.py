@@ -158,7 +158,7 @@ def handle_ficha_individual(id):
 CAMPOS_REL = ['cod_sap', 'descricao_sap', 'fornecedor', 'qtd_total', 'qtd_inspecionada',
               'qtd_nc', 'status_material', 'rastreabilidade', 'documento', 'defeito',
               'inspetor', 'nota_fiscal', 'mpn', 'rel', 'sei', 'dev', 'lp',
-              'liberado_sap', 'observacao']
+              'disposicao', 'liberado_sap', 'observacao']
 
 
 @relatorio_recebimento_bp.route('', methods=['GET', 'POST', 'OPTIONS'])
@@ -225,6 +225,7 @@ def handle_relatorios():
                 sei=dados.get('sei'),
                 dev=dados.get('dev'),
                 lp=dados.get('lp'),
+                disposicao=dados.get('disposicao'),
                 liberado_sap=dados.get('liberado_sap'),
                 observacao=dados.get('observacao')
             )

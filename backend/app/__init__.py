@@ -337,6 +337,30 @@ def garantir_schema_registros_inspecao(app):
             app.logger.error(f"Erro ao atualizar schema de registros_inspecao: {str(e)}")
 
 
+def garantir_schema_relatorios_recebimento(app):
+    """Garante a coluna de disposição em bancos existentes.
+
+    Substituiu os quatro campos REL/SEI/DEV/LP, que ficaram na tabela com o
+    conteúdo antigo — a conversão acontece na leitura, em
+    `RelatorioRecebimento.disposicao_efetiva`."""
+    from sqlalchemy import inspect
+
+    with app.app_context():
+        try:
+            inspector = inspect(db.engine)
+            if not inspector.has_table('relatorios_recebimento'):
+                return
+
+            colunas = {col['name'] for col in inspector.get_columns('relatorios_recebimento')}
+            if 'disposicao' not in colunas:
+                db.session.execute(db.text(
+                    "ALTER TABLE relatorios_recebimento ADD COLUMN disposicao VARCHAR(30)"))
+                db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Erro ao atualizar schema de relatorios_recebimento: {str(e)}")
+
+
 def garantir_schema_q49(app):
     """Garante o código de barras do Q49 em bancos existentes.
 
@@ -446,6 +470,7 @@ def criar_admin_padrao(app):
     garantir_lotes_das_inspecoes(app)
     garantir_schema_equipamentos(app)
     garantir_schema_registros_inspecao(app)
+    garantir_schema_relatorios_recebimento(app)
     garantir_schema_q49(app)
     garantir_schema_checklist_testes(app)
     garantir_schema_fichas_nc(app)

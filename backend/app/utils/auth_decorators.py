@@ -16,6 +16,12 @@ def _current_user():
         return None
 
 
+def get_current_user():
+    """Usuário autenticado, para quem precisa dele dentro de um handler —
+    registrar quem criou um item, por exemplo. Requer JWT já verificado."""
+    return _current_user()
+
+
 def check_permission(modulo, acao):
     """Verifica se o usuário autenticado tem a permissão (módulo + ação).
     Para uso dentro de handlers que combinam métodos (GET/POST/PUT/DELETE),

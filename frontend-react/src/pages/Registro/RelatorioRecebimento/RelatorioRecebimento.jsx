@@ -1,10 +1,10 @@
 ﻿import { useState, useEffect, useMemo, useRef } from 'react';
 import ExcelJS from 'exceljs';
 import AppLayout from '../../../components/Layout/AppLayout';
-import { relatorioRecebimentoAPI, produtosAPI } from '../../../services/api';
+import { relatorioRecebimentoAPI, produtosAPI, defeitosAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
 import { ColumnToggle } from '../../../ui';
-import { MobileActionSheet } from '../../../components/ui';
+import { MobileActionSheet, MultiSelect } from '../../../components/ui';
 import { upperFields } from '../../../utils/text';
 import {
     currentMonthISO, formatDateBR, formatMonthLabel, monthRangeISO,
@@ -58,7 +58,19 @@ const COLUNAS = [
     },
     { key: 'rastreabilidade', label: 'Rastreabilidade', default: false, render: (r) => r.rastreabilidade || '-' },
     { key: 'documento', label: 'Documento', default: false, render: (r) => r.documento || '-' },
-    { key: 'defeito', label: 'Defeito', default: false, render: (r) => r.defeito || '-' },
+    {
+        key: 'defeito', label: 'Defeito', default: false,
+        /* Um relatorio pode ter varios defeitos e a coluna e estreita: mostra o
+           primeiro e conta o resto, com a lista inteira no title. O texto livre
+           antigo continua valendo para registro lancado antes da lista. */
+        texto: (r) => nomesDefeitos(r).join(', ') || r.defeito || '',
+        render: (r) => {
+            const nomes = nomesDefeitos(r);
+            if (!nomes.length) return r.defeito || '-';
+            const resumo = nomes.length > 1 ? `${nomes[0]} +${nomes.length - 1}` : nomes[0];
+            return <span title={nomes.join(', ')}>{resumo}</span>;
+        }
+    },
     { key: 'inspetor', label: 'Inspetor', default: true, render: (r) => r.inspetor || '-' },
     { key: 'nota_fiscal', label: 'Nota Fiscal', default: false, render: (r) => r.nota_fiscal || '-' },
     { key: 'mpn', label: 'MPN', default: false, render: (r) => r.mpn || '-' },
@@ -69,6 +81,8 @@ const COLUNAS = [
     { key: 'liberado_sap', label: 'Liberado no SAP', default: false, render: (r) => r.liberado_sap || '-' },
     { key: 'observacao', label: 'Observação', default: false, render: (r) => r.observacao || '-' }
 ];
+
+const nomesDefeitos = (registro) => (registro.defeitos || []).map((d) => d.defeito);
 
 /* As tres situacoes do filtro de Status mais o total, para card e select
    nunca discordarem, e um quinto recorte: lote com destino declarado. */
@@ -108,7 +122,10 @@ const estadoInicial = () => ({
     status_material: 'pendente',
     rastreabilidade: '',
     documento: '',
+    /* Texto livre do que ja estava gravado; a escolha nova vai em `defeito_ids`
+       e e o que o backend passa a guardar na tabela de ligacao. */
     defeito: '',
+    defeito_ids: [],
     inspetor: '',
     nota_fiscal: '',
     mpn: '',
@@ -147,6 +164,8 @@ export default function RelatorioRecebimento() {
     const [formData, setFormData] = useState(estadoInicial());
     const [activeTab, setActiveTab] = useState('entrada');
     const [formViewMode, setFormViewMode] = useState('tabs');
+    /* Lista de escolha do campo Defeito. So os ativos vem do servidor. */
+    const [defeitos, setDefeitos] = useState([]);
     const [produtoSugestoes, setProdutoSugestoes] = useState([]);
     const [showSugestoes, setShowSugestoes] = useState(false);
     const searchTimeout = useRef(null);
@@ -157,6 +176,42 @@ export default function RelatorioRecebimento() {
     useEffect(() => {
         loadRegistros();
     }, [search]);
+
+    useEffect(() => {
+        let cancelado = false;
+        defeitosAPI.getAll()
+            .then((resposta) => {
+                if (cancelado || !resposta.data?.success) return;
+                setDefeitos(resposta.data.data || []);
+            })
+            .catch(() => {
+                /* Sem a lista o campo fica vazio, mas o resto do formulario
+                   continua utilizavel. */
+            });
+        return () => { cancelado = true; };
+    }, []);
+
+    /* Criado no meio do preenchimento: entra na lista local e ja fica marcado,
+       sem recarregar tudo. */
+    const criarDefeito = async (nome) => {
+        try {
+            const resposta = await defeitosAPI.create(nome);
+            const criado = resposta.data?.data;
+            if (!criado) return null;
+            setDefeitos((atual) => [...atual, criado]
+                .sort((a, b) => a.defeito.localeCompare(b.defeito, 'pt-BR')));
+            return { id: criado.id, rotulo: criado.defeito };
+        } catch (erro) {
+            const resposta = erro?.response?.data;
+            /* Nome ja existente e caso comum, nao falha: se estiver ativo, o
+               componente so precisa do id para marcar. */
+            const existente = resposta?.data;
+            if (existente?.id && existente.ativo) {
+                return { id: existente.id, rotulo: existente.defeito };
+            }
+            throw new Error(resposta?.message || 'Não foi possível criar o defeito.');
+        }
+    };
 
     const loadRegistros = async () => {
         try {
@@ -272,7 +327,10 @@ export default function RelatorioRecebimento() {
 
     const setCampo = (campo, valor) => setFormData((prev) => ({ ...prev, [campo]: valor }));
 
-    const disposicaoObrigatoria = exigeDisposicao(formData);
+    /* Mesma regra para os dois: lote com nao conformidade precisa dizer o que
+       deu errado (Defeito) e para onde vai (Disposicao). */
+    const detalhamentoObrigatorio = exigeDisposicao(formData);
+    const disposicaoObrigatoria = detalhamentoObrigatorio;
 
     const preencherProduto = (produto) => {
         setFormData((prev) => ({
@@ -332,6 +390,12 @@ export default function RelatorioRecebimento() {
         /* A aba entra em cena junto com o aviso: no modo Abas o campo pode
            estar fora da tela, e uma mensagem sobre um campo que o inspetor não
            está vendo não diz onde corrigir. */
+        if (detalhamentoObrigatorio && (formData.defeito_ids || []).length === 0) {
+            if (formViewMode === 'tabs') setActiveTab('quantidades');
+            alert('Informe ao menos um Defeito: o lote tem quantidade não conforme ou está reprovado.');
+            return;
+        }
+
         if (disposicaoObrigatoria && !formData.disposicao) {
             if (formViewMode === 'tabs') setActiveTab('indicadores');
             alert('Informe a Disposição: o lote tem quantidade não conforme ou está reprovado.');
@@ -368,7 +432,8 @@ export default function RelatorioRecebimento() {
             ...estadoInicial(),
             ...reg,
             data_entrada: normalizeISODate(reg.data_entrada || hoje()),
-            data_inspecao: normalizeISODate(reg.data_inspecao || hoje())
+            data_inspecao: normalizeISODate(reg.data_inspecao || hoje()),
+            defeito_ids: (reg.defeitos || []).map((d) => d.id)
         });
         setEditingId(reg.id);
         setActiveTab('entrada');
@@ -736,10 +801,10 @@ export default function RelatorioRecebimento() {
                                     </div>
                                 </div>
 
-                                {viewRecord.defeito && (
+                                {(nomesDefeitos(viewRecord).length > 0 || viewRecord.defeito) && (
                                     <div className="view-section">
-                                        <h4>Defeito</h4>
-                                        <p>{viewRecord.defeito}</p>
+                                        <h4>Defeitos</h4>
+                                        <p>{nomesDefeitos(viewRecord).join(', ') || viewRecord.defeito}</p>
                                     </div>
                                 )}
 
@@ -918,6 +983,7 @@ export default function RelatorioRecebimento() {
                                                     <option value="pendente">Pendente</option>
                                                     <option value="aprovado">Aprovado</option>
                                                     <option value="reprovado">Reprovado</option>
+                                                    <option value="concessão">Concessão</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -933,11 +999,37 @@ export default function RelatorioRecebimento() {
                                                     onChange={(e) => setCampo('documento', e.target.value)} />
                                             </div>
                                             <div className="form-group" style={{ flex: 2 }}>
-                                                <label>Defeito</label>
-                                                <input type="text" className="form-control field-upper" value={formData.defeito}
-                                                    onChange={(e) => setCampo('defeito', e.target.value)} />
+                                                <label htmlFor="campo-defeito">
+                                                    Defeito{detalhamentoObrigatorio ? ' *' : ''}
+                                                </label>
+                                                {/* Era um campo de texto por registro. Virou lista de
+                                                    escolha multipla, porque um lote costuma reprovar
+                                                    por mais de um motivo, e texto livre gerava um nome
+                                                    diferente para o mesmo defeito a cada inspetor. */}
+                                                <MultiSelect
+                                                    id="campo-defeito"
+                                                    titulo="Defeitos encontrados"
+                                                    rotuloVazio="Selecione os defeitos"
+                                                    opcoes={defeitos.map((d) => ({ id: d.id, rotulo: d.defeito }))}
+                                                    selecionados={formData.defeito_ids || []}
+                                                    onChange={(ids) => setCampo('defeito_ids', ids)}
+                                                    onCriar={criarDefeito}
+                                                />
+                                                {detalhamentoObrigatorio && (
+                                                    <small className="campo-ajuda">
+                                                        Obrigatório: o lote tem não conformidade.
+                                                    </small>
+                                                )}
+                                                {/* Registro antigo tem o defeito em texto livre. Fica a
+                                                    vista, somente leitura, para nao sumir na edicao. */}
+                                                {formData.defeito && (
+                                                    <small className="campo-ajuda">
+                                                        Texto anterior: {formData.defeito}
+                                                    </small>
+                                                )}
                                             </div>
                                         </div>
+                                        
                                     </div>
                                         </div>
                                     )}

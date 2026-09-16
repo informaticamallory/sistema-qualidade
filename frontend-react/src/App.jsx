@@ -17,6 +17,7 @@ import Relatorios from './pages/Relatorios/Relatorios';
 import Indicadores from './pages/Indicadores/Indicadores';
 import Calibracao from './pages/Calibracao/Calibracao';
 import Usuarios from './pages/Usuarios/Usuarios';
+import Defeitos from './pages/Defeitos/Defeitos';
 import Q49 from './pages/Q49/Q49';
 import CadastroMaterial from './pages/CadastroMaterial/CadastroMaterial';
 
@@ -168,6 +169,18 @@ function App() {
             element={
               <ProtectedRoute>
                 <Usuarios />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Quem chega sem a permissão do módulo 'defeitos' vê a mensagem de
+              acesso negado da própria tela — o backend recusa a listagem com
+              inativos. O item no menu já não aparece para esse usuário. */}
+          <Route
+            path="/defeitos"
+            element={
+              <ProtectedRoute>
+                <Defeitos />
               </ProtectedRoute>
             }
           />

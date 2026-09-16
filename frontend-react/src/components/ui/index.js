@@ -13,5 +13,6 @@ export { default as KpiCard } from './KpiCard';
 export { default as Tabs } from './Tabs';
 export { default as ConfirmarSaida } from './ConfirmarSaida';
 export { default as MobileActionSheet } from './MobileActionSheet';
+export { default as MultiSelect } from './MultiSelect';
 export { default as DataTable } from './DataTable';
 export { default as Input, Input as TextInput, Select } from './Field';

@@ -14,6 +14,12 @@ PERMISSOES_CATALOGO = {
     'nao_conformidades': ['visualizar', 'criar', 'editar', 'excluir', 'exportar'],
     'calibracao':        ['visualizar', 'criar', 'editar', 'excluir', 'exportar'],
     'relatorios':        ['visualizar', 'exportar'],
+    # Gestão da lista de defeitos. Só 'visualizar', 'editar' e 'excluir': criar
+    # não entra porque qualquer inspetor cria um defeito ao preencher a
+    # inspeção, digitando um nome que ainda não existe. O que se administra
+    # aqui é o que veio de lá — corrigir nome repetido e inativar o que não
+    # deve mais aparecer.
+    'defeitos':          ['visualizar', 'editar', 'excluir'],
     'usuarios':          ['visualizar', 'criar', 'editar', 'excluir'],
     'configuracoes':     ['visualizar', 'editar'],
 }
@@ -27,6 +33,7 @@ MODULO_LABELS = {
     'nao_conformidades': 'Não Conformidades',
     'calibracao': 'Calibração',
     'relatorios': 'Relatórios',
+    'defeitos': 'Cadastro de Defeitos',
     'usuarios': 'Usuários',
     'configuracoes': 'Configurações',
 }

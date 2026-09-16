@@ -3,6 +3,7 @@ from flask import Blueprint, request, current_app
 from datetime import datetime
 
 from app.extensions import db, limiter
+from app.models.defeito import Defeito
 from app.models.recebimento import FichaRecebimento, RelatorioRecebimento
 from app.utils.responses import create_response
 from app.utils.auth_decorators import auth_required, check_permission
@@ -161,6 +162,30 @@ CAMPOS_REL = ['cod_sap', 'descricao_sap', 'fornecedor', 'qtd_total', 'qtd_inspec
               'disposicao', 'liberado_sap', 'observacao']
 
 
+def _aplicar_defeitos(registro, dados):
+    """Liga o relatório aos defeitos escolhidos.
+
+    Só mexe quando `defeito_ids` vem no corpo: uma atualização que não fala de
+    defeitos não pode desfazer os que já estavam lá.
+
+    Defeito inativo não entra em registro novo, mas continua valendo onde já
+    estava — senão editar um relatório antigo apagaria, de passagem, um defeito
+    que o administrador tirou da lista depois."""
+    if 'defeito_ids' not in dados:
+        return
+
+    ids = {int(i) for i in (dados.get('defeito_ids') or []) if str(i).strip().isdigit()}
+    if not ids:
+        registro.defeitos = []
+        return
+
+    ja_ligados = {d.id for d in registro.defeitos}
+    permitidos = db.or_(Defeito.ativo.is_(True), Defeito.id.in_(ja_ligados)) \
+        if ja_ligados else Defeito.ativo.is_(True)
+
+    registro.defeitos = Defeito.query.filter(Defeito.id.in_(ids), permitidos).all()
+
+
 @relatorio_recebimento_bp.route('', methods=['GET', 'POST', 'OPTIONS'])
 @limiter.limit("100 per minute")
 @auth_required()
@@ -239,6 +264,7 @@ def handle_relatorios():
                 liberado_sap=dados.get('liberado_sap'),
                 observacao=dados.get('observacao')
             )
+            _aplicar_defeitos(novo, dados)
             db.session.add(novo)
             db.session.commit()
             return create_response(success=True, message='Relatório criado com sucesso',
@@ -276,6 +302,7 @@ def handle_relatorio_individual(id):
             for campo in CAMPOS_REL:
                 if campo in dados:
                     setattr(rel, campo, dados[campo])
+            _aplicar_defeitos(rel, dados)
             rel.updated_at = datetime.utcnow()
             db.session.commit()
             return create_response(success=True, message="Relatório atualizado com sucesso", data=rel.to_dict())

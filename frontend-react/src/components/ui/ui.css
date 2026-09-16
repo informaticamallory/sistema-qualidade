@@ -464,3 +464,259 @@
         animation: none;
     }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   MultiSelect — seleção múltipla com busca
+   ══════════════════════════════════════════════════════════════════════
+   Prefixo `ui-multiselect` em tudo: o bundle do Vite junta o CSS de todas
+   as telas num arquivo só, e nome genérico aqui entraria em disputa com
+   as páginas. */
+.ui-multiselect {
+    position: relative;
+}
+
+/* É um <button>, então precisa desfazer o alinhamento central e a fonte
+   herdada que o navegador dá a botão, para parecer um campo. */
+.ui-multiselect-campo {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    min-height: 42px;
+    text-align: left;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.ui-multiselect-placeholder {
+    flex: 1;
+    color: var(--fg-muted);
+}
+
+/* `min-width: 0` para as etiquetas poderem encolher em vez de empurrar a
+   seta para fora do campo. */
+.ui-multiselect-valor {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+}
+
+.ui-multiselect-chip {
+    max-width: 100%;
+    padding: 2px 8px;
+    border-radius: var(--r-pill, 999px);
+    background: var(--primary-soft);
+    color: var(--primary);
+    font-size: var(--text-xs);
+    font-weight: var(--fw-semibold);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ui-multiselect-seta {
+    flex: 0 0 auto;
+    color: var(--fg-muted);
+    font-size: .8rem;
+}
+
+/* Preso à tela, e não ao campo: o campo mora dentro de `.modal-body`, que tem
+   `overflow-y: auto`, dentro de `.modal-content` com `overflow: hidden`. No
+   fluxo, o painel era cortado — 282px de 354, medido. As coordenadas vêm do
+   componente, calculadas na abertura. */
+.ui-multiselect-painel {
+    position: fixed;
+    z-index: 3000;
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-2);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-md);
+}
+
+/* Dentro do painel, quem rola é a lista; a busca e o botão de criar ficam no
+   lugar. `flex: 0 0 auto` neles porque, num container em coluna com altura
+   limitada, o navegador esmagaria cada faixa abaixo do próprio conteúdo. */
+.ui-multiselect-painel .ui-multiselect-busca,
+.ui-multiselect-painel .ui-multiselect-criar {
+    flex: 0 0 auto;
+}
+
+.ui-multiselect-painel .ui-multiselect-lista {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+}
+
+.ui-multiselect-busca {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.ui-multiselect-busca > i {
+    position: absolute;
+    left: 12px;
+    color: var(--fg-muted);
+    font-size: .85rem;
+    pointer-events: none;
+}
+
+.ui-multiselect-busca .form-control {
+    width: 100%;
+    padding-left: 34px !important;
+}
+
+.ui-multiselect-lista {
+    max-height: 240px;
+    margin: var(--space-2) 0 0;
+    padding: 0;
+    list-style: none;
+    overflow-y: auto;
+}
+
+.ui-multiselect-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    /* 40px de alvo: a mesma lista é usada no chão de fábrica, no tablet. */
+    min-height: 40px;
+    padding: 0 var(--space-2);
+    border-radius: var(--r-sm, 6px);
+    color: var(--fg);
+    font-size: var(--text-sm);
+    cursor: pointer;
+}
+
+.ui-multiselect-item:hover {
+    background: var(--bg-2);
+}
+
+.ui-multiselect-item input {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--primary);
+}
+
+.ui-multiselect-todos {
+    font-weight: var(--fw-semibold);
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+}
+
+.ui-multiselect-vazio {
+    padding: var(--space-4) var(--space-2);
+    color: var(--fg-muted);
+    font-size: var(--text-sm);
+    text-align: center;
+}
+
+.ui-multiselect-criar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    min-height: 40px;
+    margin-top: var(--space-2);
+    padding: 0 var(--space-2);
+    border: 1px dashed var(--primary);
+    border-radius: var(--r-sm, 6px);
+    background: transparent;
+    color: var(--primary);
+    font-family: inherit;
+    font-size: var(--text-sm);
+    font-weight: var(--fw-semibold);
+    text-align: left;
+    cursor: pointer;
+}
+
+.ui-multiselect-criar:hover:not(:disabled) {
+    background: var(--primary-soft);
+}
+
+.ui-multiselect-criar span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ui-multiselect-erro {
+    margin: var(--space-2) 0 0;
+    color: var(--danger);
+    font-size: var(--text-xs);
+}
+
+/* ── Folha de baixo, no celular ──
+   O painel ancorado ficaria espremido contra o teclado, dentro de um modal
+   que já rola. */
+.ui-multiselect-fundo {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: flex;
+    align-items: flex-end;
+    background: var(--overlay, rgba(0, 0, 0, .5));
+}
+
+.ui-multiselect-folha {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-height: 85vh;
+    padding: var(--space-4);
+    background: var(--surface);
+    border-radius: 18px 18px 0 0;
+    box-shadow: var(--shadow-lg);
+}
+
+.ui-multiselect-folha-topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+.ui-multiselect-folha-topo strong {
+    color: var(--fg);
+    font-size: 1rem;
+}
+
+.ui-multiselect-folha-topo button {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 8px;
+    background: var(--bg-2);
+    color: var(--fg-muted);
+    cursor: pointer;
+}
+
+/* A lista é quem rola; o cabeçalho, a busca e o "Pronto" ficam no lugar.
+   `flex: 1 1 auto` com `min-height: 0`, senão o item é esmagado e a rolagem
+   nunca acontece. */
+.ui-multiselect-folha .ui-multiselect-lista {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+}
+
+.ui-multiselect-folha .ui-multiselect-busca,
+.ui-multiselect-folha .ui-multiselect-criar,
+.ui-multiselect-folha .ui-multiselect-folha-topo,
+.ui-multiselect-folha .ui-multiselect-pronto {
+    flex: 0 0 auto;
+}
+
+.ui-multiselect-pronto {
+    width: 100%;
+    margin-top: var(--space-3);
+}

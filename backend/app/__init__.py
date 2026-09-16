@@ -337,6 +337,35 @@ def garantir_schema_registros_inspecao(app):
             app.logger.error(f"Erro ao atualizar schema de registros_inspecao: {str(e)}")
 
 
+def garantir_schema_defeitos(app):
+    """Garante inativação e autoria na lista de defeitos.
+
+    'tb_defeito' já existia com id e nome. A tabela de ligação
+    'relatorio_defeitos' é nova, e dessa o create_all() dá conta sozinho."""
+    from sqlalchemy import inspect
+
+    with app.app_context():
+        try:
+            inspector = inspect(db.engine)
+            if not inspector.has_table('tb_defeito'):
+                return
+
+            colunas = {col['name'] for col in inspector.get_columns('tb_defeito')}
+            campos = {
+                'ativo': 'BOOLEAN NOT NULL DEFAULT TRUE',
+                'criado_por': 'VARCHAR(100)',
+                'created_at': 'DATETIME'
+            }
+            for campo, tipo in campos.items():
+                if campo not in colunas:
+                    db.session.execute(db.text(
+                        f"ALTER TABLE tb_defeito ADD COLUMN {campo} {tipo}"))
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Erro ao atualizar schema de tb_defeito: {str(e)}")
+
+
 def garantir_schema_relatorios_recebimento(app):
     """Garante a coluna de disposição em bancos existentes.
 
@@ -470,6 +499,7 @@ def criar_admin_padrao(app):
     garantir_lotes_das_inspecoes(app)
     garantir_schema_equipamentos(app)
     garantir_schema_registros_inspecao(app)
+    garantir_schema_defeitos(app)
     garantir_schema_relatorios_recebimento(app)
     garantir_schema_q49(app)
     garantir_schema_checklist_testes(app)

@@ -1,0 +1,89 @@
+/* Cadastro de Defeitos.
+   Tudo sob `.defeitos-page`: os nomes de barra de filtros e estado vazio se
+   repetem entre telas, e no bundle único do Vite a ordem dos arquivos decide
+   quem vence. Com o prefixo, vence por especificidade. */
+
+.defeitos-page .defeitos-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.defeitos-page .defeitos-filtros {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: var(--gap, 1rem);
+}
+
+.defeitos-page .defeitos-busca {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 1 1 260px;
+    min-width: 180px;
+}
+
+.defeitos-page .defeitos-busca > i {
+    position: absolute;
+    left: 14px;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.defeitos-page .defeitos-busca .form-control {
+    width: 100%;
+    padding-left: 38px;
+}
+
+.defeitos-page .defeitos-erro {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--gap, 1rem);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--danger);
+    border-radius: var(--r-md);
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+/* Inativo continua legível — é linha que o administrador pode querer
+   reativar —, só recuada do primeiro plano. */
+.defeitos-page .defeitos-inativo td {
+    opacity: 0.6;
+}
+
+.defeitos-page .defeitos-data {
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+}
+
+.defeitos-page .defeitos-vazio {
+    padding: var(--space-8) var(--space-4);
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.defeitos-page .defeitos-vazio i {
+    display: block;
+    margin-bottom: var(--space-2);
+    font-size: 2rem;
+    color: var(--text-subtle, var(--text-muted));
+}
+
+.defeitos-page .defeitos-nota {
+    margin: var(--space-4) 0 0;
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+}
+
+@media (max-width: 768px) {
+    .defeitos-page .defeitos-summary-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.5rem;
+    }
+
+    .defeitos-page .defeitos-filtros .btn {
+        flex: 0 0 auto;
+    }
+}

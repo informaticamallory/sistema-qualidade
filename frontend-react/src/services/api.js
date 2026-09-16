@@ -225,8 +225,14 @@ export const produtosAPI = {
 
 // ==================== DEFEITOS ====================
 export const defeitosAPI = {
+    /* Sem parâmetro vem só a lista ativa, que é o que alimenta os campos de
+       defeito das inspeções. `incluir_inativos` é da tela de gestão e exige a
+       permissão do módulo 'defeitos'. */
     getAll: () => api.get('/defeitos'),
+    getTodos: () => api.get('/defeitos', { params: { incluir_inativos: 1 } }),
     create: (defeito) => api.post('/defeitos', { defeito }),
+    renomear: (id, defeito) => api.put(`/defeitos/${id}`, { defeito }),
+    definirAtivo: (id, ativo) => api.put(`/defeitos/${id}`, { ativo }),
     delete: (id) => api.delete(`/defeitos/${id}`),
 };
 

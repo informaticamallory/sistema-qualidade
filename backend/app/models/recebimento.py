@@ -69,6 +69,20 @@ class FichaRecebimento(db.Model):
         }
 
 
+# Um relatório pode apontar vários defeitos, e o mesmo defeito aparece em
+# vários relatórios. A coluna de texto `defeito` continua na tabela com o que
+# foi escrito antes desta relação existir.
+relatorio_defeitos = db.Table(
+    'relatorio_defeitos',
+    db.Column('relatorio_id', db.Integer,
+              db.ForeignKey('relatorios_recebimento.id', ondelete='CASCADE'),
+              primary_key=True),
+    db.Column('defeito_id', db.Integer,
+              db.ForeignKey('tb_defeito.id', ondelete='CASCADE'),
+              primary_key=True)
+)
+
+
 # De que campo antigo sai cada disposição, na ordem em que o desempate é
 # resolvido quando mais de um veio preenchido.
 DISPOSICOES_LEGADAS = (
@@ -128,6 +142,11 @@ class RelatorioRecebimento(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # `selectin`: a listagem devolve todos os relatórios de uma vez, e sem isto
+    # cada linha faria a própria consulta de defeitos.
+    defeitos = db.relationship('Defeito', secondary=relatorio_defeitos,
+                               lazy='selectin', order_by='Defeito.defeito')
+
     def __repr__(self):
         return f'<RelatorioRecebimento {self.cod_sap} - {self.fornecedor}>'
 
@@ -165,7 +184,9 @@ class RelatorioRecebimento(db.Model):
             'status_material': self.status_material,
             'rastreabilidade': self.rastreabilidade,
             'documento': self.documento,
+            # Texto livre do que foi lançado antes da lista de defeitos existir.
             'defeito': self.defeito,
+            'defeitos': [{'id': d.id, 'defeito': d.defeito} for d in self.defeitos],
             'inspetor': self.inspetor,
             'nota_fiscal': self.nota_fiscal,
             'mpn': self.mpn,

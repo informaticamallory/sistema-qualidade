@@ -63,6 +63,7 @@ export default function Sidebar({ collapsed: collapsedProp, onToggleCollapsed })
         { path: '/calibracao', icon: 'fa-tools', label: 'Calibração', modulo: 'calibracao' },
         { path: '/indicadores', icon: 'fa-chart-line', label: 'Indicadores', modulo: 'dashboard' },
         { path: '/relatorios', icon: 'fa-file-invoice', label: 'Relatórios', modulo: 'relatorios' },
+        { path: '/defeitos', icon: 'fa-triangle-exclamation', label: 'Cadastro de Defeitos', modulo: 'defeitos' },
         { path: '/usuarios', icon: 'fa-users-gear', label: 'Usuários', modulo: 'usuarios' }
     ];
 

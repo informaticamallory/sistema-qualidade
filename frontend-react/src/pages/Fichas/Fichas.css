@@ -592,44 +592,14 @@
     gap: 1rem;
 }
 
-.nav-buttons {
-    display: flex;
-    gap: 0.5rem;
-}
-.overview-hint {
-    align-items: center;
-    color: var(--text-muted);
-    font-size: 0.9rem;
-    font-weight: 700;
-}
+/* `.nav-buttons`, `.overview-hint` e `.btn-nav` saíram com os botões
+   Anterior/Próximo do rodapé. Nenhuma outra tela usava: as Fichas NC eram a
+   última, depois que o Q49 também trocou a navegação pelo alternador. */
 
-.overview-hint i {
-    color: var(--warning);
-}
-
-.btn-nav {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    padding: 0.6rem 1.2rem;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    transition: all 0.3s ease;
-}
-
-.btn-nav:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-
-.btn-nav:disabled {
-    background: var(--border-strong);
-    cursor: not-allowed;
-    opacity: 0.6;
+/* Só Fechar e Salvar, à direita. Era `space-between` por causa do par
+   Anterior/Próximo, que ficava na outra ponta. */
+.fnc-modal-footer {
+    justify-content: flex-end;
 }
 
 .action-buttons-footer {
@@ -736,7 +706,6 @@
         flex-direction: column;
     }
 
-    .nav-buttons,
     .action-buttons-footer {
         width: 100%;
         justify-content: center;
@@ -779,15 +748,6 @@
 
     .tabs-container .tab i {
         font-size: 0.9rem;
-    }
-
-    .btn-nav {
-        padding: 0.5rem 1rem;
-        font-size: 0.85rem;
-    }
-
-    .nav-buttons {
-        gap: 0.4rem;
     }
 
     .action-buttons-footer {
@@ -850,3 +810,52 @@
     border: 1px solid var(--danger-soft-strong);
 }
 
+
+/* ══════════════════════════════════════════════════════════════════════
+   Aba Identificação — campos curtos lado a lado
+   ══════════════════════════════════════════════════════════════════════
+   `.form-row-compact` vem do CSS da Inspeção de Injeção e é o padrão dos
+   campos curtos do sistema: flex com largura fixa por campo, em vez das
+   colunas de `1fr` que esticavam cada input até a borda do bloco. A largura
+   de cada linha sai de `--compact-field-width`.
+
+   Não usa `grid-template-columns`: o responsive.css força
+   `.form-row { grid-template-columns: 1fr !important }` abaixo de 480px, e
+   num container flex essa propriedade é inerte — foi por isso que a Injeção
+   montou o compacto em flex. */
+
+/* Departamento é texto livre e o mais longo da linha. */
+.fnc-linha-dados {
+    --compact-field-width: 175px;
+}
+
+.fnc-linha-produto {
+    --compact-field-width: 165px;
+}
+
+/* A descrição do produto vem inteira do cadastro e não cabe em 165px. Ganha
+   o dobro, e não `flex: 1 1`: crescer livre faria o campo engolir a folga da
+   linha inteira — medido, 904px numa linha de 1450, que é o oposto de campo
+   compacto. */
+.fnc-linha-produto .form-group:nth-child(2) {
+    flex: 0 1 330px;
+    width: 330px;
+}
+
+/* A lista do autocomplete acompanha o texto, não a largura do campo: em
+   165px, "PORCA WT 1/4X4X11.1MM ZINCADA" sairia cortada em toda linha. */
+.fnc-linha-produto .produto-autocomplete .autocomplete-list {
+    min-width: min(420px, 80vw);
+}
+
+/* Quatro números curtos; o Índice é somente leitura e calculado. */
+.fnc-linha-quantidades {
+    --compact-field-width: 140px;
+}
+
+/* Campo mais baixo, proporcional à largura menor, sem mexer no espaço entre
+   o rótulo e o campo. */
+.form-row-compact .form-control {
+    padding-top: 8px;
+    padding-bottom: 8px;
+}

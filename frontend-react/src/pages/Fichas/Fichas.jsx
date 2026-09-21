@@ -3,7 +3,9 @@ import { createPortal } from 'react-dom';
 import ExcelJS from 'exceljs';
 import AppLayout from '../../components/Layout/AppLayout';
 import { useAuth } from '../../context/auth-context';
-import { FilterCard, FilterCardStrip, PeriodFilter, SidePanel } from '../../components/ui';
+import {
+    FilterCard, FilterCardStrip, GaleriaFotos, PeriodFilter, SidePanel
+} from '../../components/ui';
 import { fichasAPI, produtosAPI } from '../../services/api';
 import { upperFields } from '../../utils/text';
 import {
@@ -426,28 +428,9 @@ export default function Fichas() {
         setShowSugestoes(false);
     };
 
-    const handleFotoChange = (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = () => {
-            setFormData(prev => ({
-                ...prev,
-                foto_nc: reader.result,
-                foto_nc_nome: file.name
-            }));
-        };
-        reader.readAsDataURL(file);
-    };
-
-    const removerFoto = () => {
-        setFormData(prev => ({
-            ...prev,
-            foto_nc: '',
-            foto_nc_nome: ''
-        }));
-    };
+    /* Ler o arquivo, reduzir e remover agora e a GaleriaFotos quem faz. A
+       versao que estava aqui guardava a imagem no tamanho original; a do
+       componente reduz o maior lado a 1600px antes de gravar. */
 
     const calcularIndice = () => {
         const { qtd_nao_conforme, qtd_inspecionadas } = formData;
@@ -593,21 +576,9 @@ export default function Fichas() {
         { id: 'decisao', icon: 'fa-check-circle', label: 'Decisão' }
     ];
 
-    const getCurrentTabIndex = () => tabs.findIndex(t => t.id === activeTab);
-
-    const goToNextTab = () => {
-        const currentIndex = getCurrentTabIndex();
-        if (currentIndex < tabs.length - 1) {
-            setActiveTab(tabs[currentIndex + 1].id);
-        }
-    };
-
-    const goToPrevTab = () => {
-        const currentIndex = getCurrentTabIndex();
-        if (currentIndex > 0) {
-            setActiveTab(tabs[currentIndex - 1].id);
-        }
-    };
+    /* getCurrentTabIndex, goToNextTab e goToPrevTab saíram com os botões
+       Anterior/Próximo do rodapé: a navegação é pelas abas e pelo alternador
+       Abas / Visão geral no topo. */
 
     const disposicaoOptions = [
         { value: 'Refugado', icon: 'fa-ban', color: 'var(--danger)', desc: 'Produto descartado' },
@@ -868,7 +839,11 @@ export default function Fichas() {
                                         <div className={tabContentClass('identificacao')} data-editable={isTabEditable('identificacao')}>
                                             <div className="form-section">
                                                 <h3 className="section-title"><i className="fas fa-clipboard"></i> Dados da FNC</h3>
-                                                <div className="form-row">
+                                                {/* `form-row-compact` e a mesma classe dos campos curtos da
+                                                    Inspecao de Injecao: cada campo ganha largura propria em vez
+                                                    de esticar ate a coluna inteira, e quebra sozinho quando nao
+                                                    cabe. A largura vem de `--compact-field-width`. */}
+                                                <div className="form-row form-row-compact fnc-linha-dados">
                                                     <div className="form-group">
                                                         <label>Nº da FNC *</label>
                                                         <input
@@ -915,7 +890,7 @@ export default function Fichas() {
 
                                             <div className="form-section">
                                                 <h3 className="section-title"><i className="fas fa-box"></i> Identificação do Produto</h3>
-                                                <div className="form-row">
+                                                <div className="form-row form-row-compact fnc-linha-produto">
                                                     <div className="form-group produto-autocomplete">
                                                         <label>Código SAP *</label>
                                                         <input
@@ -977,44 +952,25 @@ export default function Fichas() {
                                                         />
                                                     </div>
                                                 </div>
-                                                <div className="fnc-photo-panel">
-                                                    <div className="fnc-photo-copy">
-                                                        <h4><i className="fas fa-camera"></i> Foto da Não Conformidade</h4>
-                                                        <p>Registre uma evidência visual do problema encontrado no produto.</p>
-                                                    </div>
-                                                    <div className="fnc-photo-actions">
-                                                        <label className="btn btn-primary btn-sm">
-                                                            <i className="fas fa-camera"></i> {formData.foto_nc ? 'Trocar Foto' : 'Tirar / Anexar Foto'}
-                                                            <input
-                                                                type="file"
-                                                                accept="image/*"
-                                                                capture="environment"
-                                                                onChange={handleFotoChange}
-                                                                hidden
-                                                            />
-                                                        </label>
-                                                        {formData.foto_nc && (
-                                                            <button type="button" className="btn btn-secondary btn-sm" onClick={removerFoto}>
-                                                                <i className="fas fa-trash"></i> Remover
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                    {formData.foto_nc ? (
-                                                        <div className="fnc-photo-preview">
-                                                            <img src={formData.foto_nc} alt="Foto da não conformidade" />
-                                                            <div className="fnc-photo-info">
-                                                                <strong>Foto registrada</strong>
-                                                                <span title={formData.foto_nc_nome}>{formData.foto_nc_nome || 'Imagem anexada'}</span>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="fnc-photo-empty">
-                                                            <i className="fas fa-image"></i>
-                                                            <span>Nenhuma foto registrada</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="form-row">
+                                                {/* Mesma galeria da Inspecao de Montagem, agora componente do
+                                                    UI Kit. A FNC guarda uma foto so, em `foto_nc` e
+                                                    `foto_nc_nome`: `max={1}` respeita isso, e o payload nao muda. */}
+                                                <GaleriaFotos
+                                                    titulo="Foto da Não Conformidade"
+                                                    descricao="Registre uma evidência visual do problema encontrado no produto."
+                                                    max={1}
+                                                    rotuloAdicionar="Adicionar foto"
+                                                    somenteLeitura={isReadonly}
+                                                    fotos={formData.foto_nc
+                                                        ? [{ src: formData.foto_nc, nome: formData.foto_nc_nome || 'Imagem anexada' }]
+                                                        : []}
+                                                    onChange={(fotos) => setFormData((prev) => ({
+                                                        ...prev,
+                                                        foto_nc: fotos[0]?.src || '',
+                                                        foto_nc_nome: fotos[0]?.nome || ''
+                                                    }))}
+                                                />
+                                                <div className="form-row form-row-compact fnc-linha-quantidades">
                                                     <div className="form-group">
                                                         <label>Quantidade Total</label>
                                                         <input
@@ -1416,32 +1372,10 @@ export default function Fichas() {
                                     )}
                                 </div>
 
-                                <div className="modal-footer">
-                                    {formViewMode === 'tabs' ? (
-                                        <div className="nav-buttons">
-                                            <button
-                                                type="button"
-                                                className="btn btn-nav"
-                                                onClick={goToPrevTab}
-                                                disabled={getCurrentTabIndex() === 0}
-                                            >
-                                                <i className="fas fa-arrow-left"></i> Anterior
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="btn btn-nav"
-                                                onClick={goToNextTab}
-                                                disabled={getCurrentTabIndex() === tabs.length - 1}
-                                            >
-                                                Próximo <i className="fas fa-arrow-right"></i>
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="nav-buttons overview-hint">
-                                            <i className="fas fa-list-check"></i>
-                                            <span>Visão geral ativa</span>
-                                        </div>
-                                    )}
+                                {/* Anterior/Proximo sairam: a navegacao e pelas abas e pelo
+                                    alternador Abas / Visao geral no topo. Ficaram Fechar e
+                                    Salvar, a direita, como estavam. */}
+                                <div className="modal-footer fnc-modal-footer">
                                     <div className="action-buttons-footer">
                                         <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
                                             <i className="fas fa-times"></i> Fechar

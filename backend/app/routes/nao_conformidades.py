@@ -258,10 +258,20 @@ def listar_nao_conformidades():
                 )
 
             query = query.order_by(RegistroInspecao.data_inspecao.desc(), RegistroInspecao.id.desc())
-            paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+
+            # Sem `page`, devolve tudo — mesmo contrato do Q49 e do Relatório de
+            # Recebimento. A tela recorta por período e conta os indicadores no
+            # cliente, e com a resposta cortada em 50 o "Total de FNCs" pararia
+            # de crescer aí. Quem passar `page` continua recebendo página.
+            if request.args.get('page'):
+                paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+                itens, total_registros = paginated.items, paginated.total
+            else:
+                itens = query.all()
+                total_registros = len(itens)
 
             dados = []
-            for registro in paginated.items:
+            for registro in itens:
                 ficha = _buscar_ficha_do_registro(registro)
                 dados.append(_dados_ficha(registro=registro, ficha=ficha))
 
@@ -280,13 +290,15 @@ def listar_nao_conformidades():
                     )
                 )
 
-            manuais = manuais_query.order_by(FichaNC.data.desc(), FichaNC.id.desc()).limit(per_page).all()
+            manuais_query = manuais_query.order_by(FichaNC.data.desc(), FichaNC.id.desc())
+            manuais = (manuais_query.limit(per_page).all()
+                       if request.args.get('page') else manuais_query.all())
             dados.extend(_dados_ficha(ficha=ficha) for ficha in manuais)
 
             return create_response(
                 success=True,
                 data=dados,
-                message=f'Encontradas {paginated.total + len(manuais)} fichas NC'
+                message=f'Encontradas {total_registros + len(manuais)} fichas NC'
             )
 
         except Exception as e:

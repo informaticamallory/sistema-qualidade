@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import ExcelJS from 'exceljs';
 import AppLayout from '../../../components/Layout/AppLayout';
-import { ConfirmarSaida } from '../../../components/ui';
+import {
+    ConfirmarSaida, FilterCard, FilterCardStrip, PeriodFilter, SidePanel
+} from '../../../components/ui';
 import { injecaoAPI, produtosAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
 import { formatarTurno, normalizarTurno } from '../../../utils/turnos';
@@ -147,6 +149,15 @@ const estadoInicial = {
     fotos_peca: []
 };
 
+/* Um card por situacao, mais o total. `contagem` e a chave do resumo, e
+   `chave` e o valor de status que o card filtra — vazio no total. */
+const CARDS_RESUMO = [
+    { chave: '', contagem: 'total', rotulo: 'Total de inspeções', legenda: 'Todos os status', icone: 'fa-clipboard-list', tom: 'total' },
+    { chave: 'aprovado', contagem: 'aprovadas', rotulo: 'Aprovadas', legenda: 'Inspeções aprovadas', icone: 'fa-check-circle', tom: 'approved' },
+    { chave: 'reprovado', contagem: 'reprovadas', rotulo: 'Reprovadas', legenda: 'Inspeções reprovadas', icone: 'fa-times-circle', tom: 'rejected' },
+    { chave: 'pendente', contagem: 'pendentes', rotulo: 'Pendentes', legenda: 'Pendentes ou em concessão', icone: 'fa-clock', tom: 'pending' }
+];
+
 export default function InspecaoInjecao() {
     const { user } = useAuth();
     const [registros, setRegistros] = useState([]);
@@ -156,11 +167,8 @@ export default function InspecaoInjecao() {
     const [statusFilter, setStatusFilter] = useState('');
     const [dateFilter, setDateFilter] = useState('');
     const [dateEndFilter, setDateEndFilter] = useState('');
-    const [rangeStartDraft, setRangeStartDraft] = useState('');
-    const [rangeEndDraft, setRangeEndDraft] = useState('');
     const [monthFilter, setMonthFilter] = useState(currentMonthISO());
     const [shiftFilter, setShiftFilter] = useState('');
-    const [showPeriodMenu, setShowPeriodMenu] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [formDirty, setFormDirty] = useState(false);
     const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
@@ -195,29 +203,12 @@ export default function InspecaoInjecao() {
     const [defeitoAtivoIndex, setDefeitoAtivoIndex] = useState(-1);
     const defeitoTextareaRef = useRef(null);
     const fotoPecaInputRef = useRef(null);
-    const periodMenuRef = useRef(null);
 
     /* Fecha o seletor de período ao clicar fora.
        O ref já existia e estava preso ao wrapper, mas nunca era lido: sem
        este efeito o painel só fechava pelos próprios botões, e continuava
        aberto por cima do cabeçalho e da barra enquanto se usava o resto da
        tela. Mesmo efeito que a tela de Cartões já tinha. */
-    useEffect(() => {
-        if (!showPeriodMenu) return;
-        const fechar = (evento) => {
-            if (periodMenuRef.current && !periodMenuRef.current.contains(evento.target)) {
-                setShowPeriodMenu(false);
-            }
-        };
-        document.addEventListener('mousedown', fechar);
-        /* `touchstart` além de `mousedown`: no celular o mousedown sintético
-           só chega depois do toque terminar, e em alguns casos nem chega. */
-        document.addEventListener('touchstart', fechar);
-        return () => {
-            document.removeEventListener('mousedown', fechar);
-            document.removeEventListener('touchstart', fechar);
-        };
-    }, [showPeriodMenu]);
     const loadRequestRef = useRef(0);
 
     // Visualização (somente leitura)
@@ -1183,14 +1174,9 @@ export default function InspecaoInjecao() {
     const maiorDefeito = Math.max(...panoramaDefeitos.map(([, quantidade]) => quantidade), 1);
     const panoramaMaquinas = [...new Set(panoramaDados.atual.map((item) => item.maquina).filter(Boolean))];
     const panoramaMoldes = [...new Set(panoramaDados.atual.map((item) => item.molde).filter(Boolean))];
+    /* O handler de teclado dos cards saiu: o FilterCard do UI Kit ja trata
+       Enter e espaco por conta propria. */
     const ativarFiltroStatus = (status) => setStatusFilter((atual) => atual === status ? '' : status);
-    const acionarCardPorTeclado = (event, status) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            if (status) ativarFiltroStatus(status);
-            else setStatusFilter('');
-        }
-    };
 
     const periodoLabel = dateFilter && dateEndFilter
         ? `${formatarData(dateFilter)} até ${formatarData(dateEndFilter)}`
@@ -1200,37 +1186,16 @@ export default function InspecaoInjecao() {
         setRegistros([]);
         setDateFilter('');
         setDateEndFilter('');
-        setRangeStartDraft('');
-        setRangeEndDraft('');
         setMonthFilter(mes || currentMonthISO());
-        setShowPeriodMenu(false);
     };
 
-    const selecionarInicioIntervalo = (dataInicio) => {
-        setRangeStartDraft(dataInicio);
-        if (dataInicio && rangeEndDraft && dataInicio > rangeEndDraft) {
-            setRangeEndDraft(dataInicio);
-        }
-    };
-
-    const selecionarFimIntervalo = (dataFim) => {
-        setRangeEndDraft(dataFim);
-        if (dataFim && rangeStartDraft && dataFim < rangeStartDraft) {
-            setRangeStartDraft(dataFim);
-        }
-    };
-
-    const aplicarIntervalo = () => {
-        if (!rangeStartDraft || !rangeEndDraft) {
-            alert('Selecione a data inicial e a data final.');
-            return;
-        }
-
+    /* Os rascunhos das duas datas e a validacao do intervalo ficam dentro do
+       PeriodFilter; aqui chegam so as datas ja escolhidas. */
+    const aplicarIntervalo = (inicio, fim) => {
         setRegistros([]);
-        setDateFilter(rangeStartDraft);
-        setDateEndFilter(rangeEndDraft);
+        setDateFilter(inicio);
+        setDateEndFilter(fim);
         setMonthFilter('');
-        setShowPeriodMenu(false);
     };
 
     const calcularIndice = (amostraInsp, qtde_lote) => {
@@ -1249,7 +1214,7 @@ export default function InspecaoInjecao() {
     return (
         <AppLayout
             breadcrumb={[{ label: 'Qualidade' }, { label: 'Registro' }, { label: 'Inspeção de Injeção' }]}
-            containerClassName="injecao-page"
+            containerClassName="injecao-page listing-page"
         >
             <div>
                 <div className="page-header">
@@ -1257,80 +1222,25 @@ export default function InspecaoInjecao() {
                         <h1><i className="fas fa-cubes"></i> Inspeção de peças plasticas</h1>
                         <p>Acompanhamento de inspeção — Injeção</p>
                     </div>
-                    <div className="header-actions injecao-filters">
+                    <div className="header-actions listing-filters">
                         <input
                             type="search"
-                            className="form-control injecao-search"
+                            className="form-control listing-search"
                             placeholder="Buscar por código, peça, máquina..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
-                        <div className="period-filter-wrapper" ref={periodMenuRef}>
-                            <button
-                                type="button"
-                                className={showPeriodMenu ? 'period-filter-button active' : 'period-filter-button'}
-                                onClick={() => setShowPeriodMenu((current) => !current)}
-                                aria-expanded={showPeriodMenu}
-                                aria-haspopup="dialog"
-                                title={'Período: ' + periodoLabel}
-                            >
-                                <i className="fas fa-calendar-alt" aria-hidden="true"></i>
-                                <span className="filter-label">
-                                    <span className="period-filter-title">Período</span>
-                                    <span className="period-filter-value">{periodoLabel}</span>
-                                </span>
-                                <i className="fas fa-chevron-down period-filter-chevron" aria-hidden="true"></i>
-                            </button>
-
-                            {showPeriodMenu && (
-                                <div className="period-filter-menu" role="dialog" aria-label="Selecionar período">
-                                    <div className="period-filter-quick-actions">
-                                        <button type="button" onClick={() => selecionarMes(currentMonthISO())}>
-                                            Mês atual
-                                        </button>
-                                        <button type="button" onClick={() => selecionarMes(previousMonthISO())}>
-                                            Mês anterior
-                                        </button>
-                                    </div>
-
-                                    <label>
-                                        <span>Outro mês</span>
-                                        <input
-                                            type="month"
-                                            value={monthFilter}
-                                            onChange={(e) => selecionarMes(e.target.value)}
-                                        />
-                                    </label>
-                                    <div className="period-range-fields">
-                                        <label>
-                                            <span>Data inicial</span>
-                                            <input
-                                                type="date"
-                                                value={rangeStartDraft}
-                                                max={rangeEndDraft || undefined}
-                                                onChange={(e) => selecionarInicioIntervalo(e.target.value)}
-                                            />
-                                        </label>
-                                        <label>
-                                            <span>Data final</span>
-                                            <input
-                                                type="date"
-                                                value={rangeEndDraft}
-                                                min={rangeStartDraft || undefined}
-                                                onChange={(e) => selecionarFimIntervalo(e.target.value)}
-                                            />
-                                        </label>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="period-range-apply"
-                                        onClick={aplicarIntervalo}
-                                    >
-                                        Aplicar intervalo
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                        {/* O seletor de periodo eram ~70 linhas aqui dentro.
+                            Virou componente do UI Kit, com os rascunhos de data
+                            guardados la dentro. */}
+                        <PeriodFilter
+                            label={periodoLabel}
+                            mes={monthFilter}
+                            mesAtual={currentMonthISO()}
+                            mesAnterior={previousMonthISO()}
+                            onMes={selecionarMes}
+                            onIntervalo={aplicarIntervalo}
+                        />
                         <label className={shiftFilter ? 'shift-filter-button active' : 'shift-filter-button'} title={shiftFilter ? 'Turno: ' + shiftFilter : 'Filtrar por turno'}>
                             <i className="fas fa-clock" aria-hidden="true"></i>
                             <span className="filter-label">{shiftFilter ? 'Turno ' + shiftFilter : 'Turno'}</span>
@@ -1362,40 +1272,26 @@ export default function InspecaoInjecao() {
                     </div>
                 </div>
 
-                <section className="injecao-summary" aria-label="Resumo e filtros das inspeções">
-                    <article className={`injecao-summary-card filter-card total ${!statusFilter ? 'active' : ''}`}
-                        role="button" tabIndex="0" aria-pressed={!statusFilter}
-                        onClick={() => setStatusFilter('')} onKeyDown={(event) => acionarCardPorTeclado(event, '')}>
-                        <div className="injecao-summary-heading"><i className="fas fa-clipboard-list" aria-hidden="true"></i><span>Total de inspeções</span></div>
-                        <strong>{loading ? '—' : resumoInspecoes.total}</strong><small>Todos os status</small>
-                        <span className="injecao-summary-line" aria-hidden="true"></span>
-                    </article>
-                    <article className={`injecao-summary-card filter-card approved ${statusFilter === 'aprovado' ? 'active' : ''}`}
-                        role="button" tabIndex="0" aria-pressed={statusFilter === 'aprovado'}
-                        onClick={() => ativarFiltroStatus('aprovado')} onKeyDown={(event) => acionarCardPorTeclado(event, 'aprovado')}>
-                        <div className="injecao-summary-heading"><i className="fas fa-check-circle" aria-hidden="true"></i><span>Aprovadas</span></div>
-                        <strong>{loading ? '—' : resumoInspecoes.aprovadas}</strong><small>Inspeções aprovadas</small>
-                        <span className="injecao-summary-line" aria-hidden="true"></span>
-                    </article>
-                    <article className={`injecao-summary-card filter-card rejected ${statusFilter === 'reprovado' ? 'active' : ''}`}
-                        role="button" tabIndex="0" aria-pressed={statusFilter === 'reprovado'}
-                        onClick={() => ativarFiltroStatus('reprovado')} onKeyDown={(event) => acionarCardPorTeclado(event, 'reprovado')}>
-                        <div className="injecao-summary-heading"><i className="fas fa-times-circle" aria-hidden="true"></i><span>Reprovadas</span></div>
-                        <strong>{loading ? '—' : resumoInspecoes.reprovadas}</strong><small>Inspeções reprovadas</small>
-                        <span className="injecao-summary-line" aria-hidden="true"></span>
-                    </article>
-                    <article className={`injecao-summary-card filter-card pending ${statusFilter === 'pendente' ? 'active' : ''}`}
-                        role="button" tabIndex="0" aria-pressed={statusFilter === 'pendente'}
-                        onClick={() => ativarFiltroStatus('pendente')} onKeyDown={(event) => acionarCardPorTeclado(event, 'pendente')}>
-                        <div className="injecao-summary-heading"><i className="fas fa-clock" aria-hidden="true"></i><span>Pendentes</span></div>
-                        <strong>{loading ? '—' : resumoInspecoes.pendentes}</strong><small>Pendentes ou em concessão</small>
-                        <span className="injecao-summary-line" aria-hidden="true"></span>
-                    </article>
-                </section>
+                {/* Os quatro cards sao o FilterCard do UI Kit. O JSX que estava
+                    aqui, repetido quatro vezes, virou a tabela abaixo. */}
+                <FilterCardStrip rotulo="Resumo e filtros das inspeções">
+                    {CARDS_RESUMO.map((card) => (
+                        <FilterCard
+                            key={card.chave || 'total'}
+                            icone={card.icone}
+                            rotulo={card.rotulo}
+                            legenda={card.legenda}
+                            tom={card.tom}
+                            valor={loading ? '—' : resumoInspecoes[card.contagem]}
+                            ativo={card.chave ? statusFilter === card.chave : !statusFilter}
+                            onClick={() => (card.chave ? ativarFiltroStatus(card.chave) : setStatusFilter(''))}
+                        />
+                    ))}
+                </FilterCardStrip>
 
                 {/* Tabela e panorama responsivo */}
-                <div className="injecao-content-layout">
-                    <div className="injecao-table-column">
+                <div className="listing-layout">
+                    <div className="listing-table-column">
                 <div className="table-card">
                     <div className="table-container">
                         <table className="table">
@@ -1459,41 +1355,40 @@ export default function InspecaoInjecao() {
                     </div>
                 </div>
                     </div>
-                    <aside className="piece-panorama" aria-live="polite">
-                        {!panoramaRegistro ? (
-                            <div className="piece-panorama-empty"><i className="fas fa-chart-column"></i>
-                                <h3>Panorama da peça</h3><p>Clique em uma linha da tabela para ver o histórico da peça.</p></div>
-                        ) : panoramaDados.loading ? (
-                            <div className="piece-panorama-empty"><i className="fas fa-spinner fa-spin"></i><p>Carregando panorama...</p></div>
-                        ) : (
-                            <>
-                                <div className="piece-panorama-header"><span>Panorama da peça</span>
-                                    <button type="button" onClick={() => setPanoramaRegistro(null)} aria-label="Fechar panorama"><i className="fas fa-times"></i></button></div>
-                                <h3>{panoramaRegistro.peca || 'Peça sem descrição'}</h3><p className="piece-panorama-code">Código {panoramaRegistro.cod || '—'}</p>
-                                <div className="piece-panorama-kpis">
-                                    <div><strong>{panoramaAtualResumo.total}</strong><span>inspeções</span></div>
-                                    <div className="positive"><strong>{panoramaAtualResumo.aprovadas}</strong><span>aprovadas</span></div>
-                                    <div className="negative"><strong>{panoramaAtualResumo.reprovadas}</strong><span>reprovadas</span></div>
-                                    <div><strong>{panoramaAtualResumo.total ? ((panoramaAtualResumo.aprovadas / panoramaAtualResumo.total) * 100).toFixed(1) : '0,0'}%</strong><span>aprovação</span></div>
-                                </div>
-                                <section className="panorama-block"><h4>Mês atual × mês anterior</h4>
-                                    {[[panoramaDados.mesAnterior, panoramaAnteriorResumo], [panoramaDados.mesAtual, panoramaAtualResumo]].map(([mes, resumo]) => (
-                                        <div className="panorama-month-row" key={mes}><span>{formatMonthLabel(mes)}</span><div className="panorama-bars">
-                                            <i className="approved-bar" style={{ width: `${(resumo.aprovadas / panoramaMaiorValor) * 100}%` }}></i><b>{resumo.aprovadas}</b>
-                                            <i className="rejected-bar" style={{ width: `${(resumo.reprovadas / panoramaMaiorValor) * 100}%` }}></i><b>{resumo.reprovadas}</b>
-                                        </div></div>))}
-                                    <div className="panorama-legend"><span><i className="approved-dot"></i>Aprovadas</span><span><i className="rejected-dot"></i>Reprovadas</span></div>
-                                </section>
-                                <section className="panorama-block"><h4>Defeitos mais frequentes</h4>
-                                    {panoramaDefeitos.length ? panoramaDefeitos.map(([nome, quantidade]) => (
-                                        <div className="defect-row" key={nome}><span>{nome}</span><i><b style={{ width: `${(quantidade / maiorDefeito) * 100}%` }}></b></i><strong>{quantidade}</strong></div>
-                                    )) : <p className="panorama-no-data">Nenhum defeito registrado no período.</p>}
-                                </section>
-                                <section className="panorama-meta"><div><span>Máquinas</span><strong>{panoramaMaquinas.join(', ') || '—'}</strong></div>
-                                    <div><span>Moldes</span><strong>{panoramaMoldes.join(', ') || '—'}</strong></div></section>
-                            </>
-                        )}
-                    </aside>
+                    {/* A moldura do painel — vazio, carregando, cabecalho com
+                        titulo e fechar — virou o SidePanel do UI Kit. Aqui fica
+                        so o miolo, que e proprio desta tela. */}
+                    <SidePanel
+                        titulo="Panorama da peça"
+                        textoVazio="Clique em uma linha da tabela para ver o histórico da peça."
+                        item={panoramaRegistro}
+                        carregando={panoramaDados.loading}
+                        nome={panoramaRegistro?.peca || 'Peça sem descrição'}
+                        subtitulo={`Código ${panoramaRegistro?.cod || '—'}`}
+                        onFechar={() => setPanoramaRegistro(null)}
+                    >
+                        <div className="piece-panorama-kpis">
+                            <div><strong>{panoramaAtualResumo.total}</strong><span>inspeções</span></div>
+                            <div className="positive"><strong>{panoramaAtualResumo.aprovadas}</strong><span>aprovadas</span></div>
+                            <div className="negative"><strong>{panoramaAtualResumo.reprovadas}</strong><span>reprovadas</span></div>
+                            <div><strong>{panoramaAtualResumo.total ? ((panoramaAtualResumo.aprovadas / panoramaAtualResumo.total) * 100).toFixed(1) : '0,0'}%</strong><span>aprovação</span></div>
+                        </div>
+                        <section className="panorama-block"><h4>Mês atual × mês anterior</h4>
+                            {[[panoramaDados.mesAnterior, panoramaAnteriorResumo], [panoramaDados.mesAtual, panoramaAtualResumo]].map(([mes, resumo]) => (
+                                <div className="panorama-month-row" key={mes}><span>{formatMonthLabel(mes)}</span><div className="panorama-bars">
+                                    <i className="approved-bar" style={{ width: `${(resumo.aprovadas / panoramaMaiorValor) * 100}%` }}></i><b>{resumo.aprovadas}</b>
+                                    <i className="rejected-bar" style={{ width: `${(resumo.reprovadas / panoramaMaiorValor) * 100}%` }}></i><b>{resumo.reprovadas}</b>
+                                </div></div>))}
+                            <div className="panorama-legend"><span><i className="approved-dot"></i>Aprovadas</span><span><i className="rejected-dot"></i>Reprovadas</span></div>
+                        </section>
+                        <section className="panorama-block"><h4>Defeitos mais frequentes</h4>
+                            {panoramaDefeitos.length ? panoramaDefeitos.map(([nome, quantidade]) => (
+                                <div className="defect-row" key={nome}><span>{nome}</span><i><b style={{ width: `${(quantidade / maiorDefeito) * 100}%` }}></b></i><strong>{quantidade}</strong></div>
+                            )) : <p className="panorama-no-data">Nenhum defeito registrado no período.</p>}
+                        </section>
+                        <section className="panorama-meta"><div><span>Máquinas</span><strong>{panoramaMaquinas.join(', ') || '—'}</strong></div>
+                            <div><span>Moldes</span><strong>{panoramaMoldes.join(', ') || '—'}</strong></div></section>
+                    </SidePanel>
                 </div>
 
                 {/* Modal de cadastro/edição */}

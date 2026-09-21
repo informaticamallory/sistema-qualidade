@@ -1,6 +1,19 @@
 /* Estilos específicos da Inspeção de Injeção.
    O layout base (modal, formulário, botões, tabela) é reaproveitado de InspecaoMontagem.css */
 
+/* ── Nomes compartilhados ──
+   `.listing-page`, `.listing-layout`, `.listing-table-column`,
+   `.listing-filters` e `.listing-search` se chamavam `.injecao-*`. Mudaram
+   quando as Fichas NC passaram a usar o mesmo cabeçalho, a mesma faixa de
+   indicadores e o mesmo painel lateral: com o nome antigo, a segunda tela
+   teria de fingir ser a página de injeção para herdar o layout.
+
+   `.injecao-page` ficou só onde a regra é mesmo daquela tela — as colunas que
+   somem no celular.
+
+   Os cards de resumo saíram deste arquivo: viraram `.kpi-*` em
+   components/ui/ui.css, junto com o componente FilterCard. */
+
 .acoes {
     display: flex;
     gap: 6px;
@@ -404,45 +417,45 @@
 
 /* Mantém os controles de cadastro visíveis em tablets e smartphones. */
 @media (max-width: 1024px) {
-    .injecao-page {
+    .listing-page {
         overflow-x: hidden;
     }
 
-    .injecao-page .page-header {
+    .listing-page .page-header {
         box-sizing: border-box;
         width: 100%;
     }
 
-    .injecao-page .header-actions {
+    .listing-page .header-actions {
         box-sizing: border-box;
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
         width: 100%;
     }
 
-    .injecao-page .header-actions .form-control {
+    .listing-page .header-actions .form-control {
         width: 100%;
         min-width: 0;
     }
 
-    .injecao-page .header-actions input.form-control {
+    .listing-page .header-actions input.form-control {
         grid-column: 1 / -1;
     }
 
-    .injecao-page .header-actions .btn {
+    .listing-page .header-actions .btn {
         width: auto;
         min-width: max-content;
     }
 }
 
 @media (max-width: 600px) {
-    .injecao-page .header-actions {
+    .listing-page .header-actions {
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .injecao-page .header-actions input.form-control,
-    .injecao-page .header-actions select.form-control,
-    .injecao-page .header-actions .btn {
+    .listing-page .header-actions input.form-control,
+    .listing-page .header-actions select.form-control,
+    .listing-page .header-actions .btn {
         grid-column: 1;
         width: 100%;
     }
@@ -549,91 +562,6 @@
     }
 }
 
-/* Resumo atualizado pela mesma lista retornada pelos filtros. */
-.injecao-summary {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
-.injecao-summary-card {
-    min-width: 0;
-    padding: 1rem 1.1rem;
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    background: var(--surface);
-    color: var(--text);
-}
-
-.injecao-summary-heading {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    min-width: 0;
-    font-size: 0.9rem;
-    font-weight: 700;
-}
-
-.injecao-summary-heading i { color: var(--primary); }
-.injecao-summary-card.approved .injecao-summary-heading i { color: var(--success); }
-.injecao-summary-card.rejected .injecao-summary-heading i { color: var(--danger); }
-.injecao-summary-card.pending .injecao-summary-heading i { color: var(--warning); }
-
-.injecao-summary-card strong {
-    display: block;
-    margin-top: 0.8rem;
-    font-size: clamp(1.65rem, 3vw, 2.2rem);
-    line-height: 1;
-}
-
-.injecao-summary-card small {
-    display: block;
-    margin-top: 0.35rem;
-    color: var(--text-muted);
-    font-size: 0.76rem;
-}
-
-.injecao-summary-line {
-    display: block;
-    width: 100%;
-    height: 3px;
-    margin-top: 0.75rem;
-    border-radius: 999px;
-    background: var(--primary);
-}
-
-.injecao-summary-card.approved .injecao-summary-line { background: var(--success); }
-.injecao-summary-card.rejected .injecao-summary-line { background: var(--danger); }
-.injecao-summary-card.pending .injecao-summary-line { background: var(--warning); }
-
-@media (max-width: 600px) {
-    .injecao-summary {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.45rem;
-        margin-bottom: 0.75rem;
-    }
-
-    .injecao-summary-card {
-        padding: 0.7rem 0.55rem;
-        border-radius: 12px;
-        text-align: center;
-    }
-
-    .injecao-summary-heading {
-        justify-content: center;
-        gap: 0.3rem;
-        font-size: 0.68rem;
-    }
-
-    .injecao-summary-card strong {
-        margin-top: 0.55rem;
-        font-size: 1.45rem;
-    }
-
-    .injecao-summary-card small { display: none; }
-    .injecao-summary-line { margin-top: 0.55rem; }
-}
 /* Barra responsiva de busca, calendário e filtros rápidos. */
 .period-filter-wrapper {
     position: relative;
@@ -810,14 +738,14 @@
     }
 }
 
-.injecao-filters {
+.listing-filters {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 0.5rem;
 }
 
-.injecao-filters .injecao-search {
+.listing-filters .listing-search {
     flex: 1 1 260px;
     min-width: 180px;
 }
@@ -860,46 +788,46 @@
 
 
 @media (max-width: 1024px) {
-    .injecao-page .header-actions.injecao-filters {
+    .listing-page .header-actions.listing-filters {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 0.5rem;
     }
 
-    .injecao-page .injecao-filters .injecao-search {
+    .listing-page .listing-filters .listing-search {
         grid-column: 1 / -1;
         width: 100%;
     }
 }
 
 @media (max-width: 600px) {
-    .injecao-page .header-actions.injecao-filters {
+    .listing-page .header-actions.listing-filters {
         grid-template-columns: repeat(4, minmax(0, 1fr));
         padding-left: 0;
         padding-right: 0;
     }
 
-    .injecao-page .injecao-filters .injecao-search {
+    .listing-page .listing-filters .listing-search {
         grid-column: 1 / -1 !important;
         order: 2;
         width: 100%;
         min-width: 0;
     }
 
-    .injecao-page .injecao-filters .period-filter-wrapper,
-    .injecao-page .injecao-filters .shift-filter-button,
-    .injecao-page .injecao-filters .export-excel-button,
-    .injecao-page .injecao-filters .new-inspection-button {
+    .listing-page .listing-filters .period-filter-wrapper,
+    .listing-page .listing-filters .shift-filter-button,
+    .listing-page .listing-filters .export-excel-button,
+    .listing-page .listing-filters .new-inspection-button {
         order: 1;
     }
-    .injecao-filters .filter-label {
+    .listing-filters .filter-label {
         display: none;
     }
 
-    .injecao-page .injecao-filters .period-filter-wrapper,
-    .injecao-page .injecao-filters .shift-filter-button,
-    .injecao-page .injecao-filters .export-excel-button,
-    .injecao-page .injecao-filters .new-inspection-button {
+    .listing-page .listing-filters .period-filter-wrapper,
+    .listing-page .listing-filters .shift-filter-button,
+    .listing-page .listing-filters .export-excel-button,
+    .listing-page .listing-filters .new-inspection-button {
         grid-column: auto;
         width: 100%;
         min-width: 0;
@@ -909,21 +837,21 @@
     }
 
 
-    .injecao-page .injecao-filters .period-filter-wrapper {
+    .listing-page .listing-filters .period-filter-wrapper {
         padding: 0;
     }
 
-    .injecao-page .injecao-filters .period-filter-button {
+    .listing-page .listing-filters .period-filter-button {
         min-height: 42px;
         padding: 0.55rem;
         border-radius: 12px;
     }
 
-    .injecao-page .period-filter-menu .filter-label {
+    .listing-page .period-filter-menu .filter-label {
         display: initial;
     }
-    .injecao-filters .period-filter-button.active::after,
-    .injecao-filters .shift-filter-button.active::after {
+    .listing-filters .period-filter-button.active::after,
+    .listing-filters .shift-filter-button.active::after {
         content: '';
         position: absolute;
         top: 5px;
@@ -1164,17 +1092,8 @@
     }
 }
 
-/* Cards usados também como filtros */
-.injecao-summary-card.filter-card { cursor: pointer; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease; outline: none; }
-.injecao-summary-card.filter-card:hover { transform: translateY(-2px); }
-.injecao-summary-card.filter-card:focus-visible { outline: 2px solid #f97316; outline-offset: 3px; }
-.injecao-summary-card.filter-card.total.active { border-color: rgba(249,115,22,.72); box-shadow: 0 0 0 1px rgba(249,115,22,.14), 0 0 10px rgba(249,115,22,.12); background: linear-gradient(145deg, rgba(249,115,22,.055), var(--surface)); }
-.injecao-summary-card.filter-card.approved.active { border-color: rgba(34,197,94,.72); box-shadow: 0 0 0 1px rgba(34,197,94,.14), 0 0 10px rgba(34,197,94,.12); background: linear-gradient(145deg, rgba(34,197,94,.055), var(--surface)); }
-.injecao-summary-card.filter-card.rejected.active { border-color: rgba(239,68,68,.72); box-shadow: 0 0 0 1px rgba(239,68,68,.14), 0 0 10px rgba(239,68,68,.12); background: linear-gradient(145deg, rgba(239,68,68,.055), var(--surface)); }
-.injecao-summary-card.filter-card.pending.active { border-color: rgba(245,158,11,.72); box-shadow: 0 0 0 1px rgba(245,158,11,.14), 0 0 10px rgba(245,158,11,.12); background: linear-gradient(145deg, rgba(245,158,11,.055), var(--surface)); }
-
-.injecao-content-layout { display: block; }
-.injecao-table-column { min-width: 0; }
+.listing-layout { display: block; }
+.listing-table-column { min-width: 0; }
 .piece-panorama { display: none; }
 .table tbody tr.panorama-row-active { box-shadow: inset 3px 0 #f97316; background: rgba(249,115,22,.08); }
 
@@ -1182,67 +1101,67 @@
   /* A largura fluida saiu daqui: virou o comportamento padrão de
      .main-content em ui/theme/ui-kit.css. */
 
-  .injecao-content-layout {
+  .listing-layout {
     transition: grid-template-columns .25s ease, gap .25s ease;
   }
 
   /* Sidebar aberta: prioriza a tabela e apresenta o panorama compacto. */
-  .injecao-page .sidebar:not(.collapsed) ~ .main-content .injecao-content-layout {
+  .listing-page .sidebar:not(.collapsed) ~ .main-content .listing-layout {
     grid-template-columns: minmax(0, 1fr) clamp(300px, 17vw, 320px);
     gap: 12px;
   }
 
-  .injecao-page .sidebar:not(.collapsed) ~ .main-content .piece-panorama {
+  .listing-page .sidebar:not(.collapsed) ~ .main-content .piece-panorama {
     padding: 14px;
     border-radius: 14px;
   }
 
-  .injecao-page .sidebar:not(.collapsed) ~ .main-content .piece-panorama > h3 {
+  .listing-page .sidebar:not(.collapsed) ~ .main-content .piece-panorama > h3 {
     margin-top: 12px;
     font-size: .9rem;
   }
 
-  .injecao-page .sidebar:not(.collapsed) ~ .main-content .piece-panorama-kpis {
+  .listing-page .sidebar:not(.collapsed) ~ .main-content .piece-panorama-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
   }
 
-  .injecao-page .sidebar:not(.collapsed) ~ .main-content .piece-panorama-kpis div {
+  .listing-page .sidebar:not(.collapsed) ~ .main-content .piece-panorama-kpis div {
     padding: 8px 5px;
   }
 
-  .injecao-page .sidebar:not(.collapsed) ~ .main-content .panorama-block {
+  .listing-page .sidebar:not(.collapsed) ~ .main-content .panorama-block {
     margin-top: 10px;
     padding: 10px;
   }
 
-  .injecao-page .sidebar:not(.collapsed) ~ .main-content .panorama-month-row {
+  .listing-page .sidebar:not(.collapsed) ~ .main-content .panorama-month-row {
     grid-template-columns: 72px minmax(0, 1fr);
     gap: 6px;
   }
 
-  .injecao-page .sidebar:not(.collapsed) ~ .main-content .panorama-meta {
+  .listing-page .sidebar:not(.collapsed) ~ .main-content .panorama-meta {
     gap: 6px;
     margin-top: 10px;
   }
 
-  .injecao-page .sidebar:not(.collapsed) ~ .main-content .panorama-meta div {
+  .listing-page .sidebar:not(.collapsed) ~ .main-content .panorama-meta div {
     padding: 8px;
   }
 
-  .injecao-page .sidebar:not(.collapsed) ~ .main-content .injecao-table-column .table th,
-  .injecao-page .sidebar:not(.collapsed) ~ .main-content .injecao-table-column .table td {
+  .listing-page .sidebar:not(.collapsed) ~ .main-content .listing-table-column .table th,
+  .listing-page .sidebar:not(.collapsed) ~ .main-content .listing-table-column .table td {
     padding-left: 8px;
     padding-right: 8px;
   }
 
   /* Sidebar recolhida: devolve o espaço adicional ao panorama. */
-  .injecao-page .sidebar.collapsed ~ .main-content .injecao-content-layout {
+  .listing-page .sidebar.collapsed ~ .main-content .listing-layout {
     grid-template-columns: minmax(0, 1fr) clamp(350px, 21vw, 390px);
     gap: 16px;
   }
 
-  .injecao-content-layout {
+  .listing-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr) clamp(350px, 21vw, 390px);
     gap: 16px;
@@ -1250,17 +1169,17 @@
     width: 100%;
   }
 
-  .injecao-table-column,
-  .injecao-table-column .table-card,
-  .injecao-table-column .table-container {
+  .listing-table-column,
+  .listing-table-column .table-card,
+  .listing-table-column .table-container {
     width: 100%;
     min-width: 0;
   }
 
   /* Mantém visualizar, editar e excluir acessíveis mesmo se a tabela precisar
      de alguns pixels de rolagem horizontal. */
-  .injecao-table-column .table th.col-acoes,
-  .injecao-table-column .table td.col-acoes {
+  .listing-table-column .table th.col-acoes,
+  .listing-table-column .table td.col-acoes {
     display: table-cell;
     position: sticky;
     right: 0;
@@ -1271,12 +1190,12 @@
     box-shadow: -8px 0 14px -13px color-mix(in srgb, var(--text) 28%, transparent);
   }
 
-  .injecao-table-column .table th.col-acoes {
+  .listing-table-column .table th.col-acoes {
     z-index: 4;
     background: var(--bg-2);
   }
 
-  .injecao-table-column .table tr.panorama-row-active td.col-acoes {
+  .listing-table-column .table tr.panorama-row-active td.col-acoes {
     background: color-mix(in srgb, var(--surface) 92%, var(--primary));
   }
 
@@ -1310,7 +1229,6 @@
 /* O dialogo de alteracoes nao salvas virou componente:
    components/ui/ConfirmarSaida.jsx, com o estilo em components/ui/ui.css.
    Estava duplicado aqui e no CSS da Montagem. */
-@media(prefers-reduced-motion:reduce){.injecao-summary-card.filter-card{transition:none}}
 
 /* ── Botão-thumb que substituiu o <a> nas fotos do modal de visualização ── */
 .injecao-view-photo-thumb {

@@ -720,3 +720,111 @@
     width: 100%;
     margin-top: var(--space-3);
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   KpiCard — faixa de indicadores das listagens
+   ══════════════════════════════════════════════════════════════════════
+   Veio de InspecaoInjecao.css, onde se chamava `.injecao-summary-*`. Passou
+   a ser do UI Kit quando a Inspeção de Injeção e as Fichas NC ficaram com a
+   mesma faixa, e o prefixo da página deixou de descrever onde as regras
+   vivem. Nomes e valores são os mesmos; só o seletor mudou.
+
+   `.active` virou `.is-active` de propósito: `.active` solto é usado por abas
+   e botões em várias telas, e este arquivo sai depois do CSS das páginas no
+   pacote do Vite. */
+/* Resumo atualizado pela mesma lista retornada pelos filtros. */
+.kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.kpi-card {
+    min-width: 0;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    color: var(--text);
+}
+
+.kpi-card-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-width: 0;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.kpi-card-heading i { color: var(--primary); }
+.kpi-card.approved .kpi-card-heading i { color: var(--success); }
+.kpi-card.rejected .kpi-card-heading i { color: var(--danger); }
+.kpi-card.pending .kpi-card-heading i { color: var(--warning); }
+
+.kpi-card strong {
+    display: block;
+    margin-top: 0.8rem;
+    font-size: clamp(1.65rem, 3vw, 2.2rem);
+    line-height: 1;
+}
+
+.kpi-card small {
+    display: block;
+    margin-top: 0.35rem;
+    color: var(--text-muted);
+    font-size: 0.76rem;
+}
+
+.kpi-card-line {
+    display: block;
+    width: 100%;
+    height: 3px;
+    margin-top: 0.75rem;
+    border-radius: 999px;
+    background: var(--primary);
+}
+
+.kpi-card.approved .kpi-card-line { background: var(--success); }
+.kpi-card.rejected .kpi-card-line { background: var(--danger); }
+.kpi-card.pending .kpi-card-line { background: var(--warning); }
+
+@media (max-width: 600px) {
+    .kpi-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.45rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .kpi-card {
+        padding: 0.7rem 0.55rem;
+        border-radius: 12px;
+        text-align: center;
+    }
+
+    .kpi-card-heading {
+        justify-content: center;
+        gap: 0.3rem;
+        font-size: 0.68rem;
+    }
+
+    .kpi-card strong {
+        margin-top: 0.55rem;
+        font-size: 1.45rem;
+    }
+
+    .kpi-card small { display: none; }
+    .kpi-card-line { margin-top: 0.55rem; }
+}
+/* Cards usados também como filtros */
+.kpi-card.is-clickable { cursor: pointer; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease; outline: none; }
+.kpi-card.is-clickable:hover { transform: translateY(-2px); }
+.kpi-card.is-clickable:focus-visible { outline: 2px solid #f97316; outline-offset: 3px; }
+.kpi-card.is-clickable.total.is-active { border-color: rgba(249,115,22,.72); box-shadow: 0 0 0 1px rgba(249,115,22,.14), 0 0 10px rgba(249,115,22,.12); background: linear-gradient(145deg, rgba(249,115,22,.055), var(--surface)); }
+.kpi-card.is-clickable.approved.is-active { border-color: rgba(34,197,94,.72); box-shadow: 0 0 0 1px rgba(34,197,94,.14), 0 0 10px rgba(34,197,94,.12); background: linear-gradient(145deg, rgba(34,197,94,.055), var(--surface)); }
+.kpi-card.is-clickable.rejected.is-active { border-color: rgba(239,68,68,.72); box-shadow: 0 0 0 1px rgba(239,68,68,.14), 0 0 10px rgba(239,68,68,.12); background: linear-gradient(145deg, rgba(239,68,68,.055), var(--surface)); }
+.kpi-card.is-clickable.pending.is-active { border-color: rgba(245,158,11,.72); box-shadow: 0 0 0 1px rgba(245,158,11,.14), 0 0 10px rgba(245,158,11,.12); background: linear-gradient(145deg, rgba(245,158,11,.055), var(--surface)); }
+
+
+@media(prefers-reduced-motion:reduce){.kpi-card.is-clickable{transition:none}}

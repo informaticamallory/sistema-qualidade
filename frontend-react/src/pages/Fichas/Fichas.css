@@ -396,10 +396,8 @@
     color: var(--text-muted);
 }
 
-/* Search Input */
-.search-input {
-    min-width: 250px;
-}
+/* O campo de busca virou `.listing-search`, a mesma classe da Inspeção de
+   Injeção, e a largura passou a vir de lá. */
 
 /* Produto autocomplete */
 .produto-autocomplete {

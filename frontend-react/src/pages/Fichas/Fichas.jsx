@@ -1,11 +1,57 @@
-﻿import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import ExcelJS from 'exceljs';
 import AppLayout from '../../components/Layout/AppLayout';
 import { useAuth } from '../../context/auth-context';
+import { FilterCard, FilterCardStrip, PeriodFilter, SidePanel } from '../../components/ui';
 import { fichasAPI, produtosAPI } from '../../services/api';
 import { upperFields } from '../../utils/text';
-import { formatDateBR, normalizeISODate, todayISO } from '../../utils/date';
+import {
+    currentMonthISO, formatDateBR, formatMonthLabel, monthRangeISO,
+    normalizeISODate, previousMonthISO, todayISO
+} from '../../utils/date';
 import './Fichas.css';
+
+/* O campo Status da ficha aceita cinco valores. Aqui eles viram tres
+   recortes, que o seletor e os cards dividem — assim os dois nunca discordam.
+
+   'Aguardando Ação' entra em "Em análise": é ficha em andamento, e um recorte
+   só para ela deixaria o quarto card sem par no seletor. 'Cancelada' não entra
+   em recorte nenhum e aparece apenas no total. */
+const GRUPOS_STATUS = {
+    aberta: ['aberta'],
+    analise: ['em análise', 'aguardando ação'],
+    concluida: ['concluída']
+};
+
+const OPCOES_STATUS = [
+    { valor: '', rotulo: 'Todos os status' },
+    { valor: 'aberta', rotulo: 'Aberta' },
+    { valor: 'analise', rotulo: 'Em análise' },
+    { valor: 'concluida', rotulo: 'Concluída' }
+];
+
+/* Mesma faixa da Inspeção de Injeção: total à esquerda, depois as situações. */
+const CARDS_RESUMO = [
+    { chave: '', contagem: 'total', rotulo: 'Total de FNCs', legenda: 'Todos os status', icone: 'fa-clipboard-list', tom: 'total' },
+    { chave: 'concluida', contagem: 'concluidas', rotulo: 'Concluídas', legenda: 'FNCs encerradas', icone: 'fa-check-circle', tom: 'approved' },
+    { chave: 'aberta', contagem: 'abertas', rotulo: 'Em aberto', legenda: 'Aguardando tratativa', icone: 'fa-times-circle', tom: 'rejected' },
+    { chave: 'analise', contagem: 'pendentes', rotulo: 'Pendentes', legenda: 'Pendentes de decisão', icone: 'fa-clock', tom: 'pending' }
+];
+
+/* Badge com a cor da situação, como nas demais listagens: verde para
+   encerrada, vermelho para o que ainda não foi tratado, amarelo no meio. */
+const classeDoStatus = (valor) => {
+    const status = String(valor || 'Aberta').trim().toLowerCase();
+    if (status === 'concluída') return 'badge-success';
+    if (status === 'cancelada') return 'badge-secondary';
+    if (status === 'aberta') return 'badge-danger';
+    return 'badge-warning';
+};
+
+const normalizarStatus = (valor) => String(valor || 'Aberta').trim().toLowerCase();
+
+const noGrupo = (ficha, chave) => (GRUPOS_STATUS[chave] || []).includes(normalizarStatus(ficha.status));
 
 const PARTIAL_TABS = ['analise', 'acoes', 'custos'];
 const PARTIAL_FIELDS = [
@@ -45,6 +91,18 @@ export default function Fichas() {
     const [showSugestoes, setShowSugestoes] = useState(false);
     const [sheetData, setSheetData] = useState(null);
     const searchTimeout = useRef(null);
+
+    /* ── Filtros da listagem ──
+       Período e status são recortes de cliente: o parâmetro `status` que a API
+       aceita filtra a inspeção de origem, não a situação da ficha. */
+    const [monthFilter, setMonthFilter] = useState(currentMonthISO());
+    const [dateFilter, setDateFilter] = useState('');
+    const [dateEndFilter, setDateEndFilter] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
+    const [exportando, setExportando] = useState(false);
+
+    /* Ficha escolhida na tabela, que alimenta o painel lateral. */
+    const [fichaPanorama, setFichaPanorama] = useState(null);
 
     const initialFormData = {
         // Identificação
@@ -172,6 +230,152 @@ export default function Fichas() {
             setLoading(false);
         }
     };
+    const periodoLabel = dateFilter && dateEndFilter
+        ? `${formatarData(dateFilter)} até ${formatarData(dateEndFilter)}`
+        : formatMonthLabel(monthFilter);
+
+    const selecionarMes = (mes) => {
+        setDateFilter('');
+        setDateEndFilter('');
+        setMonthFilter(mes || currentMonthISO());
+    };
+
+    const aplicarIntervalo = (inicio, fim) => {
+        setDateFilter(inicio);
+        setDateEndFilter(fim);
+        setMonthFilter('');
+    };
+
+    /* O período é o primeiro corte, e os indicadores contam sobre ele: senão
+       "Concluídas" mostraria o total histórico com a tabela num mês só. */
+    const noPeriodo = useMemo(() => {
+        const { start, end } = dateFilter && dateEndFilter
+            ? { start: dateFilter, end: dateEndFilter }
+            : monthRangeISO(monthFilter || currentMonthISO());
+
+        return fichas.filter((ficha) => {
+            const data = normalizeISODate(ficha.data_fnc || ficha.data_inspecao, '');
+            if (!data) return false;
+            return data >= start && data <= end;
+        });
+    }, [fichas, monthFilter, dateFilter, dateEndFilter]);
+
+    const resumoFichas = {
+        total: noPeriodo.length,
+        concluidas: noPeriodo.filter((f) => noGrupo(f, 'concluida')).length,
+        abertas: noPeriodo.filter((f) => noGrupo(f, 'aberta')).length,
+        pendentes: noPeriodo.filter((f) => noGrupo(f, 'analise')).length
+    };
+
+    const fichasVisiveis = useMemo(
+        () => (statusFilter ? noPeriodo.filter((f) => noGrupo(f, statusFilter)) : noPeriodo),
+        [noPeriodo, statusFilter]);
+
+    /* Clicar de novo no card aceso volta para todos. */
+    const ativarFiltroStatus = (chave) => setStatusFilter((atual) => (atual === chave ? '' : chave));
+
+    /* ── Panorama do produto ──
+       Sai da lista que já está na tela: todas as fichas do mesmo código, sem
+       consulta nova ao servidor. */
+    const panorama = useMemo(() => {
+        if (!fichaPanorama) return null;
+
+        const codigo = String(fichaPanorama.codigo || fichaPanorama.cod_sap || '').trim().toUpperCase();
+        const doProduto = fichas.filter(
+            (f) => String(f.codigo || f.cod_sap || '').trim().toUpperCase() === codigo);
+
+        const mesAtual = monthFilter || currentMonthISO();
+        const mesAnterior = previousMonthISO();
+        const contarNoMes = (mes) => {
+            const { start, end } = monthRangeISO(mes);
+            return doProduto.filter((f) => {
+                const data = normalizeISODate(f.data_fnc || f.data_inspecao, '');
+                return data && data >= start && data <= end;
+            }).length;
+        };
+
+        const defeitos = new Map();
+        doProduto.forEach((f) => {
+            const nome = String(f.descricao_nc || f.defeito || '').trim();
+            if (nome) defeitos.set(nome, (defeitos.get(nome) || 0) + 1);
+        });
+        const maisFrequentes = [...defeitos.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+        return {
+            total: doProduto.length,
+            concluidas: doProduto.filter((f) => noGrupo(f, 'concluida')).length,
+            abertas: doProduto.filter((f) => noGrupo(f, 'aberta')).length,
+            qtdNC: doProduto.reduce((soma, f) => soma + Number(f.qtd_nao_conforme || 0), 0),
+            mesAtual,
+            mesAnterior,
+            porMes: [[mesAnterior, contarNoMes(mesAnterior)], [mesAtual, contarNoMes(mesAtual)]],
+            maiorMes: Math.max(contarNoMes(mesAnterior), contarNoMes(mesAtual), 1),
+            defeitos: maisFrequentes,
+            maiorDefeito: Math.max(...maisFrequentes.map(([, q]) => q), 1),
+            decisoes: [...new Set(doProduto.map((f) => f.decisao_final || f.decisao).filter(Boolean))],
+            destinos: [...new Set(doProduto.map((f) => f.para_departamento).filter(Boolean))]
+        };
+    }, [fichaPanorama, fichas, monthFilter]);
+
+    /* Clique na linha: no celular abre a folha de ações, no desktop escolhe a
+       ficha do painel lateral. Mesma divisão da Inspeção de Injeção. */
+    const handleRowClick = (ficha) => {
+        if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1024px)').matches) {
+            openMobileActions(ficha);
+            return;
+        }
+        setFichaPanorama((atual) => (atual?.id === ficha.id ? null : ficha));
+    };
+
+    const exportarExcel = async () => {
+        if (fichasVisiveis.length === 0) {
+            alert('Nenhuma FNC para exportar.');
+            return;
+        }
+        setExportando(true);
+        try {
+            const workbook = new ExcelJS.Workbook();
+            const planilha = workbook.addWorksheet('Fichas NC');
+            planilha.columns = [
+                { header: 'Nº FNC', key: 'numero', width: 16 },
+                { header: 'Data', key: 'data', width: 14 },
+                { header: 'Código', key: 'codigo', width: 16 },
+                { header: 'Produto', key: 'produto', width: 38 },
+                { header: 'Qtd NC', key: 'qtdNC', width: 10 },
+                { header: 'Decisão', key: 'decisao', width: 22 },
+                { header: 'Status', key: 'status', width: 16 }
+            ];
+
+            fichasVisiveis.forEach((ficha) => planilha.addRow({
+                numero: ficha.numero_fnc || `FNC-${ficha.id}`,
+                data: formatDateBR(ficha.data_fnc || ficha.data_inspecao, ''),
+                codigo: ficha.codigo || ficha.cod_sap || '',
+                produto: ficha.produto || ficha.modelo || '',
+                qtdNC: Number(ficha.qtd_nao_conforme ?? ficha.qtd_nc ?? 0),
+                decisao: ficha.decisao_final || ficha.decisao || '',
+                status: ficha.status || 'Aberta'
+            }));
+
+            const cabecalho = planilha.getRow(1);
+            cabecalho.font = { bold: true };
+            cabecalho.alignment = { vertical: 'middle', horizontal: 'center' };
+            planilha.autoFilter = { from: 'A1', to: `G${planilha.rowCount}` };
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `fichas-nc-${todayISO()}.xlsx`;
+            link.click();
+            URL.revokeObjectURL(url);
+        } finally {
+            setExportando(false);
+        }
+    };
+
     const buscarProduto = async (codigo) => {
         if (!codigo || codigo.length < 3) return;
 
@@ -418,6 +622,7 @@ export default function Fichas() {
     return (
         <AppLayout
             breadcrumb={[{ label: 'Qualidade' }, { label: 'Fichas NC' }, { label: 'Fichas de Não Conformidade' }]}
+            containerClassName="fichas-page listing-page"
         >
             <div>
                 <div className="page-header">
@@ -425,84 +630,187 @@ export default function Fichas() {
                         <h1><i className="fas fa-exclamation-triangle"></i> Fichas de Não Conformidade</h1>
                         <p>Gerencie e acompanhe todas as não conformidades identificadas</p>
                     </div>
-                    <div className="header-actions">
+                    {/* Mesma barra da Inspeção de Injeção, na mesma ordem: busca,
+                        período, filtro secundário, exportar e ação primária. */}
+                    <div className="header-actions listing-filters">
                         <input
-                            type="text"
-                            className="form-control search-input"
+                            type="search"
+                            className="form-control listing-search"
                             placeholder="Buscar por FNC, produto..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
-                        <button className="btn btn-primary btn-sm" onClick={() => { resetForm(); setShowModal(true); }}>
-                            <i className="fas fa-plus"></i> Nova FNC
+
+                        <PeriodFilter
+                            label={periodoLabel}
+                            mes={monthFilter}
+                            mesAtual={currentMonthISO()}
+                            mesAnterior={previousMonthISO()}
+                            onMes={selecionarMes}
+                            onIntervalo={aplicarIntervalo}
+                        />
+
+                        {/* No lugar do Turno da injeção, com o mesmo formato de
+                            rótulo sobre <select> invisível. */}
+                        <label className={statusFilter ? 'shift-filter-button active' : 'shift-filter-button'}
+                            title={statusFilter ? 'Status: ' + (OPCOES_STATUS.find((o) => o.valor === statusFilter)?.rotulo || '') : 'Filtrar por status'}>
+                            <i className="fas fa-filter" aria-hidden="true"></i>
+                            <span className="filter-label">
+                                {statusFilter
+                                    ? OPCOES_STATUS.find((o) => o.valor === statusFilter)?.rotulo
+                                    : 'Status'}
+                            </span>
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                aria-label="Filtrar fichas por status"
+                            >
+                                {OPCOES_STATUS.map((opcao) => (
+                                    <option key={opcao.valor || 'todos'} value={opcao.valor}>{opcao.rotulo}</option>
+                                ))}
+                            </select>
+                        </label>
+
+                        <button
+                            type="button"
+                            className="btn btn-success btn-sm export-excel-button"
+                            onClick={exportarExcel}
+                            disabled={exportando || loading || fichasVisiveis.length === 0}
+                            title="Exportar fichas filtradas para Excel"
+                        >
+                            <i className={`fas ${exportando ? 'fa-spinner fa-spin' : 'fa-file-excel'}`} aria-hidden="true"></i>
+                            <span className="filter-label">Exportar Excel</span>
+                        </button>
+                        <button className="btn btn-primary btn-sm new-inspection-button"
+                            onClick={() => { resetForm(); setShowModal(true); }} title="Nova FNC">
+                            <i className="fas fa-plus" aria-hidden="true"></i>
+                            <span className="filter-label">Nova FNC</span>
                         </button>
                     </div>
                 </div>
 
-                {/* Tabela */}
-                <div className="table-card">
-                    <div className="table-container">
-                        <table className="table">
-                            <thead>
-                                <tr>
-                                    <th>Nº FNC</th>
-                                    <th>Data</th>
-                                    <th>Produto</th>
-                                    <th>Qtd NC</th>
-                                    <th>Decisão</th>
-                                    <th>Status</th>
-                                    <th className="text-right actions-column">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {loading ? (
-                                    <tr>
-                                        <td colSpan="7">
-                                            <div className="loading">
-                                                <div className="loading-spinner"></div>
-                                                <p>Carregando...</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : fichas.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="7" className="text-center">
-                                            <i className="fas fa-inbox" style={{ fontSize: '2rem', color: 'var(--text-subtle)', marginBottom: '1rem', display: 'block' }}></i>
-                                            <p>Nenhuma FNC encontrada. Clique em "Nova FNC" para criar uma.</p>
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    fichas.map((ficha) => (
-                                        <tr
-                                            key={ficha.id}
-                                            className={`mobile-clickable-row ${sheetData?.id === ficha.id ? 'mobile-row-active' : ''}`}
-                                            onClick={() => openMobileActions(ficha)}
-                                        >
-                                            <td><strong>{ficha.numero_fnc || `FNC-${ficha.id}`}</strong></td>
-                                            <td>{formatarData(ficha.data_fnc || ficha.data_inspecao)}</td>
-                                            <td>{ficha.codigo || ficha.cod_sap} - {ficha.produto || ficha.modelo || 'N/A'}</td>
-                                            <td><span className="badge badge-danger">{ficha.qtd_nao_conforme ?? ficha.qtd_nc}</span></td>
-                                            <td>{ficha.decisao_final || ficha.decisao || '-'}</td>
-                                            <td><span className="badge badge-warning">{ficha.status || 'Aberta'}</span></td>
-                                            <td className="actions-column">
-                                                <div className="action-buttons">
-                                                    <button className="btn-icon btn-view" onClick={(e) => { e.stopPropagation(); handleEdit(ficha); }} title="Visualizar">
-                                                        <i className="fas fa-eye"></i>
-                                                    </button>
-                                                    <button className="btn-icon btn-edit" onClick={(e) => { e.stopPropagation(); handleEdit(ficha); }} title="Editar">
-                                                        <i className="fas fa-edit"></i>
-                                                    </button>
-                                                    <button className="btn-icon btn-print" onClick={(e) => { e.stopPropagation(); window.print(); }} title="Imprimir">
-                                                        <i className="fas fa-print"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
+                <FilterCardStrip rotulo="Resumo e filtros das fichas">
+                    {CARDS_RESUMO.map((card) => (
+                        <FilterCard
+                            key={card.chave || 'total'}
+                            icone={card.icone}
+                            rotulo={card.rotulo}
+                            legenda={card.legenda}
+                            tom={card.tom}
+                            valor={loading ? '—' : resumoFichas[card.contagem]}
+                            ativo={card.chave ? statusFilter === card.chave : !statusFilter}
+                            onClick={() => (card.chave ? ativarFiltroStatus(card.chave) : setStatusFilter(''))}
+                        />
+                    ))}
+                </FilterCardStrip>
+
+                {/* Tabela e panorama, mesmo grid de duas colunas da injeção */}
+                <div className="listing-layout">
+                    <div className="listing-table-column">
+                        <div className="table-card">
+                            <div className="table-container">
+                                <table className="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Nº FNC</th>
+                                            <th>Data</th>
+                                            <th>Produto</th>
+                                            <th>Qtd NC</th>
+                                            <th>Decisão</th>
+                                            <th>Status</th>
+                                            <th className="actions-column col-acoes">Ações</th>
                                         </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+                                    </thead>
+                                    <tbody>
+                                        {loading ? (
+                                            <tr><td colSpan="7" style={{ textAlign: 'center' }}>Carregando...</td></tr>
+                                        ) : fichasVisiveis.length === 0 ? (
+                                            <tr><td colSpan="7" style={{ textAlign: 'center' }}>
+                                                {fichas.length
+                                                    ? 'Nenhuma FNC no período e status escolhidos'
+                                                    : 'Nenhuma FNC encontrada'}
+                                            </td></tr>
+                                        ) : (
+                                            fichasVisiveis.map((ficha) => (
+                                                <tr
+                                                    key={ficha.id}
+                                                    className={`mobile-clickable-row ${sheetData?.id === ficha.id ? 'mobile-row-active' : ''} ${fichaPanorama?.id === ficha.id ? 'panorama-row-active' : ''}`}
+                                                    onClick={() => handleRowClick(ficha)}
+                                                >
+                                                    <td><strong>{ficha.numero_fnc || `FNC-${ficha.id}`}</strong></td>
+                                                    <td>{formatarData(ficha.data_fnc || ficha.data_inspecao)}</td>
+                                                    <td>{ficha.codigo || ficha.cod_sap} - {ficha.produto || ficha.modelo || 'N/A'}</td>
+                                                    <td><span className="badge badge-danger">{ficha.qtd_nao_conforme ?? ficha.qtd_nc}</span></td>
+                                                    <td>{ficha.decisao_final || ficha.decisao || '-'}</td>
+                                                    <td><span className={`badge ${classeDoStatus(ficha.status)}`}>{ficha.status || 'Aberta'}</span></td>
+                                                    <td className="actions-column col-acoes">
+                                                        <div className="acoes">
+                                                            <button className="btn-icon btn-view" onClick={(e) => { e.stopPropagation(); handleEdit(ficha); }} title="Visualizar">
+                                                                <i className="fas fa-eye"></i>
+                                                            </button>
+                                                            <button className="btn-icon btn-edit" onClick={(e) => { e.stopPropagation(); handleEdit(ficha); }} title="Editar">
+                                                                <i className="fas fa-edit"></i>
+                                                            </button>
+                                                            <button className="btn-icon btn-print" onClick={(e) => { e.stopPropagation(); window.print(); }} title="Imprimir">
+                                                                <i className="fas fa-print"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
+
+                    <SidePanel
+                        titulo="Panorama do produto"
+                        textoVazio="Clique em uma linha da tabela para ver o histórico do produto."
+                        item={fichaPanorama}
+                        nome={fichaPanorama?.produto || fichaPanorama?.modelo || 'Produto sem descrição'}
+                        subtitulo={`Código ${fichaPanorama?.codigo || fichaPanorama?.cod_sap || '—'}`}
+                        onFechar={() => setFichaPanorama(null)}
+                    >
+                        {panorama && (
+                            <>
+                                <div className="piece-panorama-kpis">
+                                    <div><strong>{panorama.total}</strong><span>fichas</span></div>
+                                    <div className="positive"><strong>{panorama.concluidas}</strong><span>concluídas</span></div>
+                                    <div className="negative"><strong>{panorama.abertas}</strong><span>em aberto</span></div>
+                                    <div><strong>{panorama.qtdNC}</strong><span>peças NC</span></div>
+                                </div>
+
+                                <section className="panorama-block"><h4>Mês atual × mês anterior</h4>
+                                    {panorama.porMes.map(([mes, quantidade]) => (
+                                        <div className="panorama-month-row" key={mes}>
+                                            <span>{formatMonthLabel(mes)}</span>
+                                            <div className="panorama-bars">
+                                                <i className="rejected-bar" style={{ width: `${(quantidade / panorama.maiorMes) * 100}%` }}></i><b>{quantidade}</b>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <div className="panorama-legend"><span><i className="rejected-dot"></i>Fichas abertas no mês</span></div>
+                                </section>
+
+                                <section className="panorama-block"><h4>Não conformidades mais frequentes</h4>
+                                    {panorama.defeitos.length ? panorama.defeitos.map(([nome, quantidade]) => (
+                                        <div className="defect-row" key={nome}>
+                                            <span>{nome}</span>
+                                            <i><b style={{ width: `${(quantidade / panorama.maiorDefeito) * 100}%` }}></b></i>
+                                            <strong>{quantidade}</strong>
+                                        </div>
+                                    )) : <p className="panorama-no-data">Nenhuma descrição registrada.</p>}
+                                </section>
+
+                                <section className="panorama-meta">
+                                    <div><span>Decisões</span><strong>{panorama.decisoes.join(', ') || '—'}</strong></div>
+                                    <div><span>Destinos</span><strong>{panorama.destinos.join(', ') || '—'}</strong></div>
+                                </section>
+                            </>
+                        )}
+                    </SidePanel>
                 </div>
 
                 {/* Modal de Ficha NC */}

@@ -2,10 +2,26 @@
 @import '../Dashboard/Dashboard.css';
 @import '../Registro/InspecaoMontagem/InspecaoMontagem.css';
 
-/* Modal Extra Large */
+/* ── Largura do modal ──
+   Era 1520px, de quando os campos ocupavam a linha inteira. Depois que eles
+   viraram compactos, sobrava uma faixa vazia de mais de 500px à direita.
+
+   1000px sai da conta, não de um chute. Medido com o CSS compilado:
+
+     858px  a linha mais larga — Cód. SAP 165 + Produto 330 + NF/PO 165 +
+            Num. Série 165, com três vãos de 15px
+    + 60px  o recuo lateral do corpo do modal (25px 30px)
+    +  2px  as bordas
+    + 10px  a barra de rolagem do corpo, que existe em todas as abas
+    + 70px  a folga que sobra à direita
+
+   Os 70px não são desperdício: abaixo de 980px a grade de Custos perde a
+   quarta coluna, porque ela precisa de 848px dentro do próprio recuo de
+   48px. Em 980 sobrariam 12px, fino demais para confiar entre fontes; em
+   1000 sobram 32px. */
 .modal-content.modal-xl {
-    width: min(calc(100vw - 48px), 1520px);
-    max-width: min(calc(100vw - 48px), 1520px);
+    width: min(calc(100vw - 48px), 1000px);
+    max-width: min(calc(100vw - 48px), 1000px);
     max-height: 94vh;
     display: flex;
     flex-direction: column;

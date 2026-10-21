@@ -144,15 +144,30 @@
   padding: 18px 12px 12px;
   overflow-y: auto;
   scrollbar-width: thin;
+  /* Faltava o `scrollbar-color`: com `scrollbar-width: thin` sozinho, o
+     navegador desenha a barra no tema do sistema — a faixa branca que
+     aparecia sobre o fundo escuro. A trilha some e o polegar fica translúcido
+     sobre o próprio fundo. */
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
 }
 
 .sidebar-menu::-webkit-scrollbar {
   width: 6px;
 }
 
+/* Mesma correção para os navegadores que seguem o prefixo: sem regra de
+   trilha, ela também saía clara. */
+.sidebar-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .sidebar-menu::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.16);
   border-radius: 999px;
+}
+
+.sidebar-menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .menu-section-label {
@@ -216,9 +231,161 @@
   flex-shrink: 0;
 }
 
+/* ── Trilho recolhido ──
+   Só ícones, centralizados, com o mesmo vão entre todos. Antes o espaçamento
+   vinha de duas fontes — a margem do item e a do grupo —, e item solto ficava
+   mais perto do vizinho do que item de grupo. */
+.sidebar.collapsed .sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 0 12px;
+}
+
+.sidebar.collapsed .menu-group {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-bottom: 0;
+}
+
+/* O responsive.css dá `padding-left: max(10px, env(safe-area-inset-left))` à
+   sidebar, para o entalhe do iPhone. Em tela de computador o `env()` vale 0 e
+   sobram 10px de recuo sem função, que jogavam os ícones do trilho 5px à
+   direita do centro — medido: centro em 45 num trilho de 80.
+
+   Some só acima de 1024px, onde a sidebar é um trilho fixo e não há entalhe.
+   Na faixa do celular ela vira gaveta e o recuo continua valendo. */
+@media (min-width: 1025px) {
+  .sidebar.collapsed {
+    padding-left: 0;
+  }
+}
+
 .sidebar.collapsed .menu-item {
   justify-content: center;
-  padding: 12px;
+  width: 46px;
+  height: 46px;
+  min-height: 46px;
+  margin: 0;
+  padding: 0;
+  border-radius: 14px;
+}
+
+/* O deslocamento lateral do hover é do menu aberto: num ícone centralizado
+   ele só torce a coluna. */
+.sidebar.collapsed .menu-item:hover {
+  transform: none;
+}
+
+/* A faixa do item ativo encosta na borda do trilho. 46px é a largura do
+   ícone, e a conta devolve a distância dele até a borda — sem número fixo,
+   porque a largura do trilho é um token. */
+.sidebar.collapsed .menu-item.active::before {
+  left: calc((46px - var(--ui-sidebar-collapsed-width, 80px)) / 2);
+}
+
+/* Grupo com o painel aberto fica marcado, como ficaria no hover. */
+.sidebar.collapsed .menu-item.flyout-open {
+  background: var(--sidebar-hover);
+  color: var(--sidebar-text-strong);
+  border-color: var(--sidebar-border);
+}
+
+/* ── Submenu flutuante ──
+   Vive em portal no body (ver SubmenuFlutuante.jsx), então nada aqui depende
+   da árvore da sidebar. z-index acima dela, que está em 1000. */
+.sidebar-flyout {
+  position: fixed;
+  z-index: 1200;
+  min-width: 236px;
+  max-width: 320px;
+  padding: 10px;
+  background: var(--side);
+  border: 1px solid var(--sidebar-border);
+  border-radius: 16px;
+  box-shadow: 0 18px 44px rgba(8, 14, 20, 0.45);
+}
+
+/* Ponte invisível sobre o vão entre o ícone e o painel: sem ela, o ponteiro
+   sai dos dois no caminho e o painel fecha no meio do movimento. */
+.sidebar-flyout::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -14px;
+  width: 14px;
+}
+
+.sidebar-flyout-titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 6px 10px;
+  color: var(--sidebar-text-strong);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.sidebar-flyout-titulo i {
+  width: 18px;
+  text-align: center;
+  color: var(--primary);
+  font-size: 0.95rem;
+}
+
+.sidebar-flyout-itens {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-flyout-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 42px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  color: var(--sidebar-text);
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+  /* O painel cresce até caber o nome: cortar "Relatório de Recebimento" é o
+     que o menu recolhido já fazia. */
+  white-space: nowrap;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+.sidebar-flyout-item i {
+  width: 20px;
+  flex-shrink: 0;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.sidebar-flyout-item:hover {
+  background: var(--sidebar-hover);
+  color: var(--sidebar-text-strong);
+}
+
+.sidebar-flyout-item.active {
+  background: var(--primary);
+  color: var(--primary-fg);
+  font-weight: 700;
+}
+
+.sidebar-flyout-item:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-flyout-item {
+    transition: none;
+  }
 }
 
 /* Grupo com submenu (ex.: Registro) */

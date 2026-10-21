@@ -1,9 +1,15 @@
-import { useEffect, useState } from 'react';
+﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/auth-context';
 import { canAccess } from '../../config/permissions';
 import ThemeToggle from '../ThemeToggle/ThemeToggle';
+import SubmenuFlutuante from './SubmenuFlutuante';
 import './Sidebar.css';
+
+/* Atraso antes de fechar o submenu flutuante. Dá tempo de atravessar o vão
+   entre o ícone e o painel sem que ele pisque; mais do que isso e o painel
+   parece grudado ao passar o mouse de um grupo para outro. */
+const ATRASO_FECHAR = 180;
 
 /* Aceita ser controlado por fora sem deixar de funcionar sozinho.
 
@@ -82,6 +88,79 @@ export default function Sidebar({ collapsed: collapsedProp, onToggleCollapsed })
     });
 
     const [openGroups, setOpenGroups] = useState({});
+
+    /* ── Submenu flutuante (só com a sidebar recolhida) ──
+       `flutuante` guarda o grupo aberto e a posição do ícone que o abriu, em
+       coordenadas de tela. */
+    const [flutuante, setFlutuante] = useState(null);
+    const fecharTimer = useRef(null);
+    const gatilhosRef = useRef({});
+
+    /* Na faixa do celular a sidebar vira gaveta e abre inteira; ali o painel
+       flutuante não tem sentido, mesmo com `collapsed` ligado. */
+    const podeFlutuar = collapsed && !mobileOpen
+        && (typeof window === 'undefined' || window.matchMedia('(min-width: 1025px)').matches);
+
+    const cancelarFechamento = useCallback(() => {
+        if (fecharTimer.current) {
+            clearTimeout(fecharTimer.current);
+            fecharTimer.current = null;
+        }
+    }, []);
+
+    const fecharFlutuante = useCallback((devolverFoco = false) => {
+        cancelarFechamento();
+        setFlutuante((atual) => {
+            if (devolverFoco && atual) gatilhosRef.current[atual.key]?.focus();
+            return null;
+        });
+    }, [cancelarFechamento]);
+
+    const agendarFechamento = useCallback(() => {
+        cancelarFechamento();
+        fecharTimer.current = setTimeout(() => setFlutuante(null), ATRASO_FECHAR);
+    }, [cancelarFechamento]);
+
+    const abrirFlutuante = useCallback((item, elemento, viaTeclado = false) => {
+        cancelarFechamento();
+        const caixa = elemento.getBoundingClientRect();
+        /* A altura vem do ícone, mas a borda vem do trilho: ancorado no ícone,
+           o painel começava 2px antes do fim da sidebar e ficava por cima
+           dela — medido. */
+        const trilho = elemento.closest('.sidebar')?.getBoundingClientRect();
+        setFlutuante({
+            key: item.key,
+            item,
+            ancora: { top: caixa.top, right: trilho ? trilho.right : caixa.right },
+            viaTeclado
+        });
+    }, [cancelarFechamento]);
+
+    /* Recolher, navegar ou rolar move o ícone de lugar; o painel está preso à
+       tela e ficaria apontando para o nada. */
+    useEffect(() => { fecharFlutuante(); }, [collapsed, location.pathname, fecharFlutuante]);
+
+    useEffect(() => {
+        if (!flutuante) return undefined;
+
+        const aoTeclar = (evento) => {
+            if (evento.key === 'Escape') fecharFlutuante(true);
+        };
+        const aoSair = () => fecharFlutuante();
+
+        window.addEventListener('keydown', aoTeclar);
+        window.addEventListener('resize', aoSair);
+        /* Captura: a rolagem que importa é a da lista de ícones, que não
+           borbulha até a janela. */
+        window.addEventListener('scroll', aoSair, true);
+        return () => {
+            window.removeEventListener('keydown', aoTeclar);
+            window.removeEventListener('resize', aoSair);
+            window.removeEventListener('scroll', aoSair, true);
+        };
+    }, [flutuante, fecharFlutuante]);
+
+    useEffect(() => () => cancelarFechamento(), [cancelarFechamento]);
 
     const toggleSidebar = () => {
         /* Controlado: quem decide é o pai, que também persiste. */
@@ -183,20 +262,43 @@ export default function Sidebar({ collapsed: collapsedProp, onToggleCollapsed })
                         if (item.children) {
                             const groupActive = item.children.some((child) => isActive(child.path));
                             const expanded = openGroups[item.key] ?? groupActive;
+                            const flutuanteAberto = flutuante?.key === item.key;
+
+                            /* Recolhida, o clique abre o painel ao lado; expandida,
+                               continua abrindo e fechando a lista embutida. */
+                            const aoClicar = (evento) => {
+                                if (!podeFlutuar) {
+                                    setOpenGroups((prev) => ({ ...prev, [item.key]: !expanded }));
+                                    return;
+                                }
+                                if (flutuanteAberto) { fecharFlutuante(); return; }
+                                /* `detail === 0` é clique vindo de Enter ou espaço:
+                                   só aí o foco precisa entrar no painel. */
+                                abrirFlutuante(item, evento.currentTarget, evento.detail === 0);
+                            };
+
                             return (
                                 <div key={item.key} className="menu-group">
                                     <button
                                         type="button"
-                                        className={`menu-item menu-group-toggle ${groupActive ? 'active' : ''}`}
-                                        onClick={() => setOpenGroups((prev) => ({ ...prev, [item.key]: !expanded }))}
+                                        ref={(el) => { gatilhosRef.current[item.key] = el; }}
+                                        className={`menu-item menu-group-toggle ${groupActive ? 'active' : ''} ${flutuanteAberto ? 'flyout-open' : ''}`}
+                                        onClick={aoClicar}
+                                        onMouseEnter={(e) => { if (podeFlutuar) abrirFlutuante(item, e.currentTarget); }}
+                                        onMouseLeave={() => { if (podeFlutuar) agendarFechamento(); }}
+                                        onFocus={(e) => { if (podeFlutuar) abrirFlutuante(item, e.currentTarget); }}
                                         title={collapsed ? item.label : undefined}
-                                        aria-expanded={expanded}
+                                        aria-expanded={podeFlutuar ? flutuanteAberto : expanded}
+                                        aria-haspopup={podeFlutuar ? 'true' : undefined}
                                     >
                                         <i className={`fas ${item.icon}`}></i>
                                         <span>{item.label}</span>
                                         <i className={`fas fa-chevron-${expanded ? 'down' : 'right'} menu-group-caret`}></i>
                                     </button>
-                                    {expanded && (
+                                    {/* Recolhida, os subitens vivem no painel flutuante:
+                                        deixar a lista embutida também renderizada daria
+                                        duas cópias do mesmo submenu. */}
+                                    {!podeFlutuar && expanded && (
                                         <div className="submenu">
                                             {item.children.map((child) => (
                                                 <Link
@@ -251,6 +353,17 @@ export default function Sidebar({ collapsed: collapsedProp, onToggleCollapsed })
                 </div>
             </nav>
 
+            {flutuante && (
+                <SubmenuFlutuante
+                    item={flutuante.item}
+                    ancora={flutuante.ancora}
+                    focarPrimeiro={flutuante.viaTeclado}
+                    isActive={isActive}
+                    onEntrar={cancelarFechamento}
+                    onSair={agendarFechamento}
+                    onNavegar={() => { fecharFlutuante(); closeMobile(); }}
+                />
+            )}
         </>
     );
 }

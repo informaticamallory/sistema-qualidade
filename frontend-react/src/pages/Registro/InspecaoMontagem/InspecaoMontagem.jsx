@@ -7,6 +7,7 @@ import { ConfirmarSaida } from '../../../components/ui';
 import { registrosAPI, defeitosAPI, produtosAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
 import { upperFields } from '../../../utils/text';
+import { urlArquivo } from '../../../utils/arquivos';
 import { formatDateBR, normalizeISODate, todayISO } from '../../../utils/date';
 import { formatarTurno, normalizarTurno } from '../../../utils/turnos';
 import './InspecaoMontagem.css';
@@ -67,7 +68,12 @@ const normalizarFotosPeca = (fotosSalvas, nomesSalvos) => {
     return fotos
         .filter((src) => typeof src === 'string' && src.trim())
         .slice(0, 3)
-        .map((src, index) => ({ src, nome: String(nomes[index] || `Foto ${index + 1}`) }));
+        .map((src, index) => ({
+            /* O que vem do banco e um caminho de arquivo; a tela precisa da
+               URL completa. Foto antiga, ainda em base64, passa intacta. */
+            src: urlArquivo(src),
+            nome: String(nomes[index] || `Foto ${index + 1}`)
+        }));
 };
 
 const getProdutoModelo = (produto) => (

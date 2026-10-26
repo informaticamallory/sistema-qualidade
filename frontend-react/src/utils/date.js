@@ -1,4 +1,6 @@
-﻿export const formatLocalDateISO = (date) => {
+import { urlArquivo } from './arquivos';
+
+export const formatLocalDateISO = (date) => {
     const value = date instanceof Date ? date : new Date(date);
     if (Number.isNaN(value.getTime())) return '';
     const year = value.getFullYear();
@@ -106,7 +108,9 @@ export const normalizarFotosPeca = (fotosSalvas, nomesSalvos) => {
         .filter((src) => typeof src === 'string' && src.trim())
         .slice(0, 3)
         .map((src, index) => ({
-            src,
+            /* O que vem do banco e um caminho de arquivo; a tela precisa da
+               URL completa. Foto antiga, ainda em base64, passa intacta. */
+            src: urlArquivo(src),
             nome: String(nomes[index] || `Foto ${index + 1}`)
         }));
 };

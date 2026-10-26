@@ -8,6 +8,7 @@ import {
 } from '../../components/ui';
 import { fichasAPI, produtosAPI } from '../../services/api';
 import { upperFields } from '../../utils/text';
+import { urlArquivo } from '../../utils/arquivos';
 import {
     currentMonthISO, formatDateBR, formatMonthLabel, monthRangeISO,
     normalizeISODate, previousMonthISO, todayISO
@@ -962,7 +963,7 @@ export default function Fichas() {
                                                     rotuloAdicionar="Adicionar foto"
                                                     somenteLeitura={isReadonly}
                                                     fotos={formData.foto_nc
-                                                        ? [{ src: formData.foto_nc, nome: formData.foto_nc_nome || 'Imagem anexada' }]
+                                                        ? [{ src: urlArquivo(formData.foto_nc), nome: formData.foto_nc_nome || 'Imagem anexada' }]
                                                         : []}
                                                     onChange={(fotos) => setFormData((prev) => ({
                                                         ...prev,

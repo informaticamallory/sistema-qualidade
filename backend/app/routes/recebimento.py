@@ -5,6 +5,7 @@ from datetime import datetime
 from app.extensions import db, limiter
 from app.models.defeito import Defeito
 from app.models.recebimento import FichaRecebimento, RelatorioRecebimento
+from app.services.armazenamento import normalizar_fotos
 from app.utils.responses import create_response
 from app.utils.auth_decorators import auth_required, check_permission
 
@@ -97,7 +98,11 @@ def handle_fichas():
                 inspetor=dados.get('inspetor', 'Sistema'),
                 status=dados.get('status', 'pendente'),
                 defeito=dados.get('defeito'),
-                foto_peca=dados.get('foto_peca'),
+
+            # A foto chega em base64 e vai para disco antes de salvar: na
+            # coluna fica so o caminho. Sem isto, a imagem inteira iria para
+            # dentro da linha do registro.
+                foto_peca=normalizar_fotos(dados.get('foto_peca'), 'recebimento', dados.get('cod_sap')),
                 foto_peca_nome=dados.get('foto_peca_nome'),
                 observacao=dados.get('observacao')
             )

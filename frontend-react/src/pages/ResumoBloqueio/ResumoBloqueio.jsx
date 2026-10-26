@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
+import { urlArquivo } from '../../utils/arquivos';
 import AppLayout from '../../components/Layout/AppLayout';
 import { resumoBloqueioAPI } from '../../services/api';
 import './ResumoBloqueio.css';
@@ -753,7 +754,7 @@ export default function ResumoBloqueio() {
                                             />
                                             {row.evidenciaPreview ? (
                                                 <div className="resumo-photo-preview">
-                                                    <img src={row.evidenciaPreview} alt="Evidência" />
+                                                    <img src={urlArquivo(row.evidenciaPreview)} alt="Evidência" />
                                                     <button
                                                         type="button"
                                                         className="resumo-photo-remove"

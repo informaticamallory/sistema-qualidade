@@ -9,6 +9,7 @@ import { injecaoAPI, produtosAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
 import { formatarTurno, normalizarTurno } from '../../../utils/turnos';
 import { upperFields } from '../../../utils/text';
+import { urlArquivo } from '../../../utils/arquivos';
 // Reaproveita os estilos de modal/formulário/tabela da Inspeção de Montagem
 import '../InspecaoMontagem/InspecaoMontagem.css';
 import './InspecaoInjecao.css';
@@ -115,7 +116,9 @@ const normalizarFotosPeca = (fotosSalvas, nomesSalvos) => {
         .filter((src) => typeof src === 'string' && src.trim())
         .slice(0, 3)
         .map((src, index) => ({
-            src,
+            /* O que vem do banco e um caminho de arquivo; a tela precisa da
+               URL completa. Foto antiga, ainda em base64, passa intacta. */
+            src: urlArquivo(src),
             nome: String(nomes[index] || `Foto ${index + 1}`)
         }));
 };

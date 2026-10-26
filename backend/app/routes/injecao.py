@@ -1,10 +1,11 @@
-# routes/injecao.py - Rotas de inspeção de injeção (peças plásticas)
+﻿# routes/injecao.py - Rotas de inspeção de injeção (peças plásticas)
 from flask import Blueprint, request, current_app
 from datetime import datetime
 
 from app.extensions import db, limiter
 from app.models.injecao import RegistroInjecao
 from app.schemas.injecao import injecao_schema, injecoes_schema
+from app.services.armazenamento import normalizar_fotos
 from app.utils.responses import create_response
 from app.utils.auth_decorators import auth_required, check_permission
 
@@ -256,7 +257,11 @@ def handle_injecoes():
                 peso=dados.get('peso'),
                 status=dados.get('status', 'pendente'),
                 defeito=dados.get('defeito'),
-                foto_peca=dados.get('foto_peca'),
+
+            # A foto chega em base64 e vai para disco antes de salvar: na
+            # coluna fica so o caminho. Sem isto, a imagem inteira iria para
+            # dentro da linha do registro.
+                foto_peca=normalizar_fotos(dados.get('foto_peca'), 'injecao', dados.get('cod')),
                 foto_peca_nome=dados.get('foto_peca_nome'),
                 cota1=dados.get('cota1'),
                 cota2=dados.get('cota2'),

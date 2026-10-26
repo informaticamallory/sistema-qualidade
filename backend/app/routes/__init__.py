@@ -14,6 +14,7 @@ from app.routes.q49 import q49_bp
 from app.routes.resumo_bloqueio import resumo_bloqueio_bp
 from app.routes.materiais import materiais_bp, revisoes_bp
 from app.routes.inspecoes_recebimento import inspecoes_recebimento_bp
+from app.routes.arquivos import arquivos_bp
 
 
 def register_blueprints(app):
@@ -27,6 +28,9 @@ def register_blueprints(app):
     app.register_blueprint(relatorio_recebimento_bp, url_prefix='/api/relatorio-recebimento')
     app.register_blueprint(cartoes_bp, url_prefix='/api/cartoes')
     app.register_blueprint(produtos_bp, url_prefix='/api/produtos')
+    # Fotos gravadas em disco. Sem token: o uuid no nome do arquivo é o
+    # que protege, porque <img src> não manda cabeçalho.
+    app.register_blueprint(arquivos_bp, url_prefix='/api/arquivos')
     app.register_blueprint(defeitos_bp, url_prefix='/api/defeitos')
     app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
     app.register_blueprint(q49_bp, url_prefix='/api/q49')

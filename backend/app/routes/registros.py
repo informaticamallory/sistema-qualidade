@@ -7,6 +7,7 @@ from flask import Blueprint, request, current_app
 from app.extensions import db, limiter
 from app.models.registro import RegistroInspecao, ChecklistTeste
 from app.schemas.registro import registro_schema, registros_schema
+from app.services.armazenamento import normalizar_fotos
 from app.utils.responses import create_response
 from app.utils.auth_decorators import auth_required, check_permission
 
@@ -192,7 +193,11 @@ def handle_registros():
                 causa=dados.get('causa'),
                 correcao=dados.get('correcao'),
                 responsavel_correcao=_responsavel_correcao(dados),
-                foto_peca=dados.get('foto_peca'),
+
+            # A foto chega em base64 e vai para disco antes de salvar: na
+            # coluna fica so o caminho. Sem isto, a imagem inteira iria para
+            # dentro da linha do registro.
+                foto_peca=normalizar_fotos(dados.get('foto_peca'), 'montagem', dados.get('cod_sap')),
                 foto_peca_nome=dados.get('foto_peca_nome')
             )
 
@@ -286,7 +291,10 @@ def handle_registro_individual(id):
 
             for campo in campos:
                 if campo in dados:
-                    setattr(registro, campo, dados[campo])
+                    valor = dados[campo]
+                    if campo == 'foto_peca':
+                        valor = normalizar_fotos(valor, 'montagem', dados.get('cod_sap'))
+                    setattr(registro, campo, valor)
 
             if 'responsavelCorrecao' in dados or 'responsavel_correcao' in dados:
                 registro.responsavel_correcao = _responsavel_correcao(dados)

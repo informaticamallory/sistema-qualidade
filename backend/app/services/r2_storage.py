@@ -89,8 +89,16 @@ def salvar_arquivo(arquivo, nome_objeto, content_type=None):
 
 
 def salvar_data_url(data_url, nome_original=None, prefixo='evidencias', identificador=None):
-    if not r2_configurado() or not eh_data_url(data_url):
+    if not eh_data_url(data_url):
         return data_url
+
+    # Sem R2, o arquivo vai para o volume em disco. Antes esta função devolvia
+    # a data URL intacta, e a imagem acabava gravada em base64 na própria linha
+    # do registro — é o que fazia as Fichas NC e o Resumo de Bloqueio
+    # engordarem o banco mesmo tendo código de upload pronto.
+    if not r2_configurado():
+        from app.services.armazenamento import salvar_data_url as salvar_em_disco
+        return salvar_em_disco(data_url, prefixo, identificador) or data_url
 
     match = DATA_URL_RE.match(str(data_url))
     mimetype = match.group('mimetype')

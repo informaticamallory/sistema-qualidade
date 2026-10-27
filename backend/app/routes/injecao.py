@@ -335,9 +335,14 @@ def handle_injecao_individual(id):
             if 'data' in dados and dados['data'] and isinstance(dados['data'], str):
                 registro.data = _parse_date(dados['data'])
 
+            # A edicao tambem converte: trocar a foto de um registro ja salvo
+            # passa pelo mesmo caminho da criacao.
             for campo in CAMPOS:
                 if campo in dados:
-                    setattr(registro, campo, dados[campo])
+                    valor = dados[campo]
+                    if campo == 'foto_peca':
+                        valor = normalizar_fotos(valor, 'injecao', dados.get('cod') or registro.cod)
+                    setattr(registro, campo, valor)
 
             registro.updated_at = datetime.utcnow()
             db.session.commit()

@@ -178,3 +178,40 @@ def test_simulacao_nao_grava(app, contexto):
 
     _db.session.refresh(registro)
     assert registro.foto_peca == DATA_URL      # intacto
+
+
+def test_editar_registro_tambem_converte(client, admin_ok, contexto):
+    """A falha que escapou: a criação convertia, a edição não.
+
+    Quem salvasse a inspeção sem foto e anexasse depois continuava gravando
+    base64 dentro da linha."""
+    from datetime import date
+    import json as _json
+
+    headers = {'Authorization': f'Bearer {_token(client)}'}
+    # Turno, máquina e molde são exigidos pela regra de negócio da tela.
+    base = {'data': date.today().isoformat(), 'cod': 'B00100', 'peca': 'TAMPA',
+            'turno_injecao': 'A', 'maquina': 'IMM-01', 'molde': 'MLD-21',
+            'amostra_insp': 32, 'amostra_nc': 1, 'qtde_lote': 1200,
+            'visual': 'NC', 'cor_padrao': 'C', 'encaixe': 'C',
+            'contra_peca': 'C', 'rebarbas': 'NC', 'funcional': 'C',
+            'defeito': 'REBARBA', 'status': 'reprovado'}
+
+    criado = client.post('/api/inspecao-injecao', json=base, headers=headers)
+    assert criado.status_code in (200, 201), criado.get_json()
+    registro_id = criado.get_json()['data']['id']
+
+    # Foto anexada só na edição.
+    resp = client.put(f'/api/inspecao-injecao/{registro_id}',
+                      json={'foto_peca': _json.dumps([DATA_URL])}, headers=headers)
+    assert resp.status_code == 200
+
+    salvo = resp.get_json()['data']['foto_peca']
+    assert 'base64' not in salvo
+    assert all(eh_caminho_salvo(c) for c in _json.loads(salvo))
+
+
+def _token(client):
+    from tests.conftest import SENHA_VALIDA
+    resp = client.post('/api/auth/login', json={'usuario': 'admin_ok', 'senha': SENHA_VALIDA})
+    return resp.get_json()['data']['token']

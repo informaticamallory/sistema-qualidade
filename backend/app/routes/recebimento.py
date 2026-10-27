@@ -138,9 +138,14 @@ def handle_ficha_individual(id):
             dados = request.get_json() or {}
             if 'data_inspecao' in dados:
                 ficha.data_inspecao = _parse_date(dados.get('data_inspecao'))
+            # A edicao tambem converte: trocar a foto de um registro ja salvo
+            # passa pelo mesmo caminho da criacao.
             for campo in CAMPOS_FICHA:
                 if campo in dados:
-                    setattr(ficha, campo, dados[campo])
+                    valor = dados[campo]
+                    if campo == 'foto_peca':
+                        valor = normalizar_fotos(valor, 'recebimento', dados.get('cod_sap') or ficha.cod_sap)
+                    setattr(ficha, campo, valor)
             ficha.updated_at = datetime.utcnow()
             db.session.commit()
             return create_response(success=True, message="Ficha atualizada com sucesso", data=ficha.to_dict())

@@ -9,10 +9,10 @@
 # sobrevive aos deploys. Na coluna fica só o caminho.
 #
 # Sobre o nome do arquivo: ele carrega um uuid, e é isso que protege a imagem —
-# a rota que serve os arquivos não exige token. É a mesma escolha que o projeto
-# já tinha feito para o Cloudflare R2, onde R2_PUBLIC_URL aponta para um bucket
-# público. Trocar para rota autenticada exigiria que o front buscasse cada foto
-# por fetch e montasse um blob, porque <img src> não manda cabeçalho.
+# a rota que serve os arquivos não exige token. O motivo é que <img src> não
+# manda cabeçalho de autorização; exigir token obrigaria o front a buscar cada
+# foto por fetch e montar um blob, nas cinco telas. Se um dia a evidência
+# precisar de proteção de verdade, é esse o caminho.
 import base64
 import json
 import os
@@ -156,6 +156,20 @@ def caminho_dentro_da_raiz(valor):
     if os.path.commonpath([raiz, alvo]) != raiz:
         return None
     return alvo
+
+
+def salvar_evidencia(data_url, nome_original=None, prefixo='evidencias',
+                     identificador=None):
+    """Grava uma evidência e devolve o caminho; o que não for base64 passa.
+
+    Mantém a ordem de argumentos que as Fichas NC e o Resumo de Bloqueio já
+    usavam quando chamavam o serviço do Cloudflare R2, que foi removido. O
+    `nome_original` não entra no nome do arquivo — ele já é guardado em coluna
+    própria, e o nome em disco é um uuid.
+    """
+    if not eh_data_url(data_url):
+        return data_url
+    return salvar_data_url(data_url, prefixo, identificador) or data_url
 
 
 def apagar_arquivo(caminho_relativo):

@@ -7,7 +7,7 @@ from flask import Blueprint, request, current_app
 from app.extensions import db, limiter
 from app.models.ficha_nc import FichaNC
 from app.models.registro import RegistroInspecao
-from app.services.r2_storage import salvar_data_url
+from app.services.armazenamento import salvar_evidencia
 from app.utils.responses import create_response
 from app.utils.auth_decorators import auth_required, check_permission
 
@@ -162,7 +162,7 @@ def _aplicar_payload(ficha, dados, registro=None):
     if 'foto_nc' in dados:
         foto_nc = dados.get('foto_nc') or ''
         if foto_nc:
-            foto_nc = salvar_data_url(
+            foto_nc = salvar_evidencia(
                 foto_nc,
                 dados.get('foto_nc_nome'),
                 prefixo='fichas-nc',

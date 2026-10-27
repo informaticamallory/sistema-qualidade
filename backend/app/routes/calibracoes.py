@@ -6,7 +6,7 @@ from werkzeug.utils import secure_filename
 
 from app.extensions import db, limiter
 from app.models.calibracao import TipoEquipamento, Equipamento, Calibracao
-from app.services.r2_storage import criar_nome_objeto, eh_url_publica, r2_configurado, salvar_arquivo
+from app.services.armazenamento import eh_url_publica
 from app.utils.responses import create_response
 from app.utils.auth_decorators import auth_required, check_permission
 from app.utils.calibracao import (
@@ -411,17 +411,13 @@ def handle_calibracoes():
                         message='O certificado deve ser um arquivo PDF',
                         status_code=400
                     )
-                if r2_configurado():
-                    nome_objeto = criar_nome_objeto('certificados', arquivo.filename, equipamento.codigo)
-                    caminho_arquivo = salvar_arquivo(arquivo, nome_objeto, 'application/pdf')
-                else:
-                    pasta = os.path.join(current_app.root_path, '..', 'uploads', 'certificados')
-                    os.makedirs(pasta, exist_ok=True)
-                    nome_seguro = secure_filename(
-                        f"{equipamento.codigo}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{arquivo.filename}"
-                    )
-                    arquivo.save(os.path.join(pasta, nome_seguro))
-                    caminho_arquivo = f"uploads/certificados/{nome_seguro}"
+                pasta = os.path.join(current_app.root_path, '..', 'uploads', 'certificados')
+                os.makedirs(pasta, exist_ok=True)
+                nome_seguro = secure_filename(
+                    f"{equipamento.codigo}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{arquivo.filename}"
+                )
+                arquivo.save(os.path.join(pasta, nome_seguro))
+                caminho_arquivo = f"uploads/certificados/{nome_seguro}"
 
         nova = Calibracao(
             equipamento_id=equipamento.id,

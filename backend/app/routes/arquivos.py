@@ -1,9 +1,8 @@
 # routes/arquivos.py - Entrega as fotos gravadas em disco
 #
 # Sem token de propósito: <img src> não manda cabeçalho de autorização, e o
-# que protege a imagem é o uuid no nome do arquivo. Mesma escolha que o
-# projeto já fazia com o Cloudflare R2, cujo R2_PUBLIC_URL serve um bucket
-# público. Ver o comentário em services/armazenamento.py.
+# que protege a imagem é o uuid no nome do arquivo. Ver o comentário em
+# services/armazenamento.py.
 import os
 
 from flask import Blueprint, send_from_directory

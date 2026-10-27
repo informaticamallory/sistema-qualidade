@@ -5,7 +5,7 @@ from flask import Blueprint, current_app, request
 
 from app.extensions import db, limiter
 from app.models.resumo_bloqueio import ResumoBloqueio, ResumoBloqueioLinha
-from app.services.r2_storage import salvar_data_url
+from app.services.armazenamento import salvar_evidencia
 from app.utils.auth_decorators import auth_required, check_permission
 from app.utils.responses import create_response
 
@@ -33,7 +33,7 @@ def _linha_from_payload(row, ordem, data=None):
     evidencia_nome = evidencia.get('name') or ''
     evidencia_preview = row.get('evidenciaPreview') or evidencia.get('url') or ''
     if evidencia_preview:
-        evidencia_preview = salvar_data_url(
+        evidencia_preview = salvar_evidencia(
             evidencia_preview,
             evidencia_nome,
             prefixo='resumo-bloqueio',

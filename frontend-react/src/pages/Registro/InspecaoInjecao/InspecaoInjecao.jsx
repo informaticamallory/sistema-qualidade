@@ -5,7 +5,7 @@ import AppLayout from '../../../components/Layout/AppLayout';
 import {
     ConfirmarSaida, FilterCard, FilterCardStrip, PeriodFilter, SidePanel
 } from '../../../components/ui';
-import { injecaoAPI, produtosAPI } from '../../../services/api';
+import { injecaoAPI, produtosAPI, usuariosAPI } from '../../../services/api';
 import { useAuth } from '../../../context/auth-context';
 import { formatarTurno, normalizarTurno } from '../../../utils/turnos';
 import { upperFields } from '../../../utils/text';
@@ -162,8 +162,12 @@ const CARDS_RESUMO = [
 ];
 
 export default function InspecaoInjecao() {
-    const { user } = useAuth();
+    const { user, isAdmin } = useAuth();
     const [registros, setRegistros] = useState([]);
+    /* Só o administrador troca o inspetor de um registro já gravado, para
+       corrigir lançamento feito com a conta de outro turno. A lista é
+       carregada sob demanda: quem não vê o campo não precisa dela. */
+    const [usuariosAtivos, setUsuariosAtivos] = useState([]);
     const [resumoRegistros, setResumoRegistros] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -489,7 +493,7 @@ export default function InspecaoInjecao() {
             { header: 'Amostra Inspecionada', key: 'amostra_insp', width: 21 },
             { header: 'Amostra NC', key: 'amostra_nc', width: 14 },
             { header: 'Quantidade do Lote', key: 'qtde_lote', width: 20 },
-            { header: 'Peso (Kg)', key: 'peso', width: 14 },
+            // { header: 'Peso (Kg)', key: 'peso', width: 14 },
             { header: 'Índice (%)', key: 'indice', width: 13 },
             { header: 'Visual', key: 'visual', width: 16 },
             { header: 'Cor Padrão', key: 'cor_padrao', width: 16 },
@@ -720,7 +724,12 @@ export default function InspecaoInjecao() {
                 foto_peca: isReprovado && fotosPeca.length ? JSON.stringify(fotosPeca.map(({ src }) => src)) : '',
                 foto_peca_nome: isReprovado && fotosPeca.length ? JSON.stringify(fotosPeca.map(({ nome }) => nome)) : '',
                 status: formData.status?.toUpperCase(),
-                inspetor: user?.nome || formData.inspetor || 'Sistema'
+                /* Na criação o inspetor é quem está logado. Na edição preserva-se
+                   o do registro: antes isto era `user?.nome` primeiro, e qualquer
+                   edição regravava o lançamento no nome de quem abriu a tela. */
+                inspetor: editingId
+                    ? (formData.inspetor || user?.nome || 'Sistema')
+                    : (user?.nome || 'Sistema')
             };
             const dados = upperFields(payload, [
                 'semana', 'maquina', 'cod', 'peca', 'molde', 'cota1', 'cota2', 'cota3', 'cota4', 'defeito'
@@ -769,6 +778,9 @@ export default function InspecaoInjecao() {
             rebarbas: ['C', 'NC', 'NA'].includes(registro.rebarbas) ? registro.rebarbas : '',
             funcional: ['C', 'NC', 'NA'].includes(registro.funcional) ? registro.funcional : '',
             observacao: registro.observacao || '',
+            /* Sem isto o formulário abria sem inspetor, e o salvamento abaixo
+               regravava o registro no nome de quem estivesse editando. */
+            inspetor: registro.inspetor || '',
             fotos_peca: normalizarFotosPeca(registro.foto_peca, registro.foto_peca_nome)
         });
         setEditingId(registro.id);
@@ -776,6 +788,24 @@ export default function InspecaoInjecao() {
         setActiveTab('dados-injecao');
         setFormViewMode('tabs');
         setShowModal(true);
+        if (isAdmin()) carregarUsuariosAtivos();
+    };
+
+    /* Uma vez por sessão: a lista de inspetores não muda durante o uso. */
+    const carregarUsuariosAtivos = async () => {
+        if (usuariosAtivos.length) return;
+        try {
+            const resposta = await usuariosAPI.getAll();
+            /* A rota já devolve ordenado por nome. */
+            const lista = resposta?.data?.success ? (resposta.data.data || []) : [];
+            setUsuariosAtivos(
+                lista.filter((u) => u.ativo !== false)
+                    .map((u) => u.nome)
+                    .filter(Boolean)
+            );
+        } catch (error) {
+            console.error('Erro ao carregar inspetores:', error);
+        }
     };
 
     useEffect(() => {
@@ -1592,11 +1622,11 @@ export default function InspecaoInjecao() {
                                                         <input type="text" inputMode="numeric" pattern="[0-9]*" className="form-control" value={formData.qtde_lote}
                                                             onChange={(e) => setCampo('qtde_lote', e.target.value === '' ? '' : Number(e.target.value))} aria-required="true" />
                                                     </div>
-                                                    <div className="form-group form-group-number">
+                                                    {/* <div className="form-group form-group-number">
                                                         <label>Peso (Kg)</label>
                                                         <input type="text" inputMode="decimal" className="form-control" value={formData.peso}
                                                             onChange={(e) => setCampo('peso', e.target.value)} placeholder="Ex: 0,250" />
-                                                    </div>
+                                                    </div> */}
                                                     <div className="form-group form-group-number">
                                                         <label>Índice(%)</label>
                                                         <input type="text" className="form-control calculated-field" value={calcularIndice(formData.amostra_insp, formData.qtde_lote)}
@@ -1646,6 +1676,28 @@ export default function InspecaoInjecao() {
 
                                         <div className="avaliacao-resultado-layout">
                                             <div className="avaliacao-resultado-fields">
+                                                {/* Só para o administrador, e só em edição: em registro
+                                                    novo o inspetor é quem está logado, e não há o que
+                                                    corrigir. Os demais perfis não veem este campo. */}
+                                                {isAdmin() && editingId && (
+                                                    <div className="form-group">
+                                                        <label>Inspetor</label>
+                                                        <select className="form-control"
+                                                            value={formData.inspetor || ''}
+                                                            onChange={(e) => setCampo('inspetor', e.target.value)}>
+                                                            {/* O nome gravado pode ser de um usuário já
+                                                                desativado: sem esta opção ele sumiria da
+                                                                lista e o campo abriria em branco. */}
+                                                            {formData.inspetor
+                                                                && !usuariosAtivos.includes(formData.inspetor) && (
+                                                                <option value={formData.inspetor}>{formData.inspetor}</option>
+                                                            )}
+                                                            {usuariosAtivos.map((nome) => (
+                                                                <option key={nome} value={nome}>{nome}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                )}
                                                 <div className="form-group">
                                                     <label>Status *</label>
                                                     <select className="form-control" value={formData.status}
@@ -1804,7 +1856,7 @@ export default function InspecaoInjecao() {
                                     <div className="view-item"><span className="view-label">Amostra Insp.:</span><span className="view-value">{viewData.amostra_insp ?? 0}</span></div>
                                     <div className="view-item"><span className="view-label">Amostra NC:</span><span className="view-value">{viewData.amostra_nc ?? 0}</span></div>
                                     <div className="view-item"><span className="view-label">Qtde Lote:</span><span className="view-value">{viewData.qtde_lote ?? 0}</span></div>
-                                    <div className="view-item"><span className="view-label">Peso (Kg):</span><span className="view-value">{viewData.peso || 'N/A'}</span></div>
+                                    {/* <div className="view-item"><span className="view-label">Peso (Kg):</span><span className="view-value">{viewData.peso || 'N/A'}</span></div> */}
                                     <div className="view-item"><span className="view-label">Status:</span><span className={`badge ${getStatusClass(viewData.status)}`}>{formatarStatus(viewData.status)}</span></div>
                                     {String(viewData.status || '').toLowerCase() === 'reprovado' && (
                                         <div className="view-item"><span className="view-label">Defeito:</span><span className="view-value">{viewData.defeito || 'N/A'}</span></div>

@@ -7,7 +7,7 @@ from app.models.injecao import RegistroInjecao
 from app.schemas.injecao import injecao_schema, injecoes_schema
 from app.services.armazenamento import normalizar_fotos
 from app.utils.responses import create_response
-from app.utils.auth_decorators import auth_required, check_permission
+from app.utils.auth_decorators import auth_required, check_permission, _current_user
 
 injecao_bp = Blueprint('injecao', __name__)
 
@@ -331,6 +331,20 @@ def handle_injecao_individual(id):
             if erro_validacao:
 
                 return create_response(success=False, message=erro_validacao, status_code=400)
+
+            # Trocar o inspetor de um registro ja gravado e so do administrador.
+            # Esconder o campo na tela nao bastaria: a rota aceita 'inspetor' em
+            # CAMPOS, entao sem esta checagem qualquer perfil o mudaria pela API.
+            if 'inspetor' in dados:
+                novo_inspetor = str(dados.get('inspetor') or '').strip()
+                if novo_inspetor != (registro.inspetor or '').strip():
+                    atual = _current_user()
+                    if not atual or atual.role != 'admin':
+                        return create_response(
+                            success=False,
+                            message='Apenas o administrador altera o inspetor do registro',
+                            status_code=403
+                        )
 
             if 'data' in dados and dados['data'] and isinstance(dados['data'], str):
                 registro.data = _parse_date(dados['data'])

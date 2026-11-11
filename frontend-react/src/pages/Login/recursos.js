@@ -1,35 +1,62 @@
+import wordmark from './mallory-wordmark.png';
+
 /* Arquivos de imagem da tela de login.
 
-   Dois recursos da referência visual não existem no repositório:
+   LOGOTIPO — presente
+   -------------------
+   `mallory-logo.png` é o arquivo oficial enviado, com uma única alteração:
+   a linha de 1px cinza (#404040) que vinha no topo, sobra do recorte, foi
+   removida. Nada mais foi tocado — letras, proporção e cores são os do
+   original.
 
-     1. O logotipo MALLORY por extenso. O projeto só tem o símbolo "M"
-        (public/M.svg) e o selo de 50 anos (assets/imgem/ML-50-ANOS-LR.svg),
-        que não é o wordmark.
-     2. A fotografia industrial do painel esquerdo (prancheta, checklist,
-        mão conferindo).
+   Três características dele mandam no código desta tela:
 
-   Enquanto não chegarem, a tela funciona inteira: o wordmark é composto com
-   a Sora, que é a fonte de título que o sistema já carrega, e o painel usa
-   só gradiente, curvas e o selo desenhado em SVG.
+     1. O fundo laranja é CHAPADO, não transparente. Então o logotipo só
+        pode ser usado sobre laranja; sobre o branco do cartão ele aparece
+        como um bloco, não como letras soltas.
+     2. Esse laranja é #F16425, e não o #FF6600 institucional dos tokens.
+        Por isso a faixa inclinada atrás dele usa --login-laranja-logo: se
+        usasse o laranja do sistema, a emenda entre a faixa e o retângulo
+        do arquivo ficaria visível.
+     3. São 378x76 px. Dá conta de exibir até uns 48px de altura; acima
+        disso, ou numa tela de alta densidade, o traço começa a borrar.
 
-   PARA TROCAR PELOS ARQUIVOS DE VERDADE
-   -------------------------------------
-   Coloque os arquivos nesta mesma pasta e troque os dois nulos abaixo pelos
-   imports. Nada mais muda — o layout já está montado para os dois estados.
+   Um SVG, ou um PNG com fundo transparente, resolveria os três de uma vez
+   — e aí o rodapé do cartão poderia ter o wordmark laranja sobre branco,
+   como na referência, em vez da placa laranja que está lá hoje.
 
-       import logo from './mallory-logo.svg';
+   FOTOGRAFIA — ainda falta
+   ------------------------
+   A fotografia industrial do painel esquerdo (prancheta, checklist, mão
+   conferindo) ainda não chegou. Sem ela a ilha escura fica só com o
+   gradiente. Para ligar, basta:
+
        import foto from './chao-de-fabrica.webp';
-
-       export const logoMallory = logo;
        export const fotoIndustrial = foto;
 
-   Sobre os formatos:
-     - logotipo: SVG de preferência (escala sem perda e pesa pouco). PNG com
-       fundo transparente serve, de 600px de largura para cima.
-     - fotografia: WebP ou JPG, 1600×1200 no mínimo, orientação retrato ou
-       quadrada. Ela é coberta por um véu escuro, então imagem clara e com
-       bastante contraste rende melhor. Acima de 400 KB vale comprimir antes:
-       é o primeiro arquivo que todo usuário baixa, toda manhã. */
+   WebP ou JPG, 1600x1200 no mínimo, orientação retrato ou quadrada. Ela
+   fica sob um véu escuro, então imagem clara e com bastante contraste
+   rende melhor. Acima de 400 KB vale comprimir antes: é o primeiro arquivo
+   que todo usuário baixa, toda manhã. */
 
-export const logoMallory = null;
+/* `mallory-wordmark.png` é a palavra MALLORY recortada do arquivo acima,
+   sem a assinatura "dedicados a ser sua marca favorita" nem o coração.
+   Dois motivos:
+
+     - a referência mostra só a palavra na faixa do topo, sem a assinatura;
+     - na altura em que a faixa cabe, a assinatura fica com menos de 8px de
+       altura e vira borrão. Exibir ilegível é pior do que não exibir.
+
+   O recorte é só corte, sem redesenho: 205x41, bordas em laranja puro.
+
+   `mallory-logo.png`, o arquivo completo, fica na pasta mas NÃO é importado
+   de propósito: importar sem usar colocaria 9 KB no pacote que ninguém
+   baixa para ver. Quando aparecer um lugar que comporte a assinatura
+   inteira, é só importá-lo aqui. */
+export const logoMallory = wordmark;
+
 export const fotoIndustrial = null;
+
+/* O laranja do próprio arquivo do logotipo. Publicado aqui para o CSS não
+   repetir o valor solto. */
+export const LARANJA_DO_LOGO = '#f16425';

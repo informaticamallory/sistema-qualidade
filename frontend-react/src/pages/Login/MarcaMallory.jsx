@@ -2,25 +2,34 @@ import { logoMallory } from './recursos';
 
 /* Logotipo MALLORY.
 
-   Enquanto o arquivo oficial não está no projeto, compõe o wordmark com a
-   Sora — a fonte de título que o sistema já carrega — em vez de inventar um
-   desenho novo. Assim que `recursos.js` apontar para o SVG de verdade, este
-   componente passa a servir a imagem e nenhuma tela precisa mudar.
+   O arquivo oficial tem fundo laranja chapado (ver recursos.js), então ele
+   não é uma imagem solta: é uma PLACA. Quem usa este componente ganha a
+   placa inteira, e o CSS trata disso — a faixa inclinada do topo usa o
+   mesmo laranja do arquivo para a emenda sumir.
+
+   Sem o arquivo, o componente cai no wordmark composto com a Sora. Esse
+   caminho continua aqui de propósito: é o que mantém a tela montável se o
+   arquivo for trocado, removido ou falhar ao carregar.
 
    props:
-     tom       'claro' (branco, sobre o painel escuro) | 'laranja' (rodapé)
+     tom       'claro' (sobre o painel escuro) | 'laranja' (rodapé do cartão)
      tamanho   'g' | 'm' | 'p'
-     titulo    texto alternativo; vazio quando a marca é decorativa e o nome
-               já está escrito ao lado */
+     titulo    texto alternativo */
 export default function MarcaMallory({ tom = 'claro', tamanho = 'm', titulo = 'Mallory' }) {
-    const classe = `marca-mallory marca-${tom} marca-${tamanho}`;
-
     if (logoMallory) {
-        return <img className={classe} src={logoMallory} alt={titulo} />;
+        return (
+            <img
+                className={`marca-mallory marca-oficial marca-${tamanho}`}
+                src={logoMallory}
+                alt={titulo}
+                width="205"
+                height="41"
+            />
+        );
     }
 
     return (
-        <span className={classe} role="img" aria-label={titulo || undefined}>
+        <span className={`marca-mallory marca-texto marca-${tom} marca-${tamanho}`} role="img" aria-label={titulo || undefined}>
             MALLORY
         </span>
     );

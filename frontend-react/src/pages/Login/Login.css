@@ -22,6 +22,11 @@
     --login-laranja-fundo: #e65c00;
     --login-preto: #151515;
 
+    /* O laranja do arquivo do logotipo, que é #F16425 e não o #FF6600 dos
+       tokens. A faixa inclinada atrás dele usa este valor: com o laranja do
+       sistema, a emenda entre a faixa e o retângulo do PNG aparecia. */
+    --login-laranja-logo: #f16425;
+
     /* Exceção deliberada e escopada: a referência pede texto BRANCO no
        botão, que dá 2,94:1 sobre o laranja e reprova o AA da WCAG 1.4.3.
        Decisão do cliente, registrada. Fica só aqui — o --primary-fg do
@@ -104,19 +109,25 @@
     display: inline-flex;
     align-self: flex-start;
     align-items: center;
-    padding: 0.5em 1.1em 0.5em 0.85em;
+    /* O recuo lateral é generoso porque a faixa atrás é inclinada: o
+       logotipo é um retângulo reto e precisa caber dentro do losango, sem
+       encostar nas pontas. */
+    padding: 0.42em 1.5em 0.42em 1.3em;
 }
 
 /* Faixa inclinada atrás do logotipo. Fica em ::before, e não no SVG de
-   fundo, para acompanhar a largura real do texto em qualquer tamanho de
-   tela — uma forma fixa no SVG descolaria do wordmark. */
+   fundo, para acompanhar a largura real da marca em qualquer tamanho de
+   tela — uma forma fixa no SVG descolaria dela.
+
+   A inclinação é da faixa, nunca do logotipo: a referência mostra a faixa
+   inclinada, mas torcer o arquivo oficial seria distorcer a marca. */
 .login-vitrine-topo::before {
     content: '';
     position: absolute;
     inset: 0;
     z-index: -1;
     border-radius: 3px;
-    background: linear-gradient(100deg, var(--login-laranja-claro), var(--login-laranja));
+    background: var(--login-laranja-logo);
     transform: skewX(-13deg);
 }
 
@@ -533,11 +544,36 @@
 
 /* ───────────── Marca ───────────── */
 
-/* O wordmark provisório usa a Sora com uma inclinação leve, que é o traço
-   mais característico do logotipo da Mallory. É um substituto declarado,
-   não uma recriação: assim que recursos.js apontar para o arquivo oficial,
-   estas regras passam a valer para o <img> e a inclinação some. */
-.marca-mallory {
+/* O logotipo oficial. Nunca recebe transform: a faixa é que se inclina.
+
+   Os tetos de altura NÃO são escolha estética: o recorte do wordmark tem
+   41px de altura real. Exibir acima disso é ampliar bitmap, e o traço
+   esgarça — já na tela comum, e muito antes numa de alta densidade. Por
+   isso a faixa do topo fica menor que na referência. Um SVG derruba o
+   limite e deixa crescer à vontade. */
+.marca-oficial {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+}
+
+.marca-oficial.marca-g { height: clamp(24px, 2.6vw, 40px); }
+.marca-oficial.marca-m { height: clamp(22px, 2.2vw, 34px); }
+.marca-oficial.marca-p { height: 26px; }
+
+/* O rodapé do cartão recebe a mesma placa laranja. A referência mostra ali
+   o wordmark laranja sobre branco, o que este arquivo não consegue dar:
+   o fundo dele é chapado, não transparente. Os cantos arredondados fazem a
+   placa ler como selo, e não como imagem mal recortada. */
+.login-cartao-rodape .marca-oficial {
+    border-radius: 6px;
+}
+
+/* Wordmark de reserva, para quando não houver arquivo. Usa a Sora com uma
+   inclinação leve, que é o traço mais característico da marca. É um
+   substituto declarado, não uma recriação. */
+.marca-texto {
     display: inline-block;
     font-family: var(--font-head);
     font-weight: var(--fw-extrabold);
@@ -546,21 +582,12 @@
     transform: skewX(-7deg);
 }
 
-img.marca-mallory {
-    width: auto;
-    transform: none;
-}
-
 .marca-claro { color: #ffffff; }
 .marca-laranja { color: var(--login-laranja); }
 
-.marca-g { font-size: clamp(1.7rem, 3.4vw, 2.6rem); }
-.marca-m { font-size: clamp(1.4rem, 2.4vw, 1.9rem); }
-.marca-p { font-size: 1.45rem; }
-
-img.marca-g { height: clamp(34px, 4.6vw, 56px); }
-img.marca-m { height: clamp(28px, 3.4vw, 42px); }
-img.marca-p { height: 30px; }
+.marca-texto.marca-g { font-size: clamp(1.7rem, 3.4vw, 2.6rem); }
+.marca-texto.marca-m { font-size: clamp(1.4rem, 2.4vw, 1.9rem); }
+.marca-texto.marca-p { font-size: 1.45rem; }
 
 /* ───────────── Responsivo ───────────── */
 

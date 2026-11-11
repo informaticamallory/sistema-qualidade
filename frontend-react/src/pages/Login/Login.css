@@ -1,52 +1,675 @@
-.login-container {
+/* ═══════════════════════════════════════════════════════════════
+   TELA DE LOGIN — CQM Mallory
+
+   Duas colunas no desktop: vitrine da marca à esquerda, acesso à
+   direita. Tudo é componente e CSS — nenhuma parte da referência
+   entrou como imagem de fundo, então cada elemento continua
+   editável e o texto continua sendo texto.
+
+   As regras genéricas do fim do arquivo (.alert, .form-group,
+   .form-label, .divider, .pin-*, .role-*) são anteriores a este
+   redesenho e NÃO são exclusivas do login: `.alert-info` é usada
+   em Fichas e `.form-group` convive com a do ui-kit. Ficaram como
+   estavam de propósito.
+   ═══════════════════════════════════════════════════════════════ */
+
+.login-tela {
+    /* Cores da marca. Ficam escopadas aqui para a tela não depender do
+       tema claro/escuro do sistema: a vitrine é sempre escura, como na
+       referência. O painel de acesso, esse sim, acompanha o tema. */
+    --login-laranja: #ff6600;
+    --login-laranja-claro: #ff8a00;
+    --login-laranja-fundo: #e65c00;
+    --login-preto: #151515;
+
+    /* Exceção deliberada e escopada: a referência pede texto BRANCO no
+       botão, que dá 2,94:1 sobre o laranja e reprova o AA da WCAG 1.4.3.
+       Decisão do cliente, registrada. Fica só aqui — o --primary-fg do
+       sistema continua sendo a tinta escura de 6,05:1 em todas as outras
+       telas. Para alinhar o login ao resto depois, basta trocar esta
+       linha por #101921. */
+    --login-botao-fg: #ffffff;
+
+    display: grid;
+    grid-template-columns: minmax(0, 6fr) minmax(0, 4fr);
     min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    background: var(--bg);
+}
+
+/* ───────────── Vitrine ───────────── */
+
+.login-vitrine {
+    position: relative;
+    overflow: hidden;
+    min-width: 0;
+    background:
+        radial-gradient(120% 90% at 18% 12%, #272727 0%, transparent 55%),
+        linear-gradient(135deg, #1d1d1d 0%, var(--login-preto) 58%, #0f0f0f 100%);
+    isolation: isolate;
+}
+
+/* Fotografia industrial, quando o arquivo existir. */
+.login-foto {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 60% 50%;
+    opacity: 0.62;
+}
+
+/* Véu escuro: a foto fica visível, mas o texto branco por cima continua
+   legível em qualquer imagem. O gradiente é mais fechado à esquerda, que
+   é onde o texto vive. */
+.login-veu {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(100deg, rgba(10, 10, 10, 0.94) 0%, rgba(14, 14, 14, 0.74) 42%, rgba(20, 20, 20, 0.34) 100%),
+        linear-gradient(to top, rgba(10, 10, 10, 0.72) 0%, transparent 46%);
+}
+
+.login-curvas,
+.login-divisoria {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    pointer-events: none;
+}
+
+.login-curvas {
+    left: 0;
+    width: 100%;
+}
+
+/* A curva que separa os dois lados fica colada na borda direita e avança
+   um pouco sobre o painel claro, como na referência. */
+.login-divisoria {
+    right: -1px;
+    width: clamp(90px, 13vw, 190px);
+}
+
+.login-vitrine-corpo {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 28px;
+    height: 100%;
+    padding: clamp(28px, 4vw, 52px) clamp(24px, 9vw, 120px) clamp(42px, 7vh, 76px) clamp(26px, 4.5vw, 62px);
+}
+
+.login-vitrine-topo {
+    display: flex;
+    align-items: center;
+}
+
+.login-vitrine-meio {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(14px, 2vw, 22px);
+    align-items: flex-start;
+}
+
+/* Identidade: CQM | Controle da Qualidade Mallory */
+.login-identidade {
+    display: flex;
+    align-items: center;
+    gap: clamp(14px, 2vw, 24px);
+    min-width: 0;
+}
+
+.login-sigla {
+    font-family: var(--font-head);
+    font-size: clamp(2.8rem, 7.5vw, 5.4rem);
+    font-weight: var(--fw-extrabold);
+    line-height: 0.92;
+    letter-spacing: -0.03em;
+    color: #ffffff;
+}
+
+.login-barra {
+    width: 4px;
+    align-self: stretch;
+    min-height: 56px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--login-laranja-claro), var(--login-laranja));
+}
+
+.login-extenso {
+    font-family: var(--font-head);
+    font-size: clamp(0.95rem, 1.9vw, 1.65rem);
+    font-weight: var(--fw-bold);
+    line-height: 1.12;
+    letter-spacing: -0.01em;
+    color: #ffffff;
+}
+
+.login-risco {
+    display: block;
+    width: 68px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--login-laranja);
+}
+
+.login-mensagem {
+    margin: 0;
+    max-width: 30ch;
+    font-size: clamp(0.95rem, 1.5vw, 1.3rem);
+    font-weight: var(--fw-semibold);
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.94);
+    text-wrap: balance;
+}
+
+/* Pilares */
+.login-pilares {
+    display: flex;
+    flex-wrap: wrap;
+    gap: clamp(16px, 3vw, 34px);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.login-pilares li {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, var(--side) 0%, var(--side-2) 100%);
-    padding: 24px;
-}
-
-.login-header {
+    gap: 9px;
+    min-width: 92px;
     text-align: center;
-    margin-bottom: 24px;
-    color: var(--side-fg);
 }
 
-.login-header .logo-icon {
-    width: 78px;
-    height: 78px;
-    background: var(--primary);
-    color: var(--primary-fg);
-    border-radius: 20px;
+/* Divisor entre os pilares, como na referência. O :not(:first-child) evita
+   um traço solto antes do primeiro item. */
+.login-pilares li:not(:first-child) {
+    border-left: 1px solid rgba(255, 255, 255, 0.22);
+    padding-left: clamp(16px, 3vw, 34px);
+    margin-left: calc(clamp(16px, 3vw, 34px) * -1 + 1px);
+}
+
+.login-pilares i {
+    font-size: clamp(1.4rem, 2.4vw, 1.95rem);
+    color: var(--login-laranja);
+}
+
+.login-pilares span {
+    font-size: clamp(0.76rem, 1.1vw, 0.92rem);
+    font-weight: var(--fw-semibold);
+    color: #ffffff;
+}
+
+/* Selo de qualidade */
+/* O selo fica na metade direita da vitrine, na altura do texto — é onde ele
+   cai na referência, sobre a imagem e não sobre a onda da base. */
+.login-selo {
+    position: absolute;
+    z-index: 3;
+    left: 61%;
+    top: 46%;
+    width: clamp(86px, 11vw, 150px);
+    height: auto;
+    filter: drop-shadow(0 0 30px rgba(255, 122, 26, 0.5));
+}
+
+/* ───────────── Acesso ───────────── */
+
+.login-acesso {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    padding: clamp(24px, 4vw, 48px) max(20px, env(safe-area-inset-right, 0px)) clamp(24px, 4vw, 48px) 20px;
+    background: var(--bg);
+}
+
+.login-cartao {
+    width: 100%;
+    max-width: 430px;
+    padding: clamp(26px, 3.4vw, 42px) clamp(22px, 3vw, 38px);
+    border-radius: 26px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: 0 24px 60px rgba(16, 25, 33, 0.14), 0 2px 8px rgba(16, 25, 33, 0.06);
+    animation: login-entrada 0.45s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+/* A entrada move, não esmaece.
+
+   A versão com `opacity: 0` no primeiro quadro deixava o cartão invisível
+   sempre que o navegador suspendia a animação — aba aberta em segundo
+   plano, por exemplo. Medido aqui: opacidade travada em 0 com a aba fora
+   de foco. Animar só o transform elimina o risco, porque nenhum quadro
+   dela consegue apagar o formulário. */
+@keyframes login-entrada {
+    from { transform: translateY(16px); }
+    to { transform: none; }
+}
+
+.login-cartao-topo {
+    text-align: center;
+    margin-bottom: clamp(20px, 2.6vw, 30px);
+}
+
+.login-cartao-topo h1 {
+    margin: 0;
+    font-family: var(--font-head);
+    font-size: clamp(1.45rem, 2.6vw, 1.95rem);
+    font-weight: var(--fw-bold);
+    letter-spacing: -0.015em;
+    color: var(--fg);
+}
+
+.login-cartao-topo p {
+    margin: 7px 0 0;
+    font-size: var(--text-base);
+    color: var(--fg-muted);
+}
+
+.login-aviso {
+    margin-bottom: var(--space-4);
+}
+
+/* Campos com ícone */
+.login-campo {
+    position: relative;
+    margin-bottom: 14px;
+}
+
+/* O rótulo some da tela mas continua existindo para o leitor de tela —
+   o placeholder sozinho não serve de nome acessível. */
+.login-campo-rotulo {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+.login-campo-icone {
+    position: absolute;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.95rem;
+    color: var(--fg-subtle);
+    pointer-events: none;
+    transition: color var(--transition-base);
+}
+
+.login-input {
+    width: 100%;
+    min-height: 56px;
+    padding: 14px 16px 14px 48px;
+    border: 1.5px solid transparent;
+    border-radius: 14px;
+    background: var(--surface-2);
+    color: var(--fg);
+    font-family: var(--font-body, inherit);
+    font-size: 16px;
+    line-height: 1.3;
+    transition: border-color var(--transition-base), background var(--transition-base), box-shadow var(--transition-base);
+}
+
+.login-input::placeholder {
+    color: var(--fg-subtle);
+}
+
+.login-input:hover {
+    border-color: var(--border);
+}
+
+/* O destaque de foco vem escrito das duas formas de propósito. `:focus` no
+   próprio campo é o caminho normal; `:focus-within` no invólucro cobre o
+   caso de o foco estar no botão do olho, que pertence ao mesmo campo — aí o
+   conjunto todo continua marcado, em vez de o contorno sumir no meio da
+   digitação da senha. */
+.login-input:focus,
+.login-campo:focus-within .login-input {
+    outline: none;
+    background: var(--input-bg);
+    border-color: var(--login-laranja);
+    box-shadow: var(--focus-ring);
+}
+
+.login-campo:focus-within .login-campo-icone {
+    color: var(--login-laranja);
+}
+
+/* Espaço para o botão do olho não cobrir o texto digitado */
+.login-campo:has(.login-olho) .login-input {
+    padding-right: 52px;
+}
+
+.login-olho {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--fg-muted);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background var(--transition-base), color var(--transition-base);
+}
+
+.login-olho:hover {
+    background: var(--surface-3);
+    color: var(--fg);
+}
+
+.login-olho:focus-visible {
+    outline: 2px solid var(--focus-outline);
+    outline-offset: 2px;
+}
+
+/* Botão principal */
+.login-botao {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: var(--font-head);
-    font-size: 2.6rem;
-    font-weight: 800;
-    margin: 0 auto 18px;
-    box-shadow: 0 10px 28px var(--primary-shadow);
-}
-
-.login-header h1 {
-    margin: 0;
-    font-size: 2rem;
-    font-weight: 800;
-    letter-spacing: 0;
-}
-
-.login-header p {
-    margin: 8px 0 0;
-    color: var(--side-fg-muted);
-    font-size: var(--text-base);
-}
-
-.login-body {
+    gap: 10px;
     width: 100%;
-    max-width: 560px;
+    min-height: 56px;
+    margin-top: 18px;
+    padding: 14px 20px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--login-laranja);
+    color: var(--login-botao-fg);
+    font-family: inherit;
+    font-size: 1.02rem;
+    font-weight: var(--fw-bold);
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(255, 102, 0, 0.28);
+    transition: background var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
 }
+
+.login-botao:hover:not(:disabled) {
+    background: var(--login-laranja-fundo);
+    box-shadow: 0 10px 26px rgba(255, 102, 0, 0.36);
+}
+
+.login-botao:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.login-botao:focus-visible {
+    outline: 2px solid var(--focus-outline);
+    outline-offset: 3px;
+}
+
+.login-botao:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.login-botao-secundario {
+    width: 100%;
+    margin-top: 12px;
+}
+
+/* Esqueceu a senha */
+.login-esqueci {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 44px;
+    margin-top: 16px;
+    padding: 8px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--primary-strong, var(--login-laranja-fundo));
+    font-family: inherit;
+    font-size: 0.92rem;
+    font-weight: var(--fw-semibold);
+    cursor: pointer;
+    transition: background var(--transition-base);
+}
+
+.login-esqueci span {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.login-esqueci:hover {
+    background: var(--primary-soft);
+}
+
+.login-esqueci:focus-visible {
+    outline: 2px solid var(--focus-outline);
+    outline-offset: 2px;
+}
+
+.login-ajuda {
+    margin-top: 10px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: var(--info-soft);
+    border: 1px solid var(--info-soft-strong);
+    color: var(--info-text);
+    font-size: 0.86rem;
+    line-height: 1.5;
+}
+
+.login-ajuda p { margin: 0; }
+.login-ajuda p + p { margin-top: 8px; }
+
+.login-cartao-rodape {
+    display: flex;
+    justify-content: center;
+    margin-top: clamp(20px, 2.6vw, 28px);
+    padding-top: clamp(18px, 2.4vw, 24px);
+    border-top: 1px solid var(--border);
+}
+
+/* ───────────── Marca ───────────── */
+
+/* O wordmark provisório usa a Sora com uma inclinação leve, que é o traço
+   mais característico do logotipo da Mallory. É um substituto declarado,
+   não uma recriação: assim que recursos.js apontar para o arquivo oficial,
+   estas regras passam a valer para o <img> e a inclinação some. */
+.marca-mallory {
+    display: inline-block;
+    font-family: var(--font-head);
+    font-weight: var(--fw-extrabold);
+    letter-spacing: 0.01em;
+    line-height: 1;
+    transform: skewX(-7deg);
+}
+
+img.marca-mallory {
+    width: auto;
+    transform: none;
+}
+
+.marca-claro { color: #ffffff; }
+.marca-laranja { color: var(--login-laranja); }
+
+.marca-g { font-size: clamp(1.7rem, 3.4vw, 2.6rem); }
+.marca-m { font-size: clamp(1.4rem, 2.4vw, 1.9rem); }
+.marca-p { font-size: 1.45rem; }
+
+img.marca-g { height: clamp(34px, 4.6vw, 56px); }
+img.marca-m { height: clamp(28px, 3.4vw, 42px); }
+img.marca-p { height: 30px; }
+
+/* ───────────── Responsivo ───────────── */
+
+/* Tablet e abaixo: uma coluna. A vitrine vira uma faixa de topo, sem os
+   ornamentos que só fazem sentido numa área alta, e o formulário assume
+   a tela — que é o que a pessoa veio fazer aqui. */
+@media (max-width: 1023px) {
+    .login-tela {
+        grid-template-columns: 1fr;
+        min-height: 100vh;
+        min-height: 100dvh;
+    }
+
+    .login-vitrine {
+        min-height: 260px;
+    }
+
+    .login-vitrine-corpo {
+        gap: 20px;
+        padding: 26px clamp(20px, 5vw, 40px) 30px;
+    }
+
+    .login-divisoria,
+    .login-selo {
+        display: none;
+    }
+
+    .login-identidade {
+        gap: 16px;
+    }
+
+    .login-sigla { font-size: clamp(2.4rem, 11vw, 3.6rem); }
+    .login-extenso { font-size: clamp(0.88rem, 3.2vw, 1.15rem); }
+    .login-mensagem { font-size: clamp(0.92rem, 2.8vw, 1.05rem); max-width: 38ch; }
+
+    .login-acesso {
+        padding: clamp(24px, 6vw, 40px) max(18px, env(safe-area-inset-right, 0px)) 40px max(18px, env(safe-area-inset-left, 0px));
+    }
+
+    .login-cartao {
+        max-width: 480px;
+    }
+}
+
+/* Celular: a faixa guarda só o logotipo, a sigla e a mensagem. Os pilares
+   saem — são reforço de marca, e aqui o espaço é do formulário. */
+@media (max-width: 767px) {
+    .login-vitrine {
+        min-height: 0;
+    }
+
+    .login-pilares {
+        display: none;
+    }
+
+    .login-vitrine-corpo {
+        padding: 22px clamp(16px, 5vw, 28px) 26px;
+    }
+
+    .login-mensagem {
+        font-size: 0.92rem;
+    }
+
+    .login-curvas {
+        opacity: 0.85;
+    }
+}
+
+@media (max-width: 480px) {
+    .login-cartao {
+        padding: 24px 18px;
+        border-radius: 20px;
+    }
+
+    .login-identidade {
+        gap: 12px;
+    }
+
+    .login-extenso {
+        font-size: 0.86rem;
+    }
+
+    .login-campo .login-input {
+        min-height: 52px;
+        padding-left: 44px;
+    }
+
+    .login-campo-icone {
+        left: 15px;
+    }
+}
+
+/* O responsive.css declara `input[type="text"] { min-height: 44px }` em
+   ≤1023px. Seletor de atributo pesa (0,1,1) e vence a classe (0,1,0), então
+   o piso de 56px do campo era descartado justamente no celular — onde ele
+   mais importa. Medido: 44px em vez de 56. Dois níveis de classe resolvem
+   sem precisar de !important nem mexer no arquivo global. */
+@media (max-width: 1023px) {
+    .login-campo .login-input {
+        min-height: 56px;
+    }
+}
+
+@media (max-width: 480px) {
+    .login-campo .login-input {
+        min-height: 52px;
+    }
+}
+
+/* Celular deitado: a faixa toma a tela inteira e o formulário some abaixo
+   da dobra. Aqui ela encolhe ao mínimo. */
+@media (max-height: 560px) and (orientation: landscape) {
+    .login-vitrine-meio,
+    .login-pilares {
+        display: none;
+    }
+
+    .login-vitrine {
+        min-height: 0;
+    }
+
+    .login-vitrine-corpo {
+        padding: 14px 20px;
+    }
+
+    .login-cartao {
+        padding: 20px;
+    }
+
+    .login-cartao-topo {
+        margin-bottom: 14px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .login-cartao {
+        animation: none;
+    }
+
+    .login-input,
+    .login-botao,
+    .login-olho,
+    .login-esqueci,
+    .login-campo-icone {
+        transition: none;
+    }
+
+    .login-botao:active:not(:disabled) {
+        transform: none;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Regras herdadas. Ver a nota do topo: várias destas classes são
+   genéricas e usadas fora do login. Mantidas como estavam.
+   ═══════════════════════════════════════════════════════════════ */
 
 .form-container {
     background: var(--surface);
@@ -111,10 +734,6 @@
     font-weight: 700;
     letter-spacing: var(--tracking-caps);
     text-transform: uppercase;
-}
-
-.login-body .btn {
-    width: 100%;
 }
 
 .pin-container {
@@ -208,6 +827,11 @@
     color: var(--fg-muted);
 }
 
+.role-option:focus-visible {
+    outline: 2px solid var(--focus-outline);
+    outline-offset: 2px;
+}
+
 .role-option i {
     font-size: 1.35rem;
     display: block;
@@ -226,121 +850,18 @@
     color: var(--fg);
 }
 
-.role-option.admin i {
-    color: var(--danger);
-}
-
-.role-option.supervisor i {
-    color: var(--info);
-}
-
-.role-option.inspetor i {
-    color: var(--success);
-}
-
-.role-option.inspetor_injecao i {
-    color: #7c3aed;
-}
-
-.role-option.consultor i {
-    color: var(--purple);
-}
+.role-option.admin i { color: var(--danger); }
+.role-option.supervisor i { color: var(--info); }
+.role-option.inspetor i { color: var(--success); }
+.role-option.inspetor_injecao i { color: #7c3aed; }
+.role-option.consultor i { color: var(--purple); }
 
 .admin-verification {
     text-align: center;
 }
 
 @media (max-width: 480px) {
-    .login-container {
-        padding: 18px;
-    }
-
-    .form-container {
-        padding: 26px 18px;
-        border-radius: var(--r-xl);
-    }
-
-    .pin-digit {
-        width: 32px;
-        height: 44px;
-        font-size: 1.05rem;
-    }
-
-    .pin-input-group {
-        gap: 5px;
-    }
-
     .role-grid {
         grid-template-columns: 1fr;
-    }
-
-    .login-header h1 {
-        font-size: 1.7rem;
-    }
-
-    .login-header .logo-icon {
-        width: 64px;
-        height: 64px;
-        font-size: 2rem;
-    }
-}
-
-@media (max-width: 360px) {
-    .login-container {
-        padding: 14px;
-    }
-
-    .pin-input-group {
-        gap: 4px;
-    }
-
-    .pin-digit {
-        width: 28px;
-        height: 40px;
-        font-size: 0.95rem;
-    }
-}
-
-@media (max-height: 500px) and (orientation: landscape) {
-    .login-container {
-        padding: 10px 20px;
-    }
-
-    .login-header {
-        margin-bottom: 10px;
-    }
-
-    .login-header .logo-icon {
-        width: 48px;
-        height: 48px;
-        font-size: 1.45rem;
-        margin-bottom: 8px;
-    }
-
-    .login-header h1 {
-        font-size: 1.4rem;
-    }
-
-    .login-header p {
-        display: none;
-    }
-
-    .form-container {
-        padding: 16px 20px;
-    }
-
-    .form-container h2 {
-        font-size: var(--text-lg);
-        margin-bottom: 12px;
-    }
-
-    .form-group {
-        margin-bottom: 12px;
-    }
-
-    .pin-digit {
-        width: 30px;
-        height: 38px;
-        font-size: 0.95rem;
     }
 }

@@ -3,11 +3,34 @@
    Em vez de recortar a imagem de referência, as formas são vetor: acompanham
    qualquer proporção de tela, não pesam no carregamento e podem ter a cor
    trocada por token. Todos são decorativos — `aria-hidden`, fora da ordem de
-   leitura, porque não carregam informação que o texto já não dê. */
+   leitura, porque não carregam informação que o texto já não dê.
 
-/* Curvas laranja das extremidades. O preserveAspectRatio="none" deixa as
-   formas esticarem com o painel; são curvas largas, então a distorção não
-   aparece. */
+   COMO A COMPOSIÇÃO FUNCIONA
+   --------------------------
+   A primeira versão desenhava faixas laranja sobre um fundo escuro, e nunca
+   chegava perto da referência. O modelo certo é o inverso: o painel inteiro
+   é laranja, e uma ILHA escura recortada no meio dele é que abre espaço para
+   a fotografia e para o texto.
+
+   Por isso a moldura é um caminho só, com `fill-rule="evenodd"`: um retângulo
+   que cobre tudo, menos o contorno da ilha. O buraco deixa passar o que está
+   atrás — a fotografia e o gradiente escuro da vitrine. */
+
+/* Contorno da ilha escura, em coordenadas de 0 a 100.
+
+   Fica numa constante porque é usado duas vezes: para furar a moldura
+   laranja e para desenhar o filete claro que acompanha a borda. Mexer aqui
+   muda as duas de uma vez. */
+const ILHA = `
+    M8 0
+    C5 26 4 54 5.5 76
+    C6.4 87 11 95.5 25 100
+    L67 100
+    C75 88 83 72 87 55
+    C90 44 94 20 96.5 0
+    Z
+`;
+
 export function CurvasVitrine() {
     return (
         <svg
@@ -18,61 +41,80 @@ export function CurvasVitrine() {
             focusable="false"
         >
             <defs>
-                <linearGradient id="curvaQuente" x1="0" y1="0" x2="1" y2="1">
+                <linearGradient id="molduraLaranja" x1="0" y1="0" x2="1" y2="1">
                     <stop offset="0%" stopColor="#ff8a00" />
-                    <stop offset="100%" stopColor="#ff6600" />
-                </linearGradient>
-                <linearGradient id="curvaFria" x1="0" y1="1" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#ff6600" />
+                    <stop offset="45%" stopColor="#ff6600" />
                     <stop offset="100%" stopColor="#ff8a00" />
+                </linearGradient>
+                <linearGradient id="fileteClaro" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#ffb257" />
+                    <stop offset="50%" stopColor="#ff8a00" />
+                    <stop offset="100%" stopColor="#ffb257" />
                 </linearGradient>
             </defs>
 
-            {/* Faixa inclinada atrás do logotipo */}
+            {/* Moldura laranja com a ilha vazada */}
             <path
-                d="M0 0 H30 L23.5 13 H0 Z"
-                fill="url(#curvaQuente)"
+                fillRule="evenodd"
+                d={`M0 0 H100 V100 H0 Z ${ILHA}`}
+                fill="url(#molduraLaranja)"
             />
-            {/* Lâmina da borda esquerda, descendo */}
+
+            {/* Filete mais claro acompanhando a borda da ilha, para a moldura
+                não ficar chapada. Só traço, sem preenchimento. */}
             <path
-                d="M0 2 H7.5 C13 22 10 50 2.5 70 C1.4 73 0 77 0 81 Z"
-                fill="url(#curvaFria)"
-                opacity="0.92"
-            />
-            {/* Onda rasa da base. A crista mais alta fica em y≈95, abaixo da
-                linha onde os pilares terminam — senão o ícone laranja do
-                pilar cai sobre o laranja da onda e some. */}
-            <path
-                d="M0 97.4 C20 94.6 45 99.4 70 96.4 C84 94.7 93 96.4 100 98 V100 H0 Z"
-                fill="url(#curvaQuente)"
-                opacity="0.94"
+                d={ILHA}
+                fill="none"
+                stroke="url(#fileteClaro)"
+                strokeWidth="1.6"
+                opacity="0.75"
+                vectorEffect="non-scaling-stroke"
             />
         </svg>
     );
 }
 
-/* Curva que separa o painel esquerdo do formulário. Fica na borda direita da
-   vitrine e avança sobre o fundo claro, como na referência. Só aparece a
-   partir do desktop, onde existem as duas colunas. */
-export function CurvaDivisoria() {
+/* Onda que atravessa a divisa dos dois painéis.
+
+   Na referência a curva laranja não termina na borda da vitrine: ela passa
+   por cima do lado branco e emoldura o cartão pela esquerda. Por isso mora
+   dentro do painel de acesso e se estende para fora dele, em vez de ser mais
+   uma forma do SVG da vitrine — que está recortado pelo overflow. */
+export function OndaDivisoria() {
     return (
         <svg
-            className="login-divisoria"
+            className="login-onda"
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
             aria-hidden="true"
             focusable="false"
         >
             <defs>
-                <linearGradient id="curvaBorda" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="ondaLaranja" x1="0" y1="0" x2="0.6" y2="1">
                     <stop offset="0%" stopColor="#ff8a00" />
-                    <stop offset="55%" stopColor="#ff6600" />
+                    <stop offset="50%" stopColor="#ff6600" />
+                    <stop offset="100%" stopColor="#ff8a00" />
+                </linearGradient>
+                <linearGradient id="ondaAcento" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#ffb257" />
                     <stop offset="100%" stopColor="#ff8a00" />
                 </linearGradient>
             </defs>
+
             <path
-                d="M0 0 H100 V100 H0 C46 76 62 44 36 0 Z"
-                fill="url(#curvaBorda)"
+                d="M67.6 0 C58 22 52 44 42 66 C34 82 18 93 6.6 100 L66.6 100
+                   C80 84 90 62 93 40 C95 26 94.5 12 93.4 0 Z"
+                fill="url(#ondaLaranja)"
+            />
+
+            {/* Fio claro na aresta de fora, o mesmo realce da referência */}
+            <path
+                d="M93.4 0 C94.5 12 95 26 93 40 C90 62 80 84 66.6 100"
+                fill="none"
+                stroke="url(#ondaAcento)"
+                strokeWidth="2"
+                opacity="0.85"
+                vectorEffect="non-scaling-stroke"
             />
         </svg>
     );

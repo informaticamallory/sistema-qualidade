@@ -6,7 +6,7 @@ import PasswordRequirements from '../../components/PasswordRequirements/Password
 import { senhaValida } from '../../utils/passwordValidation';
 import { canAccess, defaultPathForUser } from '../../config/permissions';
 import MarcaMallory from './MarcaMallory';
-import { CurvasVitrine, CurvaDivisoria, SeloQualidade } from './Ornamentos';
+import { CurvasVitrine, OndaDivisoria, SeloQualidade } from './Ornamentos';
 import { fotoIndustrial } from './recursos';
 import './Login.css';
 
@@ -232,7 +232,6 @@ function Login() {
                 )}
                 <div className="login-veu" aria-hidden="true"></div>
                 <CurvasVitrine />
-                <CurvaDivisoria />
 
                 <div className="login-vitrine-corpo">
                     <div className="login-vitrine-topo">
@@ -271,6 +270,9 @@ function Login() {
 
             {/* ───────────── Acesso ───────────── */}
             <section className="login-acesso">
+                {/* Vive aqui, e não na vitrine, porque precisa passar por cima
+                    do lado branco — a vitrine recorta o que sai dela. */}
+                <OndaDivisoria />
                 <ThemeToggle variant="floating" />
 
                 <div className="login-cartao">

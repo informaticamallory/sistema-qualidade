@@ -389,8 +389,13 @@
     width: auto;
     max-width: 100%;
     height: clamp(22px, 1.75em, 41px);
-    border-radius: 5px;
     object-fit: contain;
+}
+
+/* Só a variante sobre fundo escuro é uma placa, e placa tem canto. A de
+   letras laranja é transparente: arredondar nela não teria o que cortar. */
+.marca-oficial.marca-claro {
+    border-radius: 5px;
 }
 
 /* Wordmark de reserva, se o arquivo sumir. */

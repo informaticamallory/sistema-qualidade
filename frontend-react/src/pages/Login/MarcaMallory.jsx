@@ -1,26 +1,34 @@
-import { logoMallory } from './recursos';
+import { logoMallory, logoMalloryLaranja } from './recursos';
 
 /* Logotipo MALLORY.
 
-   O arquivo oficial tem fundo laranja chapado (ver recursos.js), então ele
-   não é uma imagem solta: é uma PLACA. Quem usa este componente ganha a
-   placa inteira, e o CSS trata disso — a faixa inclinada do topo usa o
-   mesmo laranja do arquivo para a emenda sumir.
+   Duas versões do mesmo arquivo oficial, escolhidas pelo fundo em que a
+   marca vai cair:
 
-   Sem o arquivo, o componente cai no wordmark composto com a Sora. Esse
-   caminho continua aqui de propósito: é o que mantém a tela montável se o
+     'laranja'  letras laranja, fundo transparente — para o branco do
+                cartão. É a que a tela usa hoje.
+     'claro'    letras brancas sobre a placa laranja do arquivo original —
+                para quando a marca for cair sobre um fundo escuro.
+
+   A versão transparente existe porque a placa, sobre o cartão branco, lia
+   como recorte colado. Ver a nota em recursos.js.
+
+   Sem os arquivos, o componente cai no wordmark composto com a Sora. Esse
+   caminho continua aqui de propósito: é o que mantém a tela montável se um
    arquivo for trocado, removido ou falhar ao carregar.
 
    props:
-     tom       'claro' (sobre o painel escuro) | 'laranja' (rodapé do cartão)
+     tom       'laranja' (sobre fundo claro) | 'claro' (sobre fundo escuro)
      tamanho   'g' | 'm' | 'p'
      titulo    texto alternativo */
-export default function MarcaMallory({ tom = 'claro', tamanho = 'm', titulo = 'Mallory' }) {
-    if (logoMallory) {
+export default function MarcaMallory({ tom = 'laranja', tamanho = 'm', titulo = 'Mallory' }) {
+    const arquivo = tom === 'claro' ? logoMallory : logoMalloryLaranja;
+
+    if (arquivo) {
         return (
             <img
-                className={`marca-mallory marca-oficial marca-${tamanho}`}
-                src={logoMallory}
+                className={`marca-mallory marca-oficial marca-${tom} marca-${tamanho}`}
+                src={arquivo}
                 alt={titulo}
                 width="205"
                 height="41"

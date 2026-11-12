@@ -1,4 +1,5 @@
 import wordmark from './mallory-wordmark.png';
+import wordmarkLaranja from './mallory-wordmark-laranja.png';
 import arte from './tela-login.webp';
 
 /* Arquivos de imagem da tela de login.
@@ -55,6 +56,21 @@ import arte from './tela-login.webp';
    baixa para ver. Quando aparecer um lugar que comporte a assinatura
    inteira, é só importá-lo aqui. */
 export const logoMallory = wordmark;
+
+/* O mesmo wordmark com as letras em laranja e o fundo transparente.
+
+   Sobre o branco do cartão, a placa laranja do arquivo original lia como
+   recorte colado — e era, porque o fundo dele é chapado. Esta versão troca
+   a relação: as letras viram #F75203, o mesmo laranja do logotipo que está
+   desenhado no rodapé do cartão da arte, e o fundo vira alfa.
+
+   A conversão é aritmética, não redesenho. O arquivo é uma mistura limpa
+   entre o laranja da placa e o branco das letras — conferido: desvio máximo
+   de 1 unidade por pixel. Então para cada pixel basta ler quanto ele tem de
+   branco e usar esse valor como opacidade. As 213 passagens de alfa que
+   sobraram são as mesmas bordas suaves do original; nenhum traço foi
+   redesenhado. */
+export const logoMalloryLaranja = wordmarkLaranja;
 
 /* A arte da tela inteira, usada como fundo.
 

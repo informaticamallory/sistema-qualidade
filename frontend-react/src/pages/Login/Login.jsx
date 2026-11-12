@@ -6,17 +6,8 @@ import PasswordRequirements from '../../components/PasswordRequirements/Password
 import { senhaValida } from '../../utils/passwordValidation';
 import { canAccess, defaultPathForUser } from '../../config/permissions';
 import MarcaMallory from './MarcaMallory';
-import { CurvasVitrine, OndaDivisoria, SeloQualidade } from './Ornamentos';
-import { fotoIndustrial } from './recursos';
+import { arteLogin } from './recursos';
 import './Login.css';
-
-/* Os três pilares do rodapé da vitrine. Ficam aqui, fora do componente, para
-   não serem recriados a cada renderização. */
-const PILARES = [
-    { icone: 'fa-bullseye', rotulo: 'Padronização' },
-    { icone: 'fa-chart-line', rotulo: 'Monitoramento' },
-    { icone: 'fa-certificate', rotulo: 'Conformidade' }
-];
 
 function SenhaField({ value, onChange, showSenha, placeholder = 'Digite sua senha', autoComplete = 'current-password' }) {
     return (
@@ -222,58 +213,21 @@ function Login() {
 
     return (
         <div className="login-tela">
+            <ThemeToggle variant="floating" />
 
-            {/* ───────────── Vitrine ───────────── */}
-            <section className="login-vitrine">
-                {/* A foto só entra quando o arquivo existir (ver recursos.js).
-                    Sem ela o gradiente sozinho já sustenta o painel. */}
-                {fotoIndustrial && (
-                    <img className="login-foto" src={fotoIndustrial} alt="" aria-hidden="true" />
-                )}
-                <div className="login-veu" aria-hidden="true"></div>
-                <CurvasVitrine />
-
-                <div className="login-vitrine-corpo">
-                    <div className="login-vitrine-topo">
-                        <MarcaMallory tom="claro" tamanho="g" titulo="Mallory" />
-                    </div>
-
-                    <div className="login-vitrine-meio">
-                        <div className="login-identidade">
-                            <span className="login-sigla">CQM</span>
-                            <span className="login-barra" aria-hidden="true"></span>
-                            <span className="login-extenso">
-                                Controle da<br />Qualidade<br />Mallory
-                            </span>
-                        </div>
-
-                        <span className="login-risco" aria-hidden="true"></span>
-
-                        <p className="login-mensagem">
-                            Gestão, inspeção e melhoria contínua<br />
-                            para a excelência dos nossos produtos.
-                        </p>
-                    </div>
-
-                    <ul className="login-pilares">
-                        {PILARES.map((pilar) => (
-                            <li key={pilar.rotulo}>
-                                <i className={`fas ${pilar.icone}`} aria-hidden="true"></i>
-                                <span>{pilar.rotulo}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-
-                <SeloQualidade />
-            </section>
-
-            {/* ───────────── Acesso ───────────── */}
-            <section className="login-acesso">
-                {/* Vive aqui, e não na vitrine, porque precisa passar por cima
-                    do lado branco — a vitrine recorta o que sai dela. */}
-                <OndaDivisoria />
-                <ThemeToggle variant="floating" />
+            {/* O palco tem a proporção exata da arte e cobre a tela inteira.
+                É o que permite ancorar o cartão em porcentagem da IMAGEM, e
+                não da janela: assim ele acompanha a arte em qualquer tamanho
+                de tela, em vez de descolar dela. */}
+            <div className="login-palco">
+                <img
+                    className="login-arte"
+                    src={arteLogin}
+                    alt=""
+                    aria-hidden="true"
+                    width="1671"
+                    height="941"
+                />
 
                 <div className="login-cartao">
                     {resetToken ? (
@@ -552,7 +506,7 @@ function Login() {
                         </>
                     )}
                 </div>
-            </section>
+            </div>
         </div>
     );
 }

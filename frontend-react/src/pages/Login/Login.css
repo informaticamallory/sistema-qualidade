@@ -1,341 +1,183 @@
 /* ═══════════════════════════════════════════════════════════════
    TELA DE LOGIN — CQM Mallory
 
-   Duas colunas no desktop: vitrine da marca à esquerda, acesso à
-   direita. Tudo é componente e CSS — nenhuma parte da referência
-   entrou como imagem de fundo, então cada elemento continua
-   editável e o texto continua sendo texto.
+   A arte da tela entra como IMAGEM, inteira. Só o cartão de acesso
+   é componente, construído por cima do cartão que já está
+   desenhado nela. Decisão do cliente, depois de duas tentativas de
+   redesenhar a composição em vetor.
+
+   O que sustenta isso é o palco: um retângulo com a proporção
+   exata da arte (1671x941), dimensionado para cobrir a janela sem
+   deformar. Como o cartão é ancorado em porcentagem do PALCO, e
+   não da janela, ele acompanha a arte em qualquer tamanho de tela
+   em vez de descolar dela.
+
+   As quatro medidas do cartão saem de recursos.js, onde estão os
+   pixels originais. Trocar a arte obriga a medir de novo.
 
    As regras genéricas do fim do arquivo (.alert, .form-group,
-   .form-label, .divider, .pin-*, .role-*) são anteriores a este
-   redesenho e NÃO são exclusivas do login: `.alert-info` é usada
-   em Fichas e `.form-group` convive com a do ui-kit. Ficaram como
-   estavam de propósito.
+   .form-label, .divider, .pin-*, .role-*) são anteriores a esta
+   tela e NÃO são exclusivas dela: .alert-info é usada em Fichas e
+   .form-group convive com a do ui-kit. Ficaram como estavam.
    ═══════════════════════════════════════════════════════════════ */
 
 .login-tela {
-    /* Cores da marca. Ficam escopadas aqui para a tela não depender do
-       tema claro/escuro do sistema: a vitrine é sempre escura, como na
-       referência. O painel de acesso, esse sim, acompanha o tema. */
-    --login-laranja: #ff6600;
-    --login-laranja-claro: #ff8a00;
-    --login-laranja-fundo: #e65c00;
-    --login-preto: #151515;
-
-    /* O laranja do arquivo do logotipo, que é #F16425 e não o #FF6600 dos
-       tokens. A faixa inclinada atrás dele usa este valor: com o laranja do
-       sistema, a emenda entre a faixa e o retângulo do PNG aparecia. */
-    --login-laranja-logo: #f16425;
+    /* Laranja da própria arte, medido nela: o botão vai de #F65702 a
+       #EB4402. É mais fechado que o #FF6600 dos tokens, e aqui vale o da
+       imagem — o cartão encosta nela. */
+    --login-laranja: #ef4e02;
+    --login-laranja-claro: #f65702;
+    --login-laranja-fundo: #d94102;
 
     /* Exceção deliberada e escopada: a referência pede texto BRANCO no
-       botão, que dá 2,94:1 sobre o laranja e reprova o AA da WCAG 1.4.3.
-       Decisão do cliente, registrada. Fica só aqui — o --primary-fg do
-       sistema continua sendo a tinta escura de 6,05:1 em todas as outras
-       telas. Para alinhar o login ao resto depois, basta trocar esta
-       linha por #101921. */
+       botão, que reprova o AA da WCAG 1.4.3 sobre este laranja. Decisão do
+       cliente, registrada. Fica só aqui — o --primary-fg do sistema
+       continua com a tinta escura de 6,05:1 em todas as outras telas. */
     --login-botao-fg: #ffffff;
 
-    display: grid;
-    /* 62,5 / 37,5 é a divisão da referência (1040 de 1659). */
-    grid-template-columns: minmax(0, 62.5fr) minmax(0, 37.5fr);
+    --login-tinta: #111214;
+    --login-tinta-fraca: #6a6d73;
+    --login-campo: #f3f3f3;
+
+    position: relative;
     min-height: 100vh;
     min-height: 100dvh;
-    overflow-x: hidden;
-    background: var(--bg);
-}
-
-/* ───────────── Vitrine ───────────── */
-
-/* O fundo é o MIOLO escuro da composição: a moldura laranja vem por cima,
-   desenhada em SVG com a ilha vazada. Ver a nota em Ornamentos.jsx. */
-.login-vitrine {
-    position: relative;
     overflow: hidden;
-    min-width: 0;
-    background:
-        radial-gradient(130% 100% at 30% 18%, #2b2b2b 0%, transparent 58%),
-        linear-gradient(140deg, #202020 0%, var(--login-preto) 55%, #0d0d0d 100%);
-    isolation: isolate;
+    /* Cor de espera enquanto a arte não chegou, no tom escuro dela. */
+    background: #151515;
 }
 
-/* Fotografia industrial, quando o arquivo existir. */
-.login-foto {
+/* ───────────── Palco: a arte ───────────── */
+
+.login-palco {
+    /* Proporção da arte. Se o arquivo mudar, estes dois números e os
+       quatro do cartão mudam juntos. */
+    --arte-largura: 1671;
+    --arte-altura: 941;
+
+    /* Cobre a janela sem deformar: estica pelo lado que faltar e deixa o
+       outro sangrar. É o cover feito à mão, com a diferença de que a caixa
+       continua mensurável — e o cartão pode se ancorar nela. */
+    --palco-largura: max(100vw, calc(100dvh * var(--arte-largura) / var(--arte-altura)));
+
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    width: var(--palco-largura);
+    height: max(100dvh, calc(100vw * var(--arte-altura) / var(--arte-largura)));
+}
+
+.login-arte {
     position: absolute;
     inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: 60% 50%;
-    opacity: 0.62;
-}
-
-/* Véu escuro: a foto fica visível, mas o texto branco por cima continua
-   legível em qualquer imagem. O gradiente é mais fechado à esquerda, que
-   é onde o texto vive. */
-.login-veu {
-    position: absolute;
-    inset: 0;
-    background:
-        linear-gradient(100deg, rgba(10, 10, 10, 0.94) 0%, rgba(14, 14, 14, 0.74) 42%, rgba(20, 20, 20, 0.34) 100%),
-        linear-gradient(to top, rgba(10, 10, 10, 0.72) 0%, transparent 46%);
-}
-
-/* A moldura cobre o painel inteiro: ela É o laranja, com o buraco da ilha. */
-.login-curvas {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 1;
-}
-
-/* O conteúdo fica dentro da ilha, não dentro do painel: por isso o recuo é
-   em porcentagem da largura, acompanhando a borda escura, e a direita abre
-   espaço para a curva laranja daquele lado. */
-.login-vitrine-corpo {
-    position: relative;
-    z-index: 2;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    gap: clamp(18px, 2.5vw, 34px);
-    height: 100%;
-    padding: 5.5% 25% 7% 8%;
-}
-
-.login-vitrine-topo {
-    position: relative;
-    display: inline-flex;
-    align-self: flex-start;
-    align-items: center;
-    /* O recuo lateral é generoso porque a faixa atrás é inclinada: o
-       logotipo é um retângulo reto e precisa caber dentro do losango, sem
-       encostar nas pontas. */
-    padding: 0.42em 1.5em 0.42em 1.3em;
-}
-
-/* Faixa inclinada atrás do logotipo. Fica em ::before, e não no SVG de
-   fundo, para acompanhar a largura real da marca em qualquer tamanho de
-   tela — uma forma fixa no SVG descolaria dela.
-
-   A inclinação é da faixa, nunca do logotipo: a referência mostra a faixa
-   inclinada, mas torcer o arquivo oficial seria distorcer a marca. */
-.login-vitrine-topo::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    border-radius: 3px;
-    background: var(--login-laranja-logo);
-    transform: skewX(-13deg);
-}
-
-.login-vitrine-meio {
-    display: flex;
-    flex-direction: column;
-    gap: clamp(14px, 2vw, 22px);
-    align-items: flex-start;
-}
-
-/* Identidade: CQM | Controle da Qualidade Mallory */
-.login-identidade {
-    display: flex;
-    align-items: center;
-    gap: clamp(14px, 2vw, 24px);
-    min-width: 0;
-}
-
-/* As medidas abaixo saem da referência, convertidas para vw sobre a largura
-   do painel (60vw): CQM a 12,5% da largura do painel, o texto ao lado a
-   3,3%, a mensagem a 2,9%. É o que faz a proporção bater. */
-.login-sigla {
-    font-family: var(--font-head);
-    font-size: clamp(2.6rem, 7.5vw, 7rem);
-    font-weight: var(--fw-extrabold);
-    line-height: 0.88;
-    letter-spacing: -0.035em;
-    color: #ffffff;
-}
-
-.login-barra {
-    width: 3px;
-    align-self: stretch;
-    min-height: 56px;
-    margin: 0.1em 0;
-    border-radius: 999px;
-    background: var(--login-laranja);
-}
-
-.login-extenso {
-    font-family: var(--font-head);
-    font-size: clamp(0.95rem, 2.3vw, 2.2rem);
-    font-weight: var(--fw-bold);
-    line-height: 1.1;
-    letter-spacing: -0.015em;
-    color: #ffffff;
-}
-
-.login-risco {
     display: block;
-    width: clamp(64px, 7vw, 112px);
-    height: 5px;
-    border-radius: 999px;
-    background: var(--login-laranja);
-}
-
-/* Sem max-width: a quebra em duas linhas vem do <br> do JSX, como na
-   referência. Um limite em ch brigava com ele e produzia quatro linhas. */
-.login-mensagem {
-    margin: 0;
-    font-size: clamp(0.95rem, 1.85vw, 1.7rem);
-    font-weight: var(--fw-semibold);
-    line-height: 1.32;
-    color: #ffffff;
-}
-
-/* Pilares */
-.login-pilares {
-    display: flex;
-    flex-wrap: wrap;
-    gap: clamp(16px, 3vw, 34px);
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.login-pilares li {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 9px;
-    min-width: 92px;
-    text-align: center;
-}
-
-/* Divisor entre os pilares, como na referência. O :not(:first-child) evita
-   um traço solto antes do primeiro item. */
-.login-pilares li:not(:first-child) {
-    border-left: 1px solid rgba(255, 255, 255, 0.22);
-    padding-left: clamp(16px, 3vw, 34px);
-    margin-left: calc(clamp(16px, 3vw, 34px) * -1 + 1px);
-}
-
-.login-pilares i {
-    font-size: clamp(1.4rem, 2.4vw, 2.3rem);
-    color: var(--login-laranja);
-}
-
-.login-pilares span {
-    font-size: clamp(0.78rem, 1.15vw, 1.08rem);
-    font-weight: var(--fw-semibold);
-    color: #ffffff;
-    white-space: nowrap;
-}
-
-/* Selo de qualidade */
-/* Posição tirada da referência: centro em 80% da largura e 67% da altura do
-   painel, encostando na curva laranja da direita. O translate faz o ponto de
-   ancoragem ser o centro do selo, não o canto. */
-.login-selo {
-    position: absolute;
-    z-index: 3;
-    left: 79%;
-    top: 66%;
-    width: clamp(92px, 12vw, 206px);
-    height: auto;
-    transform: translate(-50%, -50%);
-    filter: drop-shadow(0 0 34px rgba(255, 138, 0, 0.6));
-}
-
-/* ───────────── Acesso ───────────── */
-
-.login-acesso {
-    position: relative;
-    display: grid;
-    place-items: center;
-    min-width: 0;
-    padding: clamp(20px, 2.4vw, 34px) max(16px, env(safe-area-inset-right, 0px)) clamp(20px, 2.4vw, 34px) 16px;
-    /* Branco puro, como na referência — o --bg do sistema é um creme
-       (#faf9f5) e deixava o lado direito amarelado ao lado do cartão. */
-    background: #ffffff;
-}
-
-[data-theme="dark"] .login-acesso {
-    background: var(--bg);
-}
-
-/* A onda sai do painel pela esquerda e cobre a emenda com a vitrine. Como é
-   irmã anterior do cartão, o cartão pinta por cima sem precisar de z-index
-   alto — só de um contexto próprio. */
-.login-onda {
-    position: absolute;
-    top: 0;
-    left: -60%;
-    width: 80%;
+    width: 100%;
     height: 100%;
-    pointer-events: none;
+    object-fit: fill;
 }
+
+/* ───────────── Cartão de acesso ───────────── */
 
 .login-cartao {
-    position: relative;
+    /* Posição do cartão DENTRO da arte, em porcentagem dela.
+       Medido em recursos.js: x 1045–1646, y 108–848 de 1671x941. */
+    position: absolute;
+    left: 62.537%;
+    top: 11.477%;
+    width: 36.026%;
+    height: 78.746%;
     z-index: 1;
-    width: 100%;
-    /* A referência dá ao cartão 36,8% da largura total; com o painel em
-       37,5% isso significa quase borda a borda. */
-    max-width: 600px;
-    padding: clamp(26px, 3.4vw, 42px) clamp(22px, 3vw, 38px);
-    border-radius: 26px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    box-shadow: 0 24px 60px rgba(16, 25, 33, 0.14), 0 2px 8px rgba(16, 25, 33, 0.06);
-    animation: login-entrada 0.45s cubic-bezier(0.2, 0.7, 0.3, 1);
+
+    /* Tudo dentro do cartão é em em, e o em acompanha o palco: as
+       proporções internas não mudam quando a tela muda de tamanho. O fator
+       dá 18px quando o palco tem a largura original da arte. */
+    /* Unidade do CARTÃO. Todo espaçamento que precisa bater com a arte usa
+       --u, e não em.
+
+       Dois motivos, nesta ordem. Primeiro: `em` dentro de um filho resolve
+       contra a fonte DO FILHO — no botão, que é 1.12em, um `3.67em` dava
+       74px em vez de 66. Segundo: `--u: 1em` NÃO resolve isso, porque
+       custom property sem @property é substituída como texto: o `1em`
+       chega cru no filho e reavalia lá do mesmo jeito. Medido: 74,02px.
+
+       Por isso --u é um comprimento absoluto, derivado da largura do
+       palco. Dá 18px quando o palco tem a largura original da arte, e o
+       filho herda o número pronto. */
+    --u: calc(var(--palco-largura) * 0.01077);
+
+    font-size: var(--u);
+
+    display: flex;
+    flex-direction: column;
+    /* flex-start, não space-between: as distâncias vêm da arte, uma a uma.
+       Com space-between o rodapé colava na base e abria um vão de 60px
+       depois do botão que a arte não tem. A sobra fica embaixo, como lá. */
+    justify-content: flex-start;
+    /* Recuos medidos na arte: 100px no topo, 52 nas laterais. */
+    padding: calc(var(--u) * 5.55) calc(var(--u) * 2.89) calc(var(--u) * 2.6);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+
+    background: #ffffff;
+    border-radius: 1.7em;
+    box-shadow: 0 1.2em 3.2em rgba(17, 18, 20, 0.13);
+    color: var(--login-tinta);
 }
 
-/* A entrada move, não esmaece.
+/* Sem animação de entrada no desktop, de propósito.
 
-   A versão com `opacity: 0` no primeiro quadro deixava o cartão invisível
-   sempre que o navegador suspendia a animação — aba aberta em segundo
-   plano, por exemplo. Medido aqui: opacidade travada em 0 com a aba fora
-   de foco. Animar só o transform elimina o risco, porque nenhum quadro
-   dela consegue apagar o formulário. */
-@keyframes login-entrada {
-    from { transform: translateY(16px); }
-    to { transform: none; }
-}
+   Qualquer transform desloca o cartão, e aqui ele tem de cair em cima do
+   cartão que está DESENHADO na arte. Quando o navegador suspende a
+   animação — aba em segundo plano, por exemplo — ela fica travada no
+   primeiro quadro e o deslocamento vira permanente: medido, 16px abaixo
+   do lugar, com a borda do cartão desenhado aparecendo por cima.
+
+   No celular o cartão flutua sobre a arte e não precisa coincidir com
+   nada, então lá a entrada volta (ver a consulta de ≤1023px). */
 
 .login-cartao-topo {
     text-align: center;
-    margin-bottom: clamp(20px, 2.6vw, 30px);
 }
 
 .login-cartao-topo h1 {
     margin: 0;
     font-family: var(--font-head);
-    font-size: clamp(1.5rem, 2.9vw, 2.45rem);
+    font-size: 2.2em;
     font-weight: var(--fw-bold);
     letter-spacing: -0.02em;
-    color: var(--fg);
+    line-height: 1.15;
+    color: var(--login-tinta);
 }
 
 .login-cartao-topo p {
-    margin: 9px 0 0;
-    font-size: clamp(0.92rem, 1.2vw, 1.08rem);
-    color: var(--fg-muted);
+    margin: calc(var(--u) * 1.06) 0 0;
+    font-size: 1.05em;
+    line-height: 1.35;
+    color: var(--login-tinta-fraca);
 }
 
 .login-aviso {
-    margin-bottom: var(--space-4);
+    margin: calc(var(--u) * 1.2) 0 0;
+    font-size: 0.9em;
 }
 
-/* Campos com ícone */
+/* ── Campos ── */
+
+.login-cartao form {
+    margin-top: calc(var(--u) * 1.83);
+}
+
 .login-campo {
     position: relative;
-    margin-bottom: 14px;
 }
 
-/* O rótulo some da tela mas continua existindo para o leitor de tela —
-   o placeholder sozinho não serve de nome acessível. */
+.login-campo + .login-campo {
+    margin-top: calc(var(--u) * 1.33);
+}
+
+/* Some da tela, continua para o leitor de tela: o placeholder sozinho não
+   serve de nome acessível. */
 .login-campo-rotulo {
     position: absolute;
     width: 1px;
@@ -350,119 +192,111 @@
 
 .login-campo-icone {
     position: absolute;
-    left: 18px;
+    left: 1.25em;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 0.95rem;
-    color: var(--fg-subtle);
+    font-size: 1.05em;
+    color: #7c7f85;
     pointer-events: none;
     transition: color var(--transition-base);
 }
 
 .login-input {
     width: 100%;
-    min-height: 62px;
-    padding: 16px 18px 16px 52px;
+    min-height: calc(var(--u) * 3.44);
+    padding: 0.9em 1em 0.9em 3.1em;
     border: 1.5px solid transparent;
-    border-radius: 14px;
-    /* Cinza neutro da referência. O --surface-2 do sistema é creme e, dentro
-       do cartão branco, lia como campo "sujo" em vez de campo vazio. */
-    background: #f2f2f4;
-    color: var(--fg);
-    font-family: var(--font-body, inherit);
-    font-size: 16px;
+    border-radius: 0.8em;
+    background: var(--login-campo);
+    color: var(--login-tinta);
+    font-family: inherit;
+    font-size: 1.02em;
     line-height: 1.3;
     transition: border-color var(--transition-base), background var(--transition-base), box-shadow var(--transition-base);
 }
 
-[data-theme="dark"] .login-input {
-    background: var(--surface-2);
-}
-
 .login-input::placeholder {
-    color: var(--fg-subtle);
+    color: #8b8e94;
 }
 
 .login-input:hover {
-    border-color: var(--border);
+    border-color: #e2e2e4;
 }
 
-/* O destaque de foco vem escrito das duas formas de propósito. `:focus` no
-   próprio campo é o caminho normal; `:focus-within` no invólucro cobre o
-   caso de o foco estar no botão do olho, que pertence ao mesmo campo — aí o
-   conjunto todo continua marcado, em vez de o contorno sumir no meio da
-   digitação da senha. */
+/* Escrito nas duas formas: :focus é o caminho normal; :focus-within cobre o
+   foco no botão do olho, que pertence ao mesmo campo. */
 .login-input:focus,
 .login-campo:focus-within .login-input {
     outline: none;
-    background: var(--input-bg);
+    background: #ffffff;
     border-color: var(--login-laranja);
-    box-shadow: var(--focus-ring);
+    box-shadow: 0 0 0 3px rgba(239, 78, 2, 0.18);
 }
 
 .login-campo:focus-within .login-campo-icone {
     color: var(--login-laranja);
 }
 
-/* Espaço para o botão do olho não cobrir o texto digitado */
 .login-campo:has(.login-olho) .login-input {
-    padding-right: 52px;
+    padding-right: 3.2em;
 }
 
 .login-olho {
     position: absolute;
-    right: 8px;
+    right: 0.5em;
     top: 50%;
     transform: translateY(-50%);
     display: grid;
     place-items: center;
-    width: 40px;
-    height: 40px;
+    width: 2.5em;
+    height: 2.5em;
+    min-width: 44px;
+    min-height: 44px;
     padding: 0;
     border: 0;
-    border-radius: 10px;
+    border-radius: 0.6em;
     background: transparent;
-    color: var(--fg-muted);
-    font-size: 0.95rem;
+    color: #6a6d73;
+    font-size: 1em;
     cursor: pointer;
     transition: background var(--transition-base), color var(--transition-base);
 }
 
 .login-olho:hover {
-    background: var(--surface-3);
-    color: var(--fg);
+    background: #e8e8ea;
+    color: var(--login-tinta);
 }
 
 .login-olho:focus-visible {
-    outline: 2px solid var(--focus-outline);
+    outline: 2px solid var(--login-laranja-fundo);
     outline-offset: 2px;
 }
 
-/* Botão principal */
+/* ── Botão ── */
+
 .login-botao {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 0.55em;
     width: 100%;
-    min-height: 64px;
-    margin-top: 20px;
-    padding: 16px 20px;
+    min-height: calc(var(--u) * 3.67);
+    margin-top: calc(var(--u) * 1.67);
+    padding: 0.6em 1.1em;
     border: 0;
-    border-radius: 13px;
-    background: var(--login-laranja);
+    border-radius: 0.72em;
+    background: linear-gradient(180deg, var(--login-laranja-claro), var(--login-laranja-fundo));
     color: var(--login-botao-fg);
     font-family: inherit;
-    font-size: clamp(1rem, 1.35vw, 1.2rem);
+    font-size: 1.12em;
     font-weight: var(--fw-bold);
     cursor: pointer;
-    box-shadow: 0 8px 20px rgba(255, 102, 0, 0.28);
-    transition: background var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
+    transition: filter var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
 }
 
 .login-botao:hover:not(:disabled) {
-    background: var(--login-laranja-fundo);
-    box-shadow: 0 10px 26px rgba(255, 102, 0, 0.36);
+    filter: brightness(1.07);
+    box-shadow: 0 0.5em 1.2em rgba(239, 78, 2, 0.32);
 }
 
 .login-botao:active:not(:disabled) {
@@ -470,37 +304,37 @@
 }
 
 .login-botao:focus-visible {
-    outline: 2px solid var(--focus-outline);
+    outline: 2px solid var(--login-laranja-fundo);
     outline-offset: 3px;
 }
 
 .login-botao:disabled {
-    opacity: 0.55;
+    opacity: 0.5;
     cursor: not-allowed;
-    box-shadow: none;
 }
 
 .login-botao-secundario {
     width: 100%;
-    margin-top: 12px;
+    margin-top: 0.7em;
 }
 
-/* Esqueceu a senha */
+/* ── Esqueceu a senha ── */
+
 .login-esqueci {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 0.45em;
     width: 100%;
     min-height: 44px;
-    margin-top: 16px;
-    padding: 8px;
+    margin-top: calc(var(--u) * 2.06);
+    padding: 0.4em;
     border: 0;
-    border-radius: 10px;
+    border-radius: 0.55em;
     background: transparent;
-    color: var(--primary-strong, var(--login-laranja-fundo));
+    color: var(--login-laranja);
     font-family: inherit;
-    font-size: 0.92rem;
+    font-size: 0.98em;
     font-weight: var(--fw-semibold);
     cursor: pointer;
     transition: background var(--transition-base);
@@ -512,224 +346,134 @@
 }
 
 .login-esqueci:hover {
-    background: var(--primary-soft);
+    background: rgba(239, 78, 2, 0.08);
 }
 
 .login-esqueci:focus-visible {
-    outline: 2px solid var(--focus-outline);
+    outline: 2px solid var(--login-laranja-fundo);
     outline-offset: 2px;
 }
 
 .login-ajuda {
-    margin-top: 10px;
-    padding: 14px 16px;
-    border-radius: 12px;
-    background: var(--info-soft);
-    border: 1px solid var(--info-soft-strong);
-    color: var(--info-text);
-    font-size: 0.86rem;
+    margin-top: 0.5em;
+    padding: 0.8em 0.95em;
+    border-radius: 0.7em;
+    background: #eef4fb;
+    border: 1px solid #d4e3f4;
+    color: #1f4f7d;
+    font-size: 0.84em;
     line-height: 1.5;
 }
 
 .login-ajuda p { margin: 0; }
-.login-ajuda p + p { margin-top: 8px; }
+.login-ajuda p + p { margin-top: 0.5em; }
+
+/* ── Rodapé ── */
 
 .login-cartao-rodape {
     display: flex;
     justify-content: center;
-    margin-top: clamp(20px, 2.6vw, 28px);
-    padding-top: clamp(18px, 2.4vw, 24px);
-    border-top: 1px solid var(--border);
+    margin-top: calc(var(--u) * 1.72);
+    padding-top: calc(var(--u) * 2.78);
+    border-top: 1px solid #ededee;
 }
 
 /* ───────────── Marca ───────────── */
 
-/* O logotipo oficial. Nunca recebe transform: a faixa é que se inclina.
+/* O logotipo oficial. Nunca recebe transform.
 
-   Os tetos de altura NÃO são escolha estética: o recorte do wordmark tem
-   41px de altura real. Exibir acima disso é ampliar bitmap, e o traço
-   esgarça — já na tela comum, e muito antes numa de alta densidade. Por
-   isso a faixa do topo fica menor que na referência. Um SVG derruba o
-   limite e deixa crescer à vontade. */
+   O teto de altura NÃO é escolha estética: o recorte do wordmark tem 41px
+   reais, e acima disso é ampliação de bitmap. Um SVG derruba o limite. */
 .marca-oficial {
     display: block;
     width: auto;
     max-width: 100%;
+    height: clamp(22px, 1.75em, 41px);
+    border-radius: 5px;
     object-fit: contain;
 }
 
-.marca-oficial.marca-g { height: clamp(24px, 2.6vw, 40px); }
-.marca-oficial.marca-m { height: clamp(22px, 2.2vw, 34px); }
-.marca-oficial.marca-p { height: 26px; }
-
-/* O rodapé do cartão recebe a mesma placa laranja. A referência mostra ali
-   o wordmark laranja sobre branco, o que este arquivo não consegue dar:
-   o fundo dele é chapado, não transparente. Os cantos arredondados fazem a
-   placa ler como selo, e não como imagem mal recortada. */
-.login-cartao-rodape .marca-oficial {
-    border-radius: 6px;
-}
-
-/* Wordmark de reserva, para quando não houver arquivo. Usa a Sora com uma
-   inclinação leve, que é o traço mais característico da marca. É um
-   substituto declarado, não uma recriação. */
+/* Wordmark de reserva, se o arquivo sumir. */
 .marca-texto {
     display: inline-block;
     font-family: var(--font-head);
     font-weight: var(--fw-extrabold);
+    font-size: 1.5em;
     letter-spacing: 0.01em;
     line-height: 1;
+    color: var(--login-laranja);
     transform: skewX(-7deg);
 }
 
-.marca-claro { color: #ffffff; }
-.marca-laranja { color: var(--login-laranja); }
+/* ───────────── Telas estreitas ───────────── */
 
-.marca-texto.marca-g { font-size: clamp(1.7rem, 3.4vw, 2.6rem); }
-.marca-texto.marca-m { font-size: clamp(1.4rem, 2.4vw, 1.9rem); }
-.marca-texto.marca-p { font-size: 1.45rem; }
-
-/* ───────────── Responsivo ───────────── */
-
-/* Tablet e abaixo: uma coluna. A vitrine vira uma faixa de topo, sem os
-   ornamentos que só fazem sentido numa área alta, e o formulário assume
-   a tela — que é o que a pessoa veio fazer aqui. */
+/* Abaixo de 1024 o palco cobrindo a janela jogaria o cartão para fora dela:
+   a arte é 1,78:1 e o celular é 0,46:1, então o fator de escala explode.
+   Aqui a arte volta a ser um cover comum, com véu, e o cartão desgruda dela
+   e vai para o centro — que é o que a pessoa veio fazer na tela. */
 @media (max-width: 1023px) {
-    .login-tela {
-        grid-template-columns: 1fr;
-        min-height: 100vh;
-        min-height: 100dvh;
+    .login-palco {
+        top: 0;
+        left: 0;
+        translate: none;
+        width: 100%;
+        height: 100%;
     }
 
-    .login-vitrine {
-        min-height: 260px;
+    .login-arte {
+        object-fit: cover;
+        /* Enquadra o miolo escuro da arte. Com o recorte anterior sobravam
+           a faixa do logotipo e os três pilares, que ficavam legíveis em
+           volta do cartão e brigavam com ele. */
+        object-position: 34% 42%;
     }
 
-    /* Empilhado a faixa é baixa e larga, então o recuo volta a ser em pixels:
-       porcentagem da largura aqui daria margens enormes. */
-    .login-vitrine-corpo {
-        gap: 20px;
-        padding: 26px clamp(20px, 5vw, 40px) 34px;
-    }
-
-    /* Empilhado não há divisa vertical para a onda atravessar: ela viraria
-       uma mancha laranja em cima do formulário. */
-    .login-selo,
-    .login-onda {
-        display: none;
-    }
-
-    .login-identidade {
-        gap: 16px;
-    }
-
-    .login-sigla { font-size: clamp(2.4rem, 11vw, 3.6rem); }
-    .login-extenso { font-size: clamp(0.88rem, 3.2vw, 1.15rem); }
-    .login-mensagem { font-size: clamp(0.92rem, 2.8vw, 1.05rem); max-width: 38ch; }
-
-    .login-acesso {
-        padding: clamp(24px, 6vw, 40px) max(18px, env(safe-area-inset-right, 0px)) 40px max(18px, env(safe-area-inset-left, 0px));
+    /* Véu mais fechado que no desktop: aqui a arte é só textura de fundo,
+       não conteúdo. O escurecimento por cima evita o blur, que num tablet
+       mais simples custa caro para compor a cada rolagem. */
+    .login-palco::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+            radial-gradient(90% 60% at 50% 48%, rgba(8, 8, 8, 0.9), rgba(8, 8, 8, 0.74)),
+            linear-gradient(180deg, rgba(8, 8, 8, 0.6), rgba(8, 8, 8, 0.82));
     }
 
     .login-cartao {
-        max-width: 480px;
-    }
-}
-
-/* Celular: a faixa guarda só o logotipo, a sigla e a mensagem. Os pilares
-   saem — são reforço de marca, e aqui o espaço é do formulário. */
-@media (max-width: 767px) {
-    .login-vitrine {
-        min-height: 0;
-    }
-
-    .login-pilares {
-        display: none;
-    }
-
-    .login-vitrine-corpo {
-        padding: 22px clamp(16px, 5vw, 28px) 26px;
+        left: 50%;
+        top: 50%;
+        translate: -50% -50%;
+        width: min(calc(100% - 2rem), 430px);
+        height: auto;
+        max-height: calc(100% - 2rem);
+        --u: 16px;
+        font-size: 16px;
+        gap: 1.1em;
+        padding: 1.8em 1.4em;
+        border-radius: 1.4em;
+        box-shadow: 0 1.4em 3em rgba(0, 0, 0, 0.42);
+        animation: login-entrada 0.45s cubic-bezier(0.2, 0.7, 0.3, 1);
     }
 
-    .login-mensagem {
-        font-size: 0.92rem;
-    }
-
-    .login-curvas {
-        opacity: 0.85;
+    /* Move, não esmaece: com opacity o cartão sumiria se a animação fosse
+       suspensa. E aqui o translate parte do centro já posicionado. */
+    @keyframes login-entrada {
+        from { translate: -50% calc(-50% + 14px); }
+        to { translate: -50% -50%; }
     }
 }
 
 @media (max-width: 480px) {
     .login-cartao {
-        padding: 24px 18px;
-        border-radius: 20px;
-    }
-
-    .login-identidade {
-        gap: 12px;
-    }
-
-    .login-extenso {
-        font-size: 0.86rem;
-    }
-
-    .login-campo .login-input {
-        min-height: 52px;
-        padding-left: 44px;
-    }
-
-    .login-campo-icone {
-        left: 15px;
-    }
-}
-
-/* O responsive.css declara `input[type="text"] { min-height: 44px }` em
-   ≤1023px. Seletor de atributo pesa (0,1,1) e vence a classe (0,1,0), então
-   o piso de 56px do campo era descartado justamente no celular — onde ele
-   mais importa. Medido: 44px em vez de 56. Dois níveis de classe resolvem
-   sem precisar de !important nem mexer no arquivo global. */
-@media (max-width: 1023px) {
-    .login-campo .login-input {
-        min-height: 60px;
-    }
-}
-
-@media (max-width: 480px) {
-    .login-campo .login-input {
-        min-height: 52px;
-    }
-}
-
-/* Celular deitado: a faixa toma a tela inteira e o formulário some abaixo
-   da dobra. Aqui ela encolhe ao mínimo. */
-@media (max-height: 560px) and (orientation: landscape) {
-    .login-vitrine-meio,
-    .login-pilares {
-        display: none;
-    }
-
-    .login-vitrine {
-        min-height: 0;
-    }
-
-    .login-vitrine-corpo {
-        padding: 14px 20px;
-    }
-
-    .login-cartao {
-        padding: 20px;
-    }
-
-    .login-cartao-topo {
-        margin-bottom: 14px;
+        --u: 15px;
+        font-size: 15px;
+        padding: 1.5em 1.15em;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .login-cartao {
-        animation: none;
-    }
+    .login-cartao { animation: none; }
 
     .login-input,
     .login-botao,
@@ -739,9 +483,7 @@
         transition: none;
     }
 
-    .login-botao:active:not(:disabled) {
-        transform: none;
-    }
+    .login-botao:active:not(:disabled) { transform: none; }
 }
 
 /* ═══════════════════════════════════════════════════════════════

@@ -1,4 +1,5 @@
 import wordmark from './mallory-wordmark.png';
+import arte from './tela-login.webp';
 
 /* Arquivos de imagem da tela de login.
 
@@ -54,6 +55,25 @@ import wordmark from './mallory-wordmark.png';
    baixa para ver. Quando aparecer um lugar que comporte a assinatura
    inteira, é só importá-lo aqui. */
 export const logoMallory = wordmark;
+
+/* A arte da tela inteira, usada como fundo.
+
+   Decisão do cliente: em vez de redesenhar a composição em SVG, a imagem
+   entra inteira e só o cartão de acesso é construído em componente, por
+   cima do cartão que já está desenhado nela.
+
+   As medidas abaixo são do cartão DENTRO da arte, em pixels da imagem de
+   1671x941. O CSS as usa em porcentagem para colar o cartão real exatamente
+   sobre o desenhado, em qualquer tamanho de tela. Se a arte for trocada,
+   estes quatro números têm de ser medidos de novo — é a única amarra entre
+   a imagem e o código. */
+export const arteLogin = arte;
+
+export const ARTE = {
+    largura: 1671,
+    altura: 941,
+    cartao: { esquerda: 1045, direita: 1646, topo: 108, base: 848 }
+};
 
 export const fotoIndustrial = null;
 

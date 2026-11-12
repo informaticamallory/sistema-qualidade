@@ -652,8 +652,12 @@
     color: var(--fg-muted);
 }
 
+/* O --focus-outline nasceu nas correções da auditoria. Com reserva no
+   --primary, esta regra funciona também numa publicação que leve só o
+   login: sem a reserva, a custom property indefinida invalida a declaração
+   inteira e o contorno de foco some sem avisar. */
 .role-option:focus-visible {
-    outline: 2px solid var(--focus-outline);
+    outline: 2px solid var(--focus-outline, var(--primary));
     outline-offset: 2px;
 }
 
